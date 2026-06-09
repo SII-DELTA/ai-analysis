@@ -1,0 +1,15 @@
+# 密钥：绝不入库
+.env
+
+# 原始大缓存（API JSON / 9.6MB 网页）
+data/raw/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# 系统
+.DS_Store
