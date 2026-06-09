@@ -17,7 +17,7 @@ import plotly.graph_objects as go
 from plotly.colors import qualitative
 from scipy.spatial import Delaunay
 
-from .frontier import DIMS, achievable_frontier_grid
+from .frontier import achievable_frontier_grid
 
 ROOT = Path(__file__).resolve().parent.parent
 PALETTE = qualitative.Dark24 + qualitative.Light24
@@ -26,7 +26,8 @@ HOVER_TMPL = (
     "<b>%{customdata[0]}</b><br>"
     "厂商: %{customdata[1]} · 发布: %{customdata[2]}<br>"
     "智能指数: %{customdata[3]:.1f}<br>"
-    "输出速度: %{customdata[4]:.0f} tok/s<br>"
+    "原始速度: %{customdata[4]:.0f} tok/s · 冗长度: %{customdata[8]:.1f}M 输出tok<br>"
+    "有效速度: %{customdata[9]:.0f} tok/s（按中位冗长归一）<br>"
     "运行成本: $%{customdata[5]:.2f}<br>"
     "混合价: $%{customdata[6]:.2f}/M · Pareto层: %{customdata[7]:.0f}"
     "<extra></extra>"
@@ -49,15 +50,17 @@ def _customdata(df: pd.DataFrame) -> np.ndarray:
         df["cost_to_run"].astype(float).tolist(),
         df["price_blended"].astype(float).tolist(),
         df["layer"].astype(float).tolist(),
+        df["output_mtokens"].astype(float).tolist(),
+        df["eff_speed"].astype(float).tolist(),
     ]
     return np.array(cols, dtype=object).T
 
 
-def _frontier_mesh(pareto: pd.DataFrame, speed_log: bool):
+def _frontier_mesh(pareto: pd.DataFrame, speed_log: bool, speed_col: str = "output_speed"):
     if len(pareto) < 4:
         return None
     cost = pareto["cost_to_run"].to_numpy(float)
-    speed = pareto["output_speed"].to_numpy(float)
+    speed = pareto[speed_col].to_numpy(float)
     intel = pareto["intelligence"].to_numpy(float)
     # 2D 投影做三角剖分（与可视轴一致：x=log成本, y=log/线性速度），各轴归一化避免畸形三角
     px = np.log10(cost)
@@ -81,8 +84,8 @@ def _frontier_mesh(pareto: pd.DataFrame, speed_log: bool):
     )
 
 
-def _achievable_surface(df: pd.DataFrame) -> go.Surface:
-    Cg_log, Sg, Z = achievable_frontier_grid(df)
+def _achievable_surface(df: pd.DataFrame, speed_col: str = "output_speed") -> go.Surface:
+    Cg_log, Sg, Z = achievable_frontier_grid(df, speed_col=speed_col)
     return go.Surface(
         x=10 ** Cg_log, y=Sg, z=Z,
         colorscale="Blues", opacity=0.30, showscale=False,
@@ -95,6 +98,8 @@ def build_figure(
     df: pd.DataFrame,
     speed_scale: str = "log",
     data_date: str | None = None,
+    speed_col: str = "output_speed",
+    speed_label: str = "输出速度",
 ) -> go.Figure:
     kept = df[df["kept"]].copy()
     if kept.empty:
@@ -109,7 +114,7 @@ def build_figure(
     for creator, g in kept.groupby("creator", dropna=False):
         is_p = g["is_pareto"].to_numpy(bool)
         fig.add_trace(go.Scatter3d(
-            x=g["cost_to_run"], y=g["output_speed"], z=g["intelligence"],
+            x=g["cost_to_run"], y=g[speed_col], z=g["intelligence"],
             mode="markers",
             name=str(creator),
             legendgroup="creators", legendgrouptitle_text="厂商",
@@ -125,7 +130,7 @@ def build_figure(
     # 2) Pareto 强调：黑色空心圈叠加
     pareto = kept[kept["is_pareto"]]
     fig.add_trace(go.Scatter3d(
-        x=pareto["cost_to_run"], y=pareto["output_speed"], z=pareto["intelligence"],
+        x=pareto["cost_to_run"], y=pareto[speed_col], z=pareto["intelligence"],
         mode="markers", name=f"Pareto 最优 ({len(pareto)})",
         marker=dict(size=12, symbol="circle-open", color="black",
                     line=dict(color="black", width=2)),
@@ -133,11 +138,11 @@ def build_figure(
     ))
 
     # 3) 前沿流形 + 可达前沿曲面（trace 列表末尾，供按钮翻转）
-    mesh = _frontier_mesh(pareto, speed_log)
+    mesh = _frontier_mesh(pareto, speed_log, speed_col)
     has_mesh = mesh is not None
     if has_mesh:
         fig.add_trace(mesh)
-    fig.add_trace(_achievable_surface(df))
+    fig.add_trace(_achievable_surface(df, speed_col))
 
     base = [True] * (n_scatter + 1)  # 散点 + Pareto 叠加，始终可见
 
@@ -150,17 +155,21 @@ def build_figure(
 
     subtitle = (f"数据：Artificial Analysis · 拉取于 {data_date}"
                 if data_date else "数据：Artificial Analysis")
+    is_eff = speed_col == "eff_speed"
+    speed_note = ("有效速度=原始速度÷相对冗长度(按中位归一)，惩罚冗长推理模型"
+                  if is_eff else "原始 median tok/s")
     fig.update_layout(
         title=dict(
-            text="AI 模型三维前沿：智能 × 速度 × 运行成本<br>"
+            text=f"AI 模型三维前沿：智能 × {speed_label} × 运行成本<br>"
                  f"<sub>{subtitle} · 成本=跑完 Intelligence Index 的花费(非 $/M) · "
+                 f"速度口径={speed_note} · "
                  f"共 {len(kept)} 模型，其中 {len(pareto)} 个 Pareto 最优</sub>",
             x=0.5, xanchor="center",
         ),
         scene=dict(
             xaxis=dict(title="运行成本 USD（对数）", type="log",
                        backgroundcolor="rgb(248,248,250)"),
-            yaxis=dict(title="输出速度 tok/s" + ("（对数）" if speed_log else ""),
+            yaxis=dict(title=f"{speed_label} tok/s" + ("（对数）" if speed_log else ""),
                        type="log" if speed_log else "linear"),
             zaxis=dict(title="智能指数 (AA Intelligence Index)"),
             camera=dict(eye=dict(x=1.7, y=-1.7, z=1.1)),

@@ -3,6 +3,7 @@
     python -m src.cli                       # 均衡默认，输出 output/frontier_3d.html
     python -m src.cli --refresh             # 强制重拉 API 与网页
     python -m src.cli --since-months 12 --layers 2 --speed-scale linear
+    python -m src.cli --speed-metric effective  # 有效速度轴 -> frontier_3d_effspeed.html
     python -m src.cli --export png          # 另存静态图
 """
 from __future__ import annotations
@@ -15,6 +16,12 @@ from . import fetch_data, frontier, visualize
 
 ROOT = Path(__file__).resolve().parent.parent
 
+# 速度口径 -> (数据列, 轴标签)
+SPEED_METRICS = {
+    "raw": ("output_speed", "输出速度"),
+    "effective": ("eff_speed", "有效速度"),
+}
+
 
 def main() -> None:
     p = argparse.ArgumentParser(description="AA 三维前沿可视化")
@@ -22,10 +29,18 @@ def main() -> None:
     p.add_argument("--layers", type=int, default=3, help="保留前 N 层 Pareto（离前沿距离）")
     p.add_argument("--hard-age-cutoff-months", type=int, default=36, help="早于此一律剔除（含 Pareto）")
     p.add_argument("--speed-scale", choices=["log", "linear"], default="log")
+    p.add_argument("--speed-metric", choices=["raw", "effective"], default="raw",
+                   help="速度轴口径：raw=原始 tok/s；effective=有效速度=原始速度÷相对冗长度")
     p.add_argument("--refresh", action="store_true", help="忽略缓存，重新拉取")
-    p.add_argument("--out", default=str(ROOT / "output" / "frontier_3d.html"))
+    p.add_argument("--out", default=None,
+                   help="输出 HTML 路径；缺省按速度口径自动命名")
     p.add_argument("--export", choices=["png", "svg"], default=None, help="另存静态图")
     args = p.parse_args()
+
+    speed_col, speed_label = SPEED_METRICS[args.speed_metric]
+    if args.out is None:
+        fname = "frontier_3d.html" if args.speed_metric == "raw" else "frontier_3d_effspeed.html"
+        args.out = str(ROOT / "output" / fname)
 
     df = fetch_data.build_dataframe(refresh=args.refresh)
     csv = fetch_data.save(df)
@@ -35,12 +50,14 @@ def main() -> None:
         since_months=args.since_months,
         max_layers=args.layers,
         hard_age_cutoff_months=args.hard_age_cutoff_months,
+        speed_col=speed_col,
     )
 
     kept = df[df["kept"]]
     print(f"\n数据表: {csv}")
+    print(f"速度口径:                {args.speed_metric}（{speed_label} <- {speed_col}）")
     print(f"API 模型总数:            {len(df)}")
-    print(f"三维齐全:                {df[frontier.DIMS].notna().all(axis=1).sum()}")
+    print(f"三维齐全:                {df[frontier.dims_for(speed_col)].notna().all(axis=1).sum()}")
     print(f"保留(kept):              {len(kept)}")
     print(f"  其中 Pareto 最优:      {int(df['is_pareto'].sum())}")
     print("剔除原因分布:")
@@ -51,7 +68,10 @@ def main() -> None:
         print(f"  - 第 {int(layer)} 层: {cnt}")
 
     data_date = datetime.now().strftime("%Y-%m-%d")
-    fig = visualize.build_figure(df, speed_scale=args.speed_scale, data_date=data_date)
+    fig = visualize.build_figure(
+        df, speed_scale=args.speed_scale, data_date=data_date,
+        speed_col=speed_col, speed_label=speed_label,
+    )
     out = visualize.write_html(fig, Path(args.out))
     print(f"\n✅ 交互式 HTML: {out}")
 

@@ -80,6 +80,8 @@ def fetch_page(refresh: bool = False) -> str:
 # ----------------------------------------------------------------------------- 解析网页成本
 _COST_RE = re.compile(r'"intelligence_index_cost":\{"total_cost":([0-9.eE+-]+)')
 _MID_RE = re.compile(r'"model_id":"([0-9a-f-]{36})"')
+# 每百万输出 token 的智能（= 智能 / 输出token量(百万)），是“冗长度”的倒数侧度量
+_PERM_RE = re.compile(r'"intelligence_index_per_m_output_tokens":([0-9.eE+-]+)')
 
 
 def parse_cost_by_model_id(page_html: str) -> dict[str, float]:
@@ -103,10 +105,33 @@ def parse_cost_by_model_id(page_html: str) -> dict[str, float]:
     return out
 
 
+def parse_intel_per_m_by_model_id(page_html: str) -> dict[str, float]:
+    """解析 {model_id(uuid): intelligence_index_per_m_output_tokens}。
+
+    该值出现在与 total_cost 同一模型对象内（紧邻其后），归属逻辑与
+    parse_cost_by_model_id 完全一致——取最近前置 model_id。它等于
+    `智能 / 跑完整套指数的输出token量(百万)`，故输出token量 = 智能 / 本值，
+    即“冗长度”的相对度量。model_id 唯一，取首次出现即可。
+    """
+    u = page_html.replace('\\"', '"').replace("\\\\", "\\")
+    out: dict[str, float] = {}
+    for m in _PERM_RE.finditer(u):
+        back = u[max(0, m.start() - 12000):m.start()]
+        mids = _MID_RE.findall(back)
+        if not mids:
+            continue
+        val = float(m.group(1))
+        if val > 0:
+            out.setdefault(mids[-1], val)
+    return out
+
+
 # ----------------------------------------------------------------------------- 合并成表
 def build_dataframe(refresh: bool = False) -> pd.DataFrame:
     api = fetch_api(refresh)
-    cost_by_id = parse_cost_by_model_id(fetch_page(refresh))
+    page = fetch_page(refresh)
+    cost_by_id = parse_cost_by_model_id(page)
+    perm_by_id = parse_intel_per_m_by_model_id(page)
 
     rows = []
     for m in api:
@@ -128,6 +153,7 @@ def build_dataframe(refresh: bool = False) -> pd.DataFrame:
                 "price_input": pr.get("price_1m_input_tokens"),
                 "price_output": pr.get("price_1m_output_tokens"),
                 "cost_to_run": cost_by_id.get(m["id"]),
+                "intel_per_m_output": perm_by_id.get(m["id"]),
             }
         )
     df = pd.DataFrame(rows)
@@ -137,8 +163,28 @@ def build_dataframe(refresh: bool = False) -> pd.DataFrame:
     import numpy as np
     for c in ("cost_to_run", "output_speed"):
         df.loc[df[c].fillna(-1) <= 0, c] = np.nan
+    _add_effective_speed(df)
     _validate(df, cost_by_id)
     return df
+
+
+def _add_effective_speed(df: pd.DataFrame) -> None:
+    """派生“冗长度”与“有效速度”两列（原地）。
+
+    冗长度 output_mtokens = 跑完整套智能指数的输出 token 数(百万)
+                        = 智能 / 每百万输出token的智能。
+    有效速度 eff_speed = 原始速度 / 相对冗长度，相对冗长度 = 冗长度 / 全样本中位冗长度。
+        —— 物理含义是“按典型冗长度归一后的速度”，保留 tok/s 量纲，便于与原始速度同轴比较；
+           归一常数只缩放坐标轴、不改变排名或 Pareto 关系。
+    冗长(高 token)模型有效速度被压低，简洁模型被抬高；缺任一输入则为 NaN。
+    """
+    import numpy as np
+    df["output_mtokens"] = df["intelligence"] / df["intel_per_m_output"]
+    df.loc[df["output_mtokens"].fillna(-1) <= 0, "output_mtokens"] = np.nan
+    med = np.nanmedian(df["output_mtokens"].to_numpy(float))
+    rel_verbosity = df["output_mtokens"] / med
+    df["eff_speed"] = df["output_speed"] / rel_verbosity
+    df.loc[df["eff_speed"].fillna(-1) <= 0, "eff_speed"] = np.nan
 
 
 def _validate(df: pd.DataFrame, cost_by_id: dict[str, float]) -> None:
@@ -164,9 +210,12 @@ def main(refresh: bool = False) -> None:
     df = build_dataframe(refresh)
     out = save(df)
     full = df.dropna(subset=["intelligence", "output_speed", "cost_to_run"])
+    eff = df.dropna(subset=["intelligence", "eff_speed", "cost_to_run"])
     print(f"API 模型: {len(df)}")
     print(f"含运行成本: {df['cost_to_run'].notna().sum()}")
-    print(f"三维齐全(智能/速度/成本): {len(full)}")
+    print(f"含冗长度(输出token量): {df['output_mtokens'].notna().sum()}")
+    print(f"三维齐全(智能/原始速度/成本): {len(full)}")
+    print(f"三维齐全(智能/有效速度/成本): {len(eff)}")
     print(f"锚点校验: 通过 ({', '.join(COST_ANCHORS)})")
     print(f"已写出: {out}")
 
