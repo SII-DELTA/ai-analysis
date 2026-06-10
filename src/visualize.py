@@ -1,9 +1,10 @@
 """Plotly 三维可视化：智能 × 速度 × 运行成本 + Pareto 前沿流形。
 
 - Scatter3d：保留的模型，按厂商着色；Pareto 最优点用黑色空心圈叠加强调。
-- Mesh3d：把 Pareto 最优点在 (log成本, 速度) 平面做 Delaunay 三角化、抬升
-  z=智能，织成半透明前沿流形——"在每个成本/速度处由最智能模型编织的曲面"。
-- 可选 Surface：可达前沿 F(成本预算,速度下限)=max 智能（阶梯面，默认随图例可开）。
+- 前沿流形：Pareto 最优点在 (log成本, 速度) 平面做 Delaunay 三角化、抬升 z=智能，
+  织成"在每个成本/速度处由最智能模型编织的曲面"。**默认画线框**（Scatter3d 线，不挡下方
+  节点悬浮）；可切半透明实心 Mesh3d（观感更好，但触发 Plotly 痼疾——盖住其下方节点 hover）。
+- 可选 Surface：可达前沿 F(成本预算,速度下限)=max 智能（阶梯面，按钮/图例可开）。
 
 坐标：x=运行成本(对数轴, USD)、y=输出速度(tokens/s, 可对数)、z=智能指数。
 """
@@ -84,6 +85,44 @@ def _frontier_mesh(pareto: pd.DataFrame, speed_log: bool, speed_col: str = "outp
     )
 
 
+def _frontier_wireframe(pareto: pd.DataFrame, speed_log: bool, speed_col: str = "output_speed"):
+    """与 _frontier_mesh 同样的 Delaunay 三角化，但只画三角形的边（Scatter3d 线）。
+
+    线只占极细像素，几乎不参与 3D 拾取缓冲 —— 故其下方/后方的散点仍可正常悬浮，
+    规避了 Mesh3d/Surface 半透明面吞掉下方节点 hover（label + 三维定位线）的 Plotly 痼疾。
+    """
+    if len(pareto) < 4:
+        return None
+    cost = pareto["cost_to_run"].to_numpy(float)
+    speed = pareto[speed_col].to_numpy(float)
+    intel = pareto["intelligence"].to_numpy(float)
+    px = np.log10(cost)
+    py = np.log10(speed) if speed_log else speed
+
+    def norm(v):
+        rng = v.max() - v.min()
+        return (v - v.min()) / rng if rng else v * 0.0
+
+    try:
+        tri = Delaunay(np.column_stack([norm(px), norm(py)]))
+    except Exception:
+        return None
+    edges = set()
+    for s in tri.simplices:
+        for a, b in ((s[0], s[1]), (s[1], s[2]), (s[2], s[0])):
+            edges.add((min(int(a), int(b)), max(int(a), int(b))))
+    xs, ys, zs = [], [], []
+    for a, b in edges:
+        xs += [cost[a], cost[b], None]
+        ys += [speed[a], speed[b], None]
+        zs += [intel[a], intel[b], None]
+    return go.Scatter3d(
+        x=xs, y=ys, z=zs, mode="lines",
+        line=dict(color="rgba(50,80,150,0.6)", width=3),
+        name="前沿流形 (线框·不挡悬浮)", hoverinfo="skip", showlegend=True,
+    )
+
+
 def _achievable_surface(df: pd.DataFrame, speed_col: str = "output_speed") -> go.Surface:
     Cg_log, Sg, Z = achievable_frontier_grid(df, speed_col=speed_col)
     return go.Surface(
@@ -137,23 +176,49 @@ def build_figure(
         customdata=_customdata(pareto), hovertemplate=HOVER_TMPL,
     ))
 
-    # 3) 前沿流形 + 可达前沿曲面（trace 列表末尾，供按钮翻转）
+    # 3) 前沿流形：线框（默认显、不挡悬浮）+ 实心面（可切换）+ 可达前沿曲面（可切换）
+    wire = _frontier_wireframe(pareto, speed_log, speed_col)
     mesh = _frontier_mesh(pareto, speed_log, speed_col)
-    has_mesh = mesh is not None
-    if has_mesh:
+    has_frontier = wire is not None and mesh is not None
+    fa = fb = None
+    if has_frontier:
+        fig.add_trace(wire)                       # 线框，默认 visible=True
+        fa = len(fig.data) - 1
+        mesh.update(visible="legendonly")         # 实心面，默认隐（图例可点）
         fig.add_trace(mesh)
-    fig.add_trace(_achievable_surface(df, speed_col))
+        fb = len(fig.data) - 1
+    surf = _achievable_surface(df, speed_col)     # 自带 visible="legendonly"
+    fig.add_trace(surf)
+    fc = len(fig.data) - 1
 
-    base = [True] * (n_scatter + 1)  # 散点 + Pareto 叠加，始终可见
+    # 按钮：左组切前沿样式（线框/实心/隐藏/仅散点），右组独立开关可达前沿曲面。
+    # 用 targeted restyle（args 第二项=目标 trace 下标）使两组互不干扰，散点恒显。
+    updatemenus = []
+    if has_frontier:
+        updatemenus.append(dict(
+            type="buttons", direction="right", x=0.01, y=0.99, xanchor="left",
+            pad=dict(t=2, r=4), showactive=True,
+            buttons=[
+                dict(label="前沿线框", method="restyle",
+                     args=[{"visible": [True, "legendonly"]}, [fa, fb]]),
+                dict(label="前沿实心面", method="restyle",
+                     args=[{"visible": ["legendonly", True]}, [fa, fb]]),
+                dict(label="隐藏前沿", method="restyle",
+                     args=[{"visible": ["legendonly", "legendonly"]}, [fa, fb]]),
+                dict(label="仅散点", method="restyle",
+                     args=[{"visible": ["legendonly", "legendonly", "legendonly"]}, [fa, fb, fc]]),
+            ],
+        ))
+    updatemenus.append(dict(
+        type="buttons", direction="right", x=0.99, y=0.99, xanchor="right",
+        pad=dict(t=2, l=4), showactive=True,
+        buttons=[
+            dict(label="+可达前沿曲面", method="restyle", args=[{"visible": [True]}, [fc]]),
+            dict(label="−可达前沿曲面", method="restyle", args=[{"visible": ["legendonly"]}, [fc]]),
+        ],
+    ))
 
-    def vis(mesh_on, surf_on):
-        v = list(base)
-        if has_mesh:
-            v.append(mesh_on)
-        v.append(surf_on if surf_on else False)
-        return v
-
-    subtitle = (f"数据：Artificial Analysis · 拉取于 {data_date}"
+    subtitle =(f"数据：Artificial Analysis · 拉取于 {data_date}"
                 if data_date else "数据：Artificial Analysis")
     is_eff = speed_col == "eff_speed"
     speed_note = ("有效速度=原始速度÷相对冗长度(按中位归一)，惩罚冗长推理模型"
@@ -176,14 +241,7 @@ def build_figure(
         ),
         legend=dict(itemsizing="constant", x=1.02, y=1, font=dict(size=10)),
         margin=dict(l=0, r=0, t=90, b=0),
-        updatemenus=[dict(
-            type="buttons", direction="right", x=0.5, y=0.99, xanchor="center",
-            buttons=[
-                dict(label="散点+前沿流形", method="update", args=[{"visible": vis(True, False)}]),
-                dict(label="加可达前沿曲面", method="update", args=[{"visible": vis(True, True)}]),
-                dict(label="仅散点", method="update", args=[{"visible": vis(False, False)}]),
-            ],
-        )],
+        updatemenus=updatemenus,
     )
     return fig
 
