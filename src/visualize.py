@@ -1,4 +1,4 @@
-"""Plotly 三维可视化：智能 × 速度 × 运行成本 + Pareto 前沿流形。
+"""Plotly 三维可视化：智能 × 速度 × 有效运行成本 + Pareto 前沿流形。
 
 - Scatter3d：保留的模型，按厂商着色；Pareto 最优点用黑色空心圈叠加强调。
 - 前沿流形：Pareto 最优点在 (log成本, 速度) 平面做 Delaunay 三角化、抬升 z=智能，
@@ -6,7 +6,10 @@
   节点悬浮）；可切半透明实心 Mesh3d（观感更好，但触发 Plotly 痼疾——盖住其下方节点 hover）。
 - 可选 Surface：可达前沿 F(成本预算,速度下限)=max 智能（阶梯面，按钮/图例可开）。
 
-坐标：x=运行成本(对数轴, USD)、y=输出速度(tokens/s, 可对数)、z=智能指数。
+坐标：x=有效运行成本(对数轴, USD)、y=输出速度(tokens/s, 可对数)、z=智能指数。
+  x 轴=「跑完整套 Intelligence Index 的实测花费」——已按各模型实际消耗 token 量（含冗长输出与
+  思维链 reasoning token）加权，本质是「有效成本」而非每百万 token 牌价；底层单价取自 API 公开
+  牌价（不含编程/订阅套餐折扣，原因见 README「成本口径」一节）。
 """
 from __future__ import annotations
 
@@ -29,7 +32,7 @@ HOVER_TMPL = (
     "智能指数: %{customdata[3]:.1f}<br>"
     "原始速度: %{customdata[4]:.0f} tok/s · 冗长度: %{customdata[8]:.1f}M 输出tok<br>"
     "有效速度: %{customdata[9]:.0f} tok/s（按中位冗长归一）<br>"
-    "运行成本: $%{customdata[5]:.2f}<br>"
+    "有效运行成本(跑完评测实花): $%{customdata[5]:.2f}<br>"
     "混合价: $%{customdata[6]:.2f}/M · Pareto层: %{customdata[7]:.0f}"
     "<extra></extra>"
 )
@@ -225,14 +228,14 @@ def build_figure(
                   if is_eff else "原始 median tok/s")
     fig.update_layout(
         title=dict(
-            text=f"AI 模型三维前沿：智能 × {speed_label} × 运行成本<br>"
-                 f"<sub>{subtitle} · 成本=跑完 Intelligence Index 的花费(非 $/M) · "
+            text=f"AI 模型三维前沿：智能 × {speed_label} × 有效运行成本<br>"
+                 f"<sub>{subtitle} · 成本=有效运行成本：跑完评测实花(含冗长/思维链token·基于API牌价·非$/M) · "
                  f"速度口径={speed_note} · "
                  f"共 {len(kept)} 模型，其中 {len(pareto)} 个 Pareto 最优</sub>",
             x=0.5, xanchor="center",
         ),
         scene=dict(
-            xaxis=dict(title="运行成本 USD（对数）", type="log",
+            xaxis=dict(title="有效运行成本 USD（对数）", type="log",
                        backgroundcolor="rgb(248,248,250)"),
             yaxis=dict(title=f"{speed_label} tok/s" + ("（对数）" if speed_log else ""),
                        type="log" if speed_log else "linear"),
