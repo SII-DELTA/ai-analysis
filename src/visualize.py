@@ -13,6 +13,8 @@
 """
 from __future__ import annotations
 
+import json
+import re
 from pathlib import Path
 
 import numpy as np
@@ -25,6 +27,167 @@ from .frontier import achievable_frontier_grid
 
 ROOT = Path(__file__).resolve().parent.parent
 PALETTE = qualitative.Dark24 + qualitative.Light24
+
+# ── 模型名解析：基模型分组 + 谱系（creator+tier）分组 ────────────────────────
+# Artificial Analysis 把同一基模型的每个 reasoning 档位作为独立条目返回（名字带
+# 末尾括号后缀，如 "(low)"/"(Reasoning, Max Effort)"）。下列关键词用于把这些「纯档位
+# 后缀」从模型名末尾剥离，得到「基模型名」——保留 "(Preview)"/"(May 2026)"/"(32B)"
+# 这类区分不同代/规格的后缀。
+REASONING_SUFFIX_KEYWORDS = {
+    "reasoning", "non-reasoning", "non reasoning", "adaptive reasoning",
+    "thinking", "high", "medium", "low", "minimal", "xhigh",
+    "high effort", "low effort", "max effort", "medium effort",
+}
+
+# tier（产品档位）按优先序匹配：长词/更具体的在前，避免 "flash-lite" 被 "flash"/"lite"
+# 抢先命中。未命中任何关键词的归 "(default)"（如 OpenAI o 系、gpt-oss、Grok 主线）。
+TIER_KEYWORDS_BY_PRIORITY = [
+    "flash-lite", "flash lite", "flash", "mini", "nano", "lite",
+    "pro", "opus", "sonnet", "haiku", "deep think", "codex", "instant",
+    "max", "plus", "ultra",
+]
+TIER_DEFAULT = "(default)"
+
+# 误判兜底：把 name 子串 → (强制 base_model_name, 强制 tier)。初版留空；当发现某些模型
+# 落错谱系（如想把 o 系/gpt-oss 从 OpenAI "(default)" 主线拆出）时在此手填。
+LINEAGE_TIER_OVERRIDES: dict[str, tuple[str, str]] = {}
+
+_TRAILING_PAREN_RE = re.compile(r"\s*\(([^()]*)\)\s*$")
+
+
+def _parse_base_model_name(name: str) -> str:
+    """反复剥离模型名末尾的纯 reasoning 档位括号组，得到基模型名。
+
+    当且仅当某末尾括号内**所有逗号分段**都是 reasoning 关键词时才剥离，
+    例如 "Claude Opus 4.8 (Adaptive Reasoning, Max Effort)" → "Claude Opus 4.8"；
+    而 "GPT-5.5 Instant (May 2026)"、"Gemini 3.1 Pro Preview" 原样保留。
+    """
+    s = (name or "").strip()
+    while True:
+        m = _TRAILING_PAREN_RE.search(s)
+        if not m:
+            break
+        segments = [seg.strip().lower() for seg in m.group(1).split(",")]
+        if segments and all(seg in REASONING_SUFFIX_KEYWORDS for seg in segments):
+            s = s[: m.start()].strip()
+        else:
+            break
+    return s
+
+
+def _classify_tier(base_model_name: str) -> str:
+    """按优先序在基模型名上做「非字母包裹」匹配，返回产品档位 tier。"""
+    low = base_model_name.lower()
+    for kw in TIER_KEYWORDS_BY_PRIORITY:
+        if re.search(r"(?<![a-z])" + re.escape(kw) + r"(?![a-z])", low):
+            return kw
+    return TIER_DEFAULT
+
+
+def _resolve_lineage(name: str) -> tuple[str, str]:
+    """返回 (base_model_name, tier)，先查人工 override，再走解析规则。"""
+    for needle, (base, tier) in LINEAGE_TIER_OVERRIDES.items():
+        if needle in name:
+            return base, tier
+    base = _parse_base_model_name(name)
+    return base, _classify_tier(base)
+
+
+def _build_lineage_payload(df_full: pd.DataFrame, speed_col: str) -> dict:
+    """构造注入前端 JS 的数据。
+
+    - models[]（仅 kept，可见节点）：每模型 {name, base_model_name, creator, tier,
+      lineage_key, x, y, z, panel}；用于搜索 / pin / 高亮 / 常显注释。
+    - base_groups{base_model_name: [models 下标...]}：pin 时整组固定其全部档位。
+    - lineages{"creator||tier": [按发布日升序的「每代取最高智能点」节点...]}：**基于全量
+      三维齐全的数据（不限 kept）**，使被剪枝的历代前身仍能连成谱系（用户示例 Gemini
+      2.5 Pro → 3 Pro → 3.1 Pro 多数前身已被剪枝，故谱系必须越过 kept 取自全量）。
+      每个谱系节点自带坐标与标签（含 kept 标记），仅在 hover/pin 时随谱系线显示。
+      仅保留 >=2 代的谱系（单代无连线）。
+    """
+    # —— models / base_groups：仅 kept ——
+    kept = df_full[df_full["kept"]].reset_index(drop=True)
+    models: list[dict] = []
+    for _, r in kept.iterrows():
+        name = str(r["name"])
+        base, tier = _resolve_lineage(name)
+        creator = str(r["creator"]) if pd.notna(r["creator"]) else "?"
+        rd = r["release_date"]
+        models.append({
+            "name": name,
+            "base_model_name": base,
+            "creator": creator,
+            "tier": tier,
+            "lineage_key": f"{creator}||{tier}",
+            "x": float(r["cost_to_run"]),
+            "y": float(r[speed_col]),
+            "z": float(r["intelligence"]),
+            "panel": {
+                "release_date": rd.strftime("%Y-%m-%d") if pd.notna(rd) else "?",
+                "intelligence": float(r["intelligence"]),
+                "output_speed": float(r["output_speed"]),
+                "eff_speed": float(r["eff_speed"]),
+                "cost_to_run": float(r["cost_to_run"]),
+                "price_blended": float(r["price_blended"]),
+                "layer": float(r["layer"]),
+            },
+        })
+
+    base_groups: dict[str, list[int]] = {}
+    for i, m in enumerate(models):
+        base_groups.setdefault(m["base_model_name"], []).append(i)
+
+    # —— lineages：全量三维齐全行（含被剪枝的历代前身）——
+    kept_names = set(kept["name"].astype(str))
+    dims = ["cost_to_run", speed_col, "intelligence"]
+    complete = df_full[df_full[dims].notna().all(axis=1)].copy()
+    # 每个 creator||tier 内按基模型分代，每代取最高智能点为代表
+    per_key_generations: dict[str, dict[str, dict]] = {}
+    for _, r in complete.iterrows():
+        name = str(r["name"])
+        base, tier = _resolve_lineage(name)
+        creator = str(r["creator"]) if pd.notna(r["creator"]) else "?"
+        key = f"{creator}||{tier}"
+        z = float(r["intelligence"])
+        gens = per_key_generations.setdefault(key, {})
+        cur = gens.get(base)
+        if cur is None or z > cur["z"]:
+            rd = r["release_date"]
+            gens[base] = {
+                "name": name,
+                "base_model_name": base,
+                "label": base,
+                "release_date": rd.strftime("%Y-%m-%d") if pd.notna(rd) else "?",
+                "x": float(r["cost_to_run"]),
+                "y": float(r[speed_col]),
+                "z": z,
+                "intelligence": z,
+                "kept": name in kept_names,
+            }
+    lineages: dict[str, list[dict]] = {}
+    for key, gens in per_key_generations.items():
+        # release_date 为 "%Y-%m-%d" 字符串或 "?"（缺失）。直接按字符串排序会让
+        # "?"(0x3F > 数字字符) 排到末端、被当作「最新」一代，使谱系顺序反序。
+        # 用 (是否有日期, 日期) 作为键：缺失者(False)下沉到最前（视为最早/未知），
+        # 有日期者(True)之间仍按时间升序，相对顺序不变。
+        nodes = sorted(
+            gens.values(),
+            key=lambda n: (n["release_date"] != "?", n["release_date"]),
+        )
+        if len(nodes) >= 2:
+            lineages[key] = nodes
+
+    # 速度轴口径：让前端常显面板（注释 + 侧栏）的速度文案跟随当前 speed_col，
+    # 避免默认 raw 图（output_speed 轴）下面板却报告 eff_speed 的口径错位。
+    # panel 同时含 output_speed 与 eff_speed，故 JS 用 m.panel[speed_axis_field] 取值。
+    speed_axis_label = "有效速度" if speed_col == "eff_speed" else "原始速度"
+    return {
+        "models": models,
+        "base_groups": base_groups,
+        "lineages": lineages,
+        "speed_axis_field": speed_col,
+        "speed_axis_label": speed_axis_label,
+    }
 
 HOVER_TMPL = (
     "<b>%{customdata[0]}</b><br>"
@@ -142,7 +305,7 @@ def build_figure(
     data_date: str | None = None,
     speed_col: str = "output_speed",
     speed_label: str = "输出速度",
-) -> go.Figure:
+) -> tuple[go.Figure, dict]:
     kept = df[df["kept"]].copy()
     if kept.empty:
         raise ValueError("剪枝后无保留模型，请放宽参数")
@@ -193,6 +356,25 @@ def build_figure(
     surf = _achievable_surface(df, speed_col)     # 自带 visible="legendonly"
     fig.add_trace(surf)
     fc = len(fig.data) - 1
+
+    # 4) 预留两个「空」trace（追加在 fc 之后，故 fa/fb/fc 下标不漂移、按钮无需改）：
+    #    交给注入的 JS 用 Plotly.restyle 动态填充——一个画 pin 高亮光环，一个画谱系连线。
+    #    沿用「细线/marker、不挡拾取」原则，避免吞掉下方 kept 节点的 hover。
+    fig.add_trace(go.Scatter3d(
+        x=[], y=[], z=[], mode="markers",
+        name="已固定", showlegend=False, hoverinfo="skip", visible=True,
+        marker=dict(size=16, symbol="circle-open", color="#d62728",
+                    line=dict(color="#d62728", width=3)),
+    ))
+    idx_pinned_highlight = len(fig.data) - 1
+    fig.add_trace(go.Scatter3d(
+        x=[], y=[], z=[], mode="lines+markers+text",
+        name="谱系连线", showlegend=False, hoverinfo="skip", visible=True,
+        line=dict(color="rgba(70,70,70,0.85)", width=5),
+        marker=dict(size=4, color="rgba(70,70,70,0.85)"),
+        text=[], textposition="top center", textfont=dict(size=9, color="#333"),
+    ))
+    idx_lineage_line = len(fig.data) - 1
 
     # 按钮：左组切前沿样式（线框/实心/隐藏/仅散点），右组独立开关可达前沿曲面。
     # 用 targeted restyle（args 第二项=目标 trace 下标）使两组互不干扰，散点恒显。
@@ -246,12 +428,287 @@ def build_figure(
         margin=dict(l=0, r=0, t=90, b=0),
         updatemenus=updatemenus,
     )
-    return fig
+
+    payload = _build_lineage_payload(df, speed_col)
+    payload["pinned_highlight_trace_index"] = idx_pinned_highlight
+    payload["lineage_line_trace_index"] = idx_lineage_line
+    return fig, payload
 
 
-def write_html(fig: go.Figure, out: Path) -> Path:
+GRAPH_DIV_ID = "frontier3d"
+
+
+# 注入前端的交互 JS 模板。占位符 __LINEAGE_DATA_JSON__ 由 _build_post_script 替换为
+# payload 的 JSON。plotly.write_html(post_script=...) 仅对片段做 .replace("{plot_id}", …)，
+# 不做 str.format，故此处的 JS 花括号无需转义。
+_POST_SCRIPT_TEMPLATE = r"""
+(function () {
+  var DATA = __LINEAGE_DATA_JSON__;
+  window.LINEAGE_DATA = DATA;                       // 测试/调试钩子
+  var GD_ID = "frontier3d";
+  var HL = DATA.pinned_highlight_trace_index;       // pin 高亮光环 trace 下标
+  var LL = DATA.lineage_line_trace_index;           // 谱系连线 trace 下标
+  var models = DATA.models;                          // 仅 kept（可见节点）
+  var baseGroups = DATA.base_groups;                 // base_model_name -> [model 下标]
+  var lineages = DATA.lineages;                      // "creator||tier" -> [谱系节点]
+
+  var nameToIndex = {};
+  models.forEach(function (m, i) { nameToIndex[m.name] = i; });
+  var allBases = Object.keys(baseGroups).sort(function (a, b) {
+    return a.toLowerCase() < b.toLowerCase() ? -1 : 1;
+  });
+
+  var pinnedBases = {};   // 集合：base_model_name -> true
+  var hoverKey = null;    // 当前 hover 模型所属 lineage_key（临时）
+  var gd = null;
+
+  function baseLineageKey(base) {
+    var idxs = baseGroups[base];
+    return (idxs && idxs.length) ? models[idxs[0]].lineage_key : null;
+  }
+  function pinnedVariantIndices() {
+    var out = [];
+    Object.keys(pinnedBases).forEach(function (b) {
+      (baseGroups[b] || []).forEach(function (i) { out.push(i); });
+    });
+    return out;
+  }
+  function fmt(n, d) {
+    if (n === null || n === undefined || isNaN(n)) return "?";
+    return Number(n).toFixed(d === undefined ? 1 : d);
+  }
+  function annText(m) {
+    var p = m.panel;
+    return "<b>" + m.name + "</b><br>智能 " + fmt(p.intelligence) +
+      " · " + DATA.speed_axis_label + " " + fmt(p[DATA.speed_axis_field], 0) +
+      " tok/s · $" + fmt(p.cost_to_run, 2);
+  }
+  function matchBases(q) {
+    q = (q || "").trim().toLowerCase();
+    if (!q) return [];
+    return allBases.filter(function (b) {
+      return b.toLowerCase().indexOf(q) >= 0;
+    }).slice(0, 40);
+  }
+
+  // —— 重画：pin 高亮光环 + 常显注释 + 侧栏 + 谱系线 ——
+  function rerenderPinned() {
+    var idxs = pinnedVariantIndices();
+    var xs = [], ys = [], zs = [];
+    idxs.forEach(function (i) { var m = models[i]; xs.push(m.x); ys.push(m.y); zs.push(m.z); });
+    Plotly.restyle(gd, { x: [xs], y: [ys], z: [zs] }, [HL]);
+    var anns = idxs.map(function (i) {
+      var m = models[i];
+      return {
+        x: m.x, y: m.y, z: m.z, text: annText(m),
+        showarrow: true, arrowhead: 2, arrowsize: 1, arrowwidth: 1, ax: 18, ay: -28,
+        font: { size: 10, color: "#222" }, align: "left",
+        bgcolor: "rgba(255,255,255,0.9)", bordercolor: "#888", borderwidth: 1, borderpad: 3
+      };
+    });
+    Plotly.relayout(gd, { "scene.annotations": anns });
+    renderSidePanel();
+    redrawLineage();
+  }
+
+  function redrawLineage() {
+    var keys = {};
+    Object.keys(pinnedBases).forEach(function (b) { var k = baseLineageKey(b); if (k) keys[k] = true; });
+    if (hoverKey) keys[hoverKey] = true;
+    var xs = [], ys = [], zs = [], txt = [];
+    Object.keys(keys).forEach(function (k) {
+      var nodes = lineages[k];
+      if (!nodes || nodes.length < 2) return;
+      nodes.forEach(function (n) { xs.push(n.x); ys.push(n.y); zs.push(n.z); txt.push(n.label); });
+      xs.push(null); ys.push(null); zs.push(null); txt.push("");   // 断开多条谱系
+    });
+    Plotly.restyle(gd, { x: [xs], y: [ys], z: [zs], text: [txt] }, [LL]);
+  }
+
+  function togglePin(base) {
+    if (pinnedBases[base]) delete pinnedBases[base]; else pinnedBases[base] = true;
+    rerenderPinned(); renderResults();
+  }
+
+  // —— hover：临时显示所属谱系线（不加注释，避免抖动）——
+  function onHover(ev) {
+    var p = ev.points && ev.points[0];
+    if (!p || !p.customdata) return;
+    var mi = nameToIndex[p.customdata[0]];
+    if (mi === undefined) return;
+    hoverKey = models[mi].lineage_key;
+    redrawLineage();
+  }
+  function onUnhover() { hoverKey = null; redrawLineage(); }
+
+  // —— DOM：搜索框（左上，避开按钮组）+ 结果列表 + 侧栏（左下）——
+  var elSearchWrap, elInput, elResults, elPanel;
+  function css(el, s) { for (var k in s) el.style[k] = s[k]; }
+
+  function buildDom() {
+    elSearchWrap = document.createElement("div");
+    css(elSearchWrap, {
+      position: "fixed", top: "10px", left: "132px", zIndex: "1000",
+      width: "256px", font: "12px/1.4 -apple-system,Segoe UI,Roboto,sans-serif"
+    });
+    elInput = document.createElement("input");
+    elInput.type = "text";
+    elInput.placeholder = "搜索模型并 pin（按基模型分组）…";
+    elInput.setAttribute("id", "aa-search-input");
+    css(elInput, {
+      width: "100%", boxSizing: "border-box", padding: "6px 8px",
+      border: "1px solid #bbb", borderRadius: "6px", outline: "none",
+      background: "rgba(255,255,255,0.95)", boxShadow: "0 1px 4px rgba(0,0,0,0.12)"
+    });
+    elResults = document.createElement("div");
+    elResults.setAttribute("id", "aa-search-results");
+    css(elResults, {
+      marginTop: "4px", maxHeight: "40vh", overflowY: "auto",
+      background: "rgba(255,255,255,0.97)", border: "1px solid #ddd",
+      borderRadius: "6px", boxShadow: "0 2px 8px rgba(0,0,0,0.12)", display: "none"
+    });
+    elSearchWrap.appendChild(elInput);
+    elSearchWrap.appendChild(elResults);
+    document.body.appendChild(elSearchWrap);
+
+    elPanel = document.createElement("div");
+    elPanel.setAttribute("id", "aa-pinned-panel");
+    css(elPanel, {
+      position: "fixed", left: "8px", bottom: "8px", zIndex: "1000",
+      width: "286px", maxHeight: "46vh", overflowY: "auto",
+      background: "rgba(255,255,255,0.95)", border: "1px solid #ddd",
+      borderRadius: "8px", boxShadow: "0 2px 10px rgba(0,0,0,0.15)",
+      font: "12px/1.45 -apple-system,Segoe UI,Roboto,sans-serif", display: "none"
+    });
+    document.body.appendChild(elPanel);
+
+    elInput.addEventListener("input", renderResults);
+  }
+
+  function renderResults() {
+    var q = elInput.value;
+    var hits = matchBases(q);
+    elResults.innerHTML = "";
+    if (!q.trim() || !hits.length) { elResults.style.display = "none"; return; }
+    hits.forEach(function (base) {
+      var n = (baseGroups[base] || []).length;
+      var row = document.createElement("div");
+      var pinned = !!pinnedBases[base];
+      css(row, {
+        padding: "5px 8px", cursor: "pointer", borderBottom: "1px solid #f0f0f0",
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+        background: pinned ? "#eef6ff" : "transparent"
+      });
+      var left = document.createElement("span");
+      left.textContent = base;
+      css(left, { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginRight: "8px" });
+      var right = document.createElement("span");
+      right.textContent = (pinned ? "✓ " : "") + n + " 档";
+      css(right, { color: pinned ? "#1a7" : "#999", flex: "0 0 auto", fontSize: "11px" });
+      row.appendChild(left); row.appendChild(right);
+      row.addEventListener("click", function () { togglePin(base); });
+      row.addEventListener("mouseenter", function () { if (!pinned) row.style.background = "#f5f5f5"; });
+      row.addEventListener("mouseleave", function () { if (!pinnedBases[base]) row.style.background = "transparent"; });
+      elResults.appendChild(row);
+    });
+    elResults.style.display = "block";
+  }
+
+  function renderSidePanel() {
+    var bases = Object.keys(pinnedBases);
+    if (!bases.length) { elPanel.style.display = "none"; elPanel.innerHTML = ""; return; }
+    elPanel.innerHTML = "";
+    var head = document.createElement("div");
+    css(head, { padding: "7px 10px", borderBottom: "1px solid #eee", display: "flex",
+      justifyContent: "space-between", alignItems: "center", position: "sticky", top: "0",
+      background: "rgba(255,255,255,0.97)" });
+    var title = document.createElement("b"); title.textContent = "已固定 " + bases.length + " 个模型";
+    var clear = document.createElement("a"); clear.textContent = "全部清除"; clear.href = "javascript:void(0)";
+    css(clear, { color: "#c33", textDecoration: "none", fontSize: "11px" });
+    clear.addEventListener("click", function () { pinnedBases = {}; rerenderPinned(); renderResults(); });
+    head.appendChild(title); head.appendChild(clear);
+    elPanel.appendChild(head);
+
+    bases.sort().forEach(function (base) {
+      var card = document.createElement("div");
+      css(card, { padding: "6px 10px", borderBottom: "1px solid #f3f3f3" });
+      var hdr = document.createElement("div");
+      css(hdr, { display: "flex", justifyContent: "space-between", alignItems: "baseline" });
+      var nm = document.createElement("b"); nm.textContent = base;
+      var rm = document.createElement("a"); rm.textContent = "✕"; rm.href = "javascript:void(0)";
+      css(rm, { color: "#c33", textDecoration: "none", marginLeft: "8px", flex: "0 0 auto" });
+      rm.addEventListener("click", function () { delete pinnedBases[base]; rerenderPinned(); renderResults(); });
+      hdr.appendChild(nm); hdr.appendChild(rm);
+      card.appendChild(hdr);
+      (baseGroups[base] || []).forEach(function (i) {
+        var m = models[i], p = m.panel;
+        var line = document.createElement("div");
+        css(line, { color: "#444", fontSize: "11px", marginTop: "2px" });
+        line.textContent = "· " + m.name + " — 智能 " + fmt(p.intelligence) +
+          " · " + DATA.speed_axis_label + " " + fmt(p[DATA.speed_axis_field], 0) +
+          " · $" + fmt(p.cost_to_run, 2) +
+          " · " + p.release_date;
+        card.appendChild(line);
+      });
+      var lk = baseLineageKey(base);
+      if (lk && lineages[lk] && lineages[lk].length >= 2) {
+        var ln = document.createElement("div");
+        css(ln, { color: "#777", fontSize: "11px", marginTop: "2px", fontStyle: "italic" });
+        ln.textContent = "谱系 " + lk.replace("||", " · ") + "：" + lineages[lk].length + " 代";
+        card.appendChild(ln);
+      }
+      elPanel.appendChild(card);
+    });
+    elPanel.style.display = "block";
+  }
+
+  function ready(cb) {
+    gd = document.getElementById(GD_ID);
+    if (gd && gd.on && gd._fullLayout && typeof Plotly !== "undefined") cb();
+    else setTimeout(function () { ready(cb); }, 50);
+  }
+
+  ready(function () {
+    buildDom();
+    gd.on("plotly_hover", onHover);
+    gd.on("plotly_unhover", onUnhover);
+    // —— 测试/调试钩子（headless 断言用）——
+    window.aaPinBase = function (b) { pinnedBases[b] = true; rerenderPinned(); renderResults(); };
+    window.aaUnpinBase = function (b) { delete pinnedBases[b]; rerenderPinned(); renderResults(); };
+    window.aaTogglePin = togglePin;
+    window.aaShowLineageForName = function (nm) {
+      var mi = nameToIndex[nm]; if (mi === undefined) return false;
+      hoverKey = models[mi].lineage_key; redrawLineage(); return true;
+    };
+    window.aaClearHover = onUnhover;
+    window.aaMatchBases = matchBases;
+    window.aaState = function () {
+      return {
+        pinned: Object.keys(pinnedBases), hoverKey: hoverKey,
+        annCount: (gd._fullLayout && gd._fullLayout.scene && gd._fullLayout.scene.annotations || []).length,
+        highlightLen: (gd.data[HL].x || []).length,
+        lineageLen: (gd.data[LL].x || []).length,
+        lineageKeys: Object.keys(lineages).length
+      };
+    };
+  });
+})();
+"""
+
+
+def _build_post_script(payload: dict) -> str:
+    """把 payload 序列化进 JS 模板，产出注入 HTML 的 post_script。"""
+    data_json = json.dumps(payload, ensure_ascii=False)
+    return _POST_SCRIPT_TEMPLATE.replace("__LINEAGE_DATA_JSON__", data_json)
+
+
+def write_html(fig: go.Figure, out: Path, payload: dict | None = None) -> Path:
     out.parent.mkdir(parents=True, exist_ok=True)
-    fig.write_html(str(out), include_plotlyjs=True, full_html=True)
+    post_script = _build_post_script(payload) if payload is not None else None
+    fig.write_html(
+        str(out), include_plotlyjs=True, full_html=True,
+        div_id=GRAPH_DIV_ID, post_script=post_script,
+    )
     return out
 
 

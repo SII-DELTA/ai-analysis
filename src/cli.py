@@ -68,11 +68,11 @@ def main() -> None:
         print(f"  - 第 {int(layer)} 层: {cnt}")
 
     data_date = datetime.now().strftime("%Y-%m-%d")
-    fig = visualize.build_figure(
+    fig, lineage_payload = visualize.build_figure(
         df, speed_scale=args.speed_scale, data_date=data_date,
         speed_col=speed_col, speed_label=speed_label,
     )
-    out = visualize.write_html(fig, Path(args.out))
+    out = visualize.write_html(fig, Path(args.out), lineage_payload)
     print(f"\n✅ 交互式 HTML: {out}")
 
     if args.export:
