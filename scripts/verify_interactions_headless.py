@@ -167,6 +167,49 @@ def main() -> int:
         c4 = page.evaluate("() => window.__llRestyle")
         check(c4 == c3, f"重复 unhover 被去重（restyle 仍={c4}）")
 
+        print("\n[4c] 坐标轴范围固定（画跨界谱系不重缩放 → 消除 Qwen 类抖动）")
+        ar = page.evaluate("""() => {
+            const s = document.getElementById('frontier3d')._fullLayout.scene;
+            return {x: s.xaxis.autorange, y: s.yaxis.autorange, z: s.zaxis.autorange};
+        }""")
+        check(ar["x"] is False and ar["y"] is False and ar["z"] is False,
+              f"三轴 autorange 已关闭：x={ar['x']} y={ar['y']} z={ar['z']}（范围固定）")
+        # 找一条「含落在 kept 散点范围外节点」的谱系（正是 Qwen 类抖动诱因），
+        # 画它前后比较坐标轴范围是否纹丝不动。
+        probe = page.evaluate("""() => {
+            const D = window.LINEAGE_DATA;
+            const cs = D.models.map(m => m.x), ss = D.models.map(m => m.y);
+            const cmin=Math.min(...cs), cmax=Math.max(...cs), smin=Math.min(...ss), smax=Math.max(...ss);
+            for (const k of Object.keys(D.lineages)) {
+                const nodes = D.lineages[k];
+                if (!nodes.some(n => n.x<cmin || n.x>cmax || n.y<smin || n.y>smax)) continue;
+                const m = D.models.find(mm => mm.lineage_key === k);
+                if (m) return {key:k, name:m.name, gens:nodes.length};
+            }
+            return null;
+        }""")
+        if probe:
+            print(f"   跨界谱系: {probe['key']} 经 {probe['name']!r}（{probe['gens']} 代）")
+            before = page.evaluate("""() => {
+                const s = document.getElementById('frontier3d')._fullLayout.scene;
+                return {x: s.xaxis.range.slice(), y: s.yaxis.range.slice()};
+            }""")
+            page.evaluate("(nm) => window.aaShowLineageForName(nm)", probe["name"])
+            page.wait_for_timeout(120)
+            after = page.evaluate("""() => {
+                const s = document.getElementById('frontier3d')._fullLayout.scene;
+                return {x: s.xaxis.range.slice(), y: s.yaxis.range.slice(),
+                        len: (window.aaState().lineageLen)};
+            }""")
+            same = (abs(before["x"][0]-after["x"][0])<1e-6 and abs(before["x"][1]-after["x"][1])<1e-6
+                    and abs(before["y"][0]-after["y"][0])<1e-6 and abs(before["y"][1]-after["y"][1])<1e-6)
+            check(after["len"] > 0, f"跨界谱系已画出（{after['len']} 点）")
+            check(same, f"画跨界谱系后坐标轴范围不变 x:{before['x']}→{after['x']} y:{before['y']}→{after['y']}")
+            page.evaluate("() => window.aaClearHover()")
+            page.wait_for_timeout(60)
+        else:
+            check(True, "（本产物无跨界谱系，范围固定性已由 autorange=False 覆盖）")
+
         # 恢复步骤 [3] 的 pin 状态，供步骤 [5] 验证 unpin 清空
         page.evaluate("(b) => window.aaPinBase(b)", pick["base"])
         page.wait_for_timeout(100)

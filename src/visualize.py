@@ -189,6 +189,39 @@ def _build_lineage_payload(df_full: pd.DataFrame, speed_col: str) -> dict:
         "speed_axis_label": speed_axis_label,
     }
 
+def _fixed_axis_ranges(kept: pd.DataFrame, payload: dict, speed_col: str,
+                       speed_log: bool) -> tuple[list, list, list]:
+    """计算固定坐标轴范围 (x_cost, y_speed, z_intelligence)。
+
+    范围 = (kept 散点 ∪ payload 全部谱系节点) 的并集 + 留白。谱系节点取自全量三维齐全
+    数据（含被剪枝的历代前身），其成本/速度可能超出 kept 散点范围；把范围固定到二者并集，
+    使 hover 画谱系时坐标轴不再 autorange 扩张 → 消除「谱系扩范围→点位移→hover/unhover
+    抖动」。对数轴的 range 须以 log10 为单位。
+    """
+    costs = [float(v) for v in kept["cost_to_run"] if pd.notna(v)]
+    speeds = [float(v) for v in kept[speed_col] if pd.notna(v)]
+    intels = [float(v) for v in kept["intelligence"] if pd.notna(v)]
+    for nodes in payload["lineages"].values():
+        for n in nodes:
+            costs.append(n["x"]); speeds.append(n["y"]); intels.append(n["z"])
+
+    def log_range(vals, pad=0.04):
+        lo, hi = min(vals), max(vals)
+        l0, l1 = np.log10(lo), np.log10(hi)
+        m = (l1 - l0) * pad or 0.1
+        return [l0 - m, l1 + m]
+
+    def lin_range(vals, pad=0.05):
+        lo, hi = min(vals), max(vals)
+        m = (hi - lo) * pad or 1.0
+        return [lo - m, hi + m]
+
+    x_range = log_range(costs)                                  # 成本恒对数
+    y_range = log_range(speeds) if speed_log else lin_range(speeds)
+    z_range = lin_range(intels)
+    return x_range, y_range, z_range
+
+
 HOVER_TMPL = (
     "<b>%{customdata[0]}</b><br>"
     "厂商: %{customdata[1]} · 发布: %{customdata[2]}<br>"
@@ -403,6 +436,24 @@ def build_figure(
         ],
     ))
 
+    payload = _build_lineage_payload(df, speed_col)
+    payload["pinned_highlight_trace_index"] = idx_pinned_highlight
+    payload["lineage_line_trace_index"] = idx_lineage_line
+    # scene.annotations 的坐标须用「轴坐标」而非原始值：对数轴下注释的 x/y 必须传
+    # log10(value)，Plotly 才会把它放在对应数据位置；若直接传原始值（如成本 $256），
+    # Plotly 会按 log10 解读 → 把注释放到 10^256，撑爆自动量程、把所有节点/流形挤到角落。
+    # （散点 trace 传原始值由 Plotly 内部取 log，不受影响；故仅注释需此换算。）
+    # 下列两个布尔标志告诉注入的 JS：哪些轴是对数轴、需对注释坐标做 log10。
+    payload["cost_axis_is_log"] = True          # x 轴（有效运行成本）恒为对数轴
+    payload["speed_axis_is_log"] = speed_log    # y 轴（速度）随 --speed-scale 决定
+
+    # 固定坐标轴范围 = (kept 散点 ∪ 全部谱系节点) 并集 + 留白，并关闭 autorange。
+    # 谱系线基于「全量三维齐全数据」，含被剪枝的历代前身，其成本/速度可能落在 kept
+    # 散点范围之外。若用 autorange，则 hover 画出谱系 → 范围扩张 → 所有点位移 → hover
+    # 点移出光标 → unhover → 范围回缩 → …… 抖动（尤以谱系跨度大的 Qwen 等明显）。
+    # 把范围预先固定到「所有可能绘制的几何」之并集后，画/撤谱系不再改变范围，消除抖动。
+    x_range, y_range, z_range = _fixed_axis_ranges(kept, payload, speed_col, speed_log)
+
     subtitle =(f"数据：Artificial Analysis · 拉取于 {data_date}"
                 if data_date else "数据：Artificial Analysis")
     is_eff = speed_col == "eff_speed"
@@ -418,27 +469,19 @@ def build_figure(
         ),
         scene=dict(
             xaxis=dict(title="有效运行成本 USD（对数）", type="log",
+                       range=x_range, autorange=False,
                        backgroundcolor="rgb(248,248,250)"),
             yaxis=dict(title=f"{speed_label} tok/s" + ("（对数）" if speed_log else ""),
-                       type="log" if speed_log else "linear"),
-            zaxis=dict(title="智能指数 (AA Intelligence Index)"),
+                       type="log" if speed_log else "linear",
+                       range=y_range, autorange=False),
+            zaxis=dict(title="智能指数 (AA Intelligence Index)",
+                       range=z_range, autorange=False),
             camera=dict(eye=dict(x=1.7, y=-1.7, z=1.1)),
         ),
         legend=dict(itemsizing="constant", x=1.02, y=1, font=dict(size=10)),
         margin=dict(l=0, r=0, t=90, b=0),
         updatemenus=updatemenus,
     )
-
-    payload = _build_lineage_payload(df, speed_col)
-    payload["pinned_highlight_trace_index"] = idx_pinned_highlight
-    payload["lineage_line_trace_index"] = idx_lineage_line
-    # scene.annotations 的坐标须用「轴坐标」而非原始值：对数轴下注释的 x/y 必须传
-    # log10(value)，Plotly 才会把它放在对应数据位置；若直接传原始值（如成本 $256），
-    # Plotly 会按 log10 解读 → 把注释放到 10^256，撑爆自动量程、把所有节点/流形挤到角落。
-    # （散点 trace 传原始值由 Plotly 内部取 log，不受影响；故仅注释需此换算。）
-    # 下列两个布尔标志告诉注入的 JS：哪些轴是对数轴、需对注释坐标做 log10。
-    payload["cost_axis_is_log"] = True          # x 轴（有效运行成本）恒为对数轴
-    payload["speed_axis_is_log"] = speed_log    # y 轴（速度）随 --speed-scale 决定
     return fig, payload
 
 
