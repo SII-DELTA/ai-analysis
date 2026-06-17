@@ -545,15 +545,34 @@ _POST_SCRIPT_TEMPLATE = r"""
   }
 
   // —— hover：临时显示所属谱系线（不加注释，避免抖动）——
+  // 关键防护：在 plotly_hover 回调里「同步」调用 Plotly.restyle 会强制 gl3d 重绘，
+  // 重绘又重新求值光标下的 hover、再次 fire plotly_hover → onHover → restyle …… 形成
+  // 无限重入循环：画面卡死、无法拖拽旋转，且 hover 标签因被反复中途重绘而被挤到左上角
+  // (0,0) 而非锚在节点旁。两道防护：
+  //   ① 去重——谱系 key 未变就不重画，直接打断重入循环（再次 fire 的是同一点）；
+  //   ② requestAnimationFrame——把重画移出 hover 回调，避免在 Plotly 计算 hover 标签的
+  //      同一帧内改 trace 数据（消除标签跳到左上角的故障）。
+  var pendingLineageFrame = null;
+  function scheduleLineageRedraw() {
+    if (pendingLineageFrame !== null) return;     // 已排程，合并多次请求为一帧
+    var raf = window.requestAnimationFrame || function (cb) { return setTimeout(cb, 16); };
+    pendingLineageFrame = raf(function () { pendingLineageFrame = null; redrawLineage(); });
+  }
   function onHover(ev) {
     var p = ev.points && ev.points[0];
-    if (!p || !p.customdata) return;
+    if (!p || !p.customdata) return;              // 自有 trace(HL/LL)无 customdata，天然跳过
     var mi = nameToIndex[p.customdata[0]];
     if (mi === undefined) return;
-    hoverKey = models[mi].lineage_key;
-    redrawLineage();
+    var key = models[mi].lineage_key;
+    if (key === hoverKey) return;                 // 去重：同一谱系无需重画（打断重入循环）
+    hoverKey = key;
+    scheduleLineageRedraw();
   }
-  function onUnhover() { hoverKey = null; redrawLineage(); }
+  function onUnhover() {
+    if (hoverKey === null) return;                // 去重
+    hoverKey = null;
+    scheduleLineageRedraw();
+  }
 
   // —— DOM：搜索框（左上，避开按钮组）+ 结果列表 + 侧栏（左下）——
   var elSearchWrap, elInput, elResults, elPanel;
@@ -694,7 +713,10 @@ _POST_SCRIPT_TEMPLATE = r"""
       var mi = nameToIndex[nm]; if (mi === undefined) return false;
       hoverKey = models[mi].lineage_key; redrawLineage(); return true;
     };
-    window.aaClearHover = onUnhover;
+    window.aaClearHover = function () { hoverKey = null; redrawLineage(); };
+    // 真实事件处理器（含去重 + rAF 排程），供 headless 模拟 plotly_hover 验证重入防护
+    window.aaOnHover = onHover;
+    window.aaOnUnhover = onUnhover;
     window.aaMatchBases = matchBases;
     window.aaState = function () {
       return {

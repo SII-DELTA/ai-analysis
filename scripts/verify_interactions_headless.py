@@ -129,6 +129,44 @@ def main() -> int:
         page.wait_for_timeout(100)
         cleared = page.evaluate("() => window.aaState().lineageLen")
         check(cleared == 0, f"清除 hover 后谱系线点数回到 {cleared}（应为 0）")
+
+        print("\n[4b] hover 事件去重 + rAF（防 gl3d 重入：卡死/无法旋转/标签飞左上角）")
+        # 包裹 Plotly.restyle 统计针对谱系线 trace(LL) 的重画次数：在 plotly_hover 里同步
+        # restyle 会触发 gl3d 重绘→再次 fire hover→无限重入。去重应让「相同点重复 hover」
+        # 不再重画，从而打断该循环。用真实事件处理器 aaOnHover/aaOnUnhover 驱动（含 rAF）。
+        page.evaluate("""() => {
+            const LL = LINEAGE_DATA.lineage_line_trace_index;
+            window.__llRestyle = 0;
+            if (!window.__restyleWrapped) {
+                const orig = Plotly.restyle;
+                Plotly.restyle = function (g, u, tr) {
+                    if (Array.isArray(tr) && tr.indexOf(LL) >= 0) window.__llRestyle++;
+                    return orig.apply(this, arguments);
+                };
+                window.__restyleWrapped = true;
+            }
+        }""")
+        ev = {"points": [{"customdata": [pick["anyName"]]}]}
+        page.evaluate("() => { window.__llRestyle = 0; }")   # 干净态（无 pin 无 hover）
+        page.evaluate("(ev) => window.aaOnHover(ev)", ev)
+        page.wait_for_timeout(120)
+        c1 = page.evaluate("() => window.__llRestyle")
+        len1 = page.evaluate("() => window.aaState().lineageLen")
+        check(c1 == 1 and len1 > 0, f"首次 hover：谱系重画 1 次且画出谱系（restyle={c1}, len={len1}）")
+        page.evaluate("(ev) => window.aaOnHover(ev)", ev)    # 相同点二次 hover → 应去重
+        page.wait_for_timeout(120)
+        c2 = page.evaluate("() => window.__llRestyle")
+        check(c2 == c1, f"相同点二次 hover 被去重、不再重画（restyle 仍={c2}）— 打断 gl3d 重入循环")
+        page.evaluate("() => window.aaOnUnhover()")
+        page.wait_for_timeout(120)
+        c3 = page.evaluate("() => window.__llRestyle")
+        len3 = page.evaluate("() => window.aaState().lineageLen")
+        check(c3 == c2 + 1 and len3 == 0, f"unhover：重画 1 次并清空谱系（restyle={c3}, len={len3}）")
+        page.evaluate("() => window.aaOnUnhover()")          # 重复 unhover → 应去重
+        page.wait_for_timeout(120)
+        c4 = page.evaluate("() => window.__llRestyle")
+        check(c4 == c3, f"重复 unhover 被去重（restyle 仍={c4}）")
+
         # 恢复步骤 [3] 的 pin 状态，供步骤 [5] 验证 unpin 清空
         page.evaluate("(b) => window.aaPinBase(b)", pick["base"])
         page.wait_for_timeout(100)
