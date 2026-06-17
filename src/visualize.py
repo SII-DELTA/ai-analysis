@@ -432,6 +432,13 @@ def build_figure(
     payload = _build_lineage_payload(df, speed_col)
     payload["pinned_highlight_trace_index"] = idx_pinned_highlight
     payload["lineage_line_trace_index"] = idx_lineage_line
+    # scene.annotations 的坐标须用「轴坐标」而非原始值：对数轴下注释的 x/y 必须传
+    # log10(value)，Plotly 才会把它放在对应数据位置；若直接传原始值（如成本 $256），
+    # Plotly 会按 log10 解读 → 把注释放到 10^256，撑爆自动量程、把所有节点/流形挤到角落。
+    # （散点 trace 传原始值由 Plotly 内部取 log，不受影响；故仅注释需此换算。）
+    # 下列两个布尔标志告诉注入的 JS：哪些轴是对数轴、需对注释坐标做 log10。
+    payload["cost_axis_is_log"] = True          # x 轴（有效运行成本）恒为对数轴
+    payload["speed_axis_is_log"] = speed_log    # y 轴（速度）随 --speed-scale 决定
     return fig, payload
 
 
@@ -477,6 +484,11 @@ _POST_SCRIPT_TEMPLATE = r"""
     if (n === null || n === undefined || isNaN(n)) return "?";
     return Number(n).toFixed(d === undefined ? 1 : d);
   }
+  function axisCoord(v, isLog) {
+    // 注释（scene.annotations）的坐标须为「轴坐标」：对数轴传 log10(value)，
+    // 线性轴传原始值。否则对数轴会把原始值当成 log10 → 注释飞到 10^value、撑爆量程。
+    return (isLog && v > 0) ? Math.log10(v) : v;
+  }
   function annText(m) {
     var p = m.panel;
     return "<b>" + m.name + "</b><br>智能 " + fmt(p.intelligence) +
@@ -500,7 +512,9 @@ _POST_SCRIPT_TEMPLATE = r"""
     var anns = idxs.map(function (i) {
       var m = models[i];
       return {
-        x: m.x, y: m.y, z: m.z, text: annText(m),
+        x: axisCoord(m.x, DATA.cost_axis_is_log),
+        y: axisCoord(m.y, DATA.speed_axis_is_log),
+        z: m.z, text: annText(m),
         showarrow: true, arrowhead: 2, arrowsize: 1, arrowwidth: 1, ax: 18, ay: -28,
         font: { size: 10, color: "#222" }, align: "left",
         bgcolor: "rgba(255,255,255,0.9)", bordercolor: "#888", borderwidth: 1, borderpad: 3

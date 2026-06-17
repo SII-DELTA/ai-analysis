@@ -81,6 +81,36 @@ def main() -> int:
         panel_shown = page.evaluate("() => getComputedStyle(document.getElementById('aa-pinned-panel')).display != 'none'")
         check(panel_shown, "侧栏可见")
 
+        # 回归：pin 注入 scene.annotations 后坐标轴量程不得爆炸。
+        # 注释坐标在对数轴上须用 log10(value)；若误传原始值，Plotly 会把它当 log10 解读，
+        # 把注释放到 10^value（如成本 $256 → 10^256），自动量程冲到天文数字、所有节点被挤到角落。
+        # 对数轴的 _fullLayout range 以 log10 为单位，正常上界仅个位数；阈值 < 12 可稳健区分。
+        rng = page.evaluate("""() => {
+            const fl = document.getElementById('frontier3d')._fullLayout.scene;
+            return {x: fl.xaxis.range, y: fl.yaxis.range,
+                    xlog: LINEAGE_DATA.cost_axis_is_log, ylog: LINEAGE_DATA.speed_axis_is_log};
+        }""")
+        if rng["xlog"]:
+            check(rng["x"][1] < 12, f"pin 后成本轴(对数)量程上界 {rng['x'][1]:.2f} < 12（未因注释坐标爆炸）")
+        if rng["ylog"]:
+            check(rng["y"][1] < 12, f"pin 后速度轴(对数)量程上界 {rng['y'][1]:.2f} < 12（未因注释坐标爆炸）")
+        # 注释坐标须与高亮 marker 的数据位置一致（同一节点）：对数轴下注释应为 log10(节点值)
+        coord_ok = page.evaluate("""() => {
+            const gd = document.getElementById('frontier3d');
+            const anns = (gd._fullLayout.scene.annotations) || [];
+            const HL = LINEAGE_DATA.pinned_highlight_trace_index;
+            const xs = gd.data[HL].x || [];
+            if (!anns.length || !xs.length) return false;
+            const a = anns[0];
+            // 找到与该注释 z 匹配的高亮点，比较 x（对数轴下注释 x 应≈log10(marker x)）
+            const zi = (gd.data[HL].z || []).findIndex(z => Math.abs(z - a.z) < 1e-6);
+            if (zi < 0) return false;
+            const mx = xs[zi];
+            const expect = LINEAGE_DATA.cost_axis_is_log ? Math.log10(mx) : mx;
+            return Math.abs(a.x - expect) < 1e-6;
+        }""")
+        check(coord_ok, "注释 x 坐标 = 对应高亮点的轴坐标（对数轴下为 log10(成本)，与 marker 重合)")
+
         print("\n[4] hover-only 临时谱系（无 pin 干净态下隔离验证）")
         # 隔离 hover-only：临时取消该 base 的 pin 并清除 hover，使谱系线归零作为基线；
         # 若仍带 pin，则该谱系本就绘出、hover 不新增点（after==before 恒真），无法暴露 hover-only 失效。
