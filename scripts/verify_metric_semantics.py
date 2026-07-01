@@ -56,6 +56,18 @@ def main() -> None:
     assert cli.DEFAULT_COST_METRIC_NAME == "effective"
     assert cli.DEFAULT_OUTPUT_HTML_PATH.name == "frontier_3d.html"
 
+    original_processed_dir = fetch_data.PROCESSED
+    try:
+        fetch_data.PROCESSED = REPOSITORY_ROOT / "nonexistent-processed-dir-for-fallback-test"
+        fallback_cost_by_model_id, fallback_intel_per_m_by_model_id = (
+            fetch_data.load_cost_and_output_token_fallbacks()
+        )
+    finally:
+        fetch_data.PROCESSED = original_processed_dir
+    assert fetch_data.VERSIONED_COST_AND_OUTPUT_TOKEN_FALLBACK_SNAPSHOT.exists()
+    assert len(fallback_cost_by_model_id) >= 250
+    assert len(fallback_intel_per_m_by_model_id) >= 300
+
     requested_urls = []
     original_get = fetch_data.requests.get
 

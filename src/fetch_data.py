@@ -28,6 +28,10 @@ except ImportError:  # pragma: no cover
 ROOT = Path(__file__).resolve().parent.parent
 RAW = ROOT / "data" / "raw"
 PROCESSED = ROOT / "data" / "processed"
+REFERENCE = ROOT / "data" / "reference"
+VERSIONED_COST_AND_OUTPUT_TOKEN_FALLBACK_SNAPSHOT = (
+    REFERENCE / "artificial_analysis_intelligence_index_cost_and_output_token_fallback_snapshot.csv"
+)
 
 API_LANGUAGE_MODELS_PRO_URL = "https://artificialanalysis.ai/api/v2/language/models"
 API_LANGUAGE_MODELS_FREE_URL = "https://artificialanalysis.ai/api/v2/language/models/free"
@@ -176,6 +180,49 @@ def calculate_blended_price_cache_input_output_7_to_2_to_1(pricing: dict) -> flo
     return (7 * float(cache_hit) + 2 * float(input_price) + float(output_price)) / 10
 
 
+def load_cost_and_output_token_fallbacks() -> tuple[dict[str, float], dict[str, float]]:
+    """读取成本/冗长度回退源，优先本地上次产物，其次版本化 fallback snapshot。"""
+    fallback_cost_to_run_by_model_id: dict[str, float] = {}
+    fallback_intelligence_per_million_output_tokens_by_model_id: dict[str, float] = {}
+    fallback_csv_paths = [
+        PROCESSED / "models.csv",
+        VERSIONED_COST_AND_OUTPUT_TOKEN_FALLBACK_SNAPSHOT,
+    ]
+
+    for fallback_csv_path in fallback_csv_paths:
+        if not fallback_csv_path.exists():
+            continue
+        try:
+            fallback_frame = pd.read_csv(
+                fallback_csv_path,
+                usecols=["id", "cost_to_run", "intel_per_m_output"],
+            )
+        except (ValueError, OSError, pd.errors.EmptyDataError) as e:
+            # 旧 schema（缺列）/ 空文件 / 读失败：回退本身是「保命」机制，不能因缓存文件
+            # 不整齐反而崩掉整条管线——视作无该回退源，继续尝试下一层。
+            relative_fallback_path = fallback_csv_path.relative_to(ROOT)
+            print(f"[warn] 读取回退源 {relative_fallback_path} 失败，忽略该源：{e}")
+            continue
+
+        for model_id, cost_to_run, intelligence_per_million_output_tokens in zip(
+            fallback_frame["id"],
+            fallback_frame["cost_to_run"],
+            fallback_frame["intel_per_m_output"],
+        ):
+            if pd.notna(cost_to_run):
+                fallback_cost_to_run_by_model_id.setdefault(model_id, float(cost_to_run))
+            if pd.notna(intelligence_per_million_output_tokens):
+                fallback_intelligence_per_million_output_tokens_by_model_id.setdefault(
+                    model_id,
+                    float(intelligence_per_million_output_tokens),
+                )
+
+    return (
+        fallback_cost_to_run_by_model_id,
+        fallback_intelligence_per_million_output_tokens_by_model_id,
+    )
+
+
 def build_dataframe(refresh: bool = False) -> pd.DataFrame:
     api = fetch_api(refresh)
     page = fetch_page(refresh)
@@ -184,21 +231,10 @@ def build_dataframe(refresh: bool = False) -> pd.DataFrame:
 
     # AA 的 /models 页面自 2026-06-17 起退化：只对少量模型内嵌 intelligence_index_cost /
     # per_m_output（实测成本记录一度只有 39~71，远低于 ~540）。这两项 API 不提供、只能从
-    # 该页面取。对页面缺失的模型，回退到上一次已保存的 models.csv 里同 id 的旧值（同为 AA
-    # 官方 total_cost，隔日稳定），使新模型（如 GLM-5.2）能纳入而不牺牲存量已展示模型。
-    # ponytail: 回退源用 processed/models.csv（上次产物），页面恢复到 >=300 后此分支自然停用。
-    prev_cost: dict[str, float] = {}
-    prev_perm: dict[str, float] = {}
-    prev_csv = PROCESSED / "models.csv"
-    if prev_csv.exists():
-        try:
-            p = pd.read_csv(prev_csv, usecols=["id", "cost_to_run", "intel_per_m_output"])
-            prev_cost = {i: c for i, c in zip(p["id"], p["cost_to_run"]) if pd.notna(c)}
-            prev_perm = {i: v for i, v in zip(p["id"], p["intel_per_m_output"]) if pd.notna(v)}
-        except (ValueError, OSError, pd.errors.EmptyDataError) as e:
-            # 旧 schema（缺列）/ 空文件 / 读失败：回退本身是「保命」机制，不能因缓存文件
-            # 不整齐反而崩掉整条管线——视作无回退，退回纯页面（原始行为）。
-            print(f"[warn] 读取回退源 {prev_csv.name} 失败，忽略回退：{e}")
+    # 该页面取。对页面缺失的模型，先回退到本地上一次 models.csv，再回退到版本化 snapshot
+    # （同为 AA 官方 total_cost / per_m_output 的历史快照）。这样生成目录可不纳入版本控制，
+    # 干净 checkout 也不会因 AA 页面短期退化而只剩几十个成本点。
+    prev_cost, prev_perm = load_cost_and_output_token_fallbacks()
 
     rows = []
     for m in api:
