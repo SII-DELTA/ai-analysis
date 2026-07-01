@@ -331,6 +331,110 @@ def main() -> int:
         check(reg["HL"] == reg["n"] - 2 and reg["LL"] == reg["n"] - 1, "HL/LL 为末尾两个 trace")
         check(reg["maxBtnTarget"] < reg["HL"], f"前沿按钮最大目标下标 {reg['maxBtnTarget']} < HL {reg['HL']}（不波及新 trace）")
 
+        print("\n[7] 突出度：控件 + 视觉编码（光环大小）+ 排行 + 可调权重")
+        check(page.evaluate("() => !!document.getElementById('aa-standout-panel')"), "突出度面板存在")
+        check(page.evaluate("() => !!document.getElementById('aa-standout-metric-select')"), "指标选择器存在")
+        check(page.evaluate("() => !!document.getElementById('aa-weight-slider-intelligence')"), "智能权重滑杆存在")
+        st7 = page.evaluate("() => window.aaState()")
+        check(st7["standoutMetric"] == "C", f"默认突出度指标 = 趋势残差C（实为 {st7['standoutMetric']}）")
+        check(st7["frontierCount"] > 0, f"前沿模型数 = {st7['frontierCount']}")
+        # 视觉编码：Pareto 光环 marker.size 已数组化，长度=前沿点数
+        check(st7["paretoMarkerSizeLen"] == st7["frontierCount"],
+              f"光环 marker.size 数组长度 {st7['paretoMarkerSizeLen']} = 前沿点数 {st7['frontierCount']}")
+        # hover 面板含四个突出度值（检查 hovertemplate 文本注入）
+        has_hover = page.evaluate("""() => {
+            const gd = document.getElementById('frontier3d');
+            const t = gd.data[LINEAGE_DATA.pareto_emphasis_trace_index].hovertemplate || '';
+            return t.includes('趋势残差') && t.includes('智能抬升')
+                && t.includes('加权超体积') && t.includes('垂距');
+        }""")
+        check(has_hover, "hover 模板含四个突出度值（趋势残差/智能抬升/加权超体积/垂距）")
+
+        # 切指标 → 换榜 + 光环重设
+        rank_c = page.evaluate("() => window.aaStandoutRanking()")
+        page.evaluate("() => window.aaSelectStandoutMetric('B')")
+        page.wait_for_timeout(60)
+        rank_b = page.evaluate("() => window.aaStandoutRanking()")
+        st_b = page.evaluate("() => window.aaState()")
+        check(st_b["standoutMetric"] == "B", "切到智能抬升B")
+        check(st_b["paretoMarkerSizeLen"] == st_b["frontierCount"], "切指标后光环仍随前沿数组化")
+        names_c = [r["name"] for r in rank_c["ranking"]]
+        names_b = [r["name"] for r in rank_b["ranking"]]
+        check(names_c[:5] != names_b[:5] or names_c != names_b,
+              f"切指标换榜：C榜首5 {names_c[:3]}… ≠ B榜首5 {names_b[:3]}…")
+
+        # 加权超体积：默认 w=1 序 vs 重压智能轴 w=(4,1,1) 应重排
+        page.evaluate("() => window.aaSelectStandoutMetric('A')")
+        page.wait_for_timeout(60)
+        st_a = page.evaluate("() => window.aaState()")
+        check(st_a["standoutMetric"] == "A", "切到加权超体积A")
+        rank_a_w1 = page.evaluate("() => window.aaStandoutRanking()")
+        check(abs(rank_a_w1["weights"]["intelligence"] - 1) < 1e-9, "A 默认权重 w=1")
+        page.evaluate("() => window.aaSetWeights(4, 1, 1)")
+        page.wait_for_timeout(60)
+        rank_a_w4 = page.evaluate("() => window.aaStandoutRanking()")
+        st_a4 = page.evaluate("() => window.aaState()")
+        check(abs(st_a4["standoutWeights"]["intelligence"] - 4) < 1e-9, "重压智能轴 w_intelligence=4 已生效")
+        order_w1 = [r["name"] for r in rank_a_w1["ranking"]]
+        order_w4 = [r["name"] for r in rank_a_w4["ranking"]]
+        check(order_w1 != order_w4,
+              f"指数加权重排：w=1 序 ≠ w=(4,1,1) 序（前3：{order_w1[:3]} → {order_w4[:3]}）")
+        # 前沿成员数不因权重变化（保序性）
+        pos_w1 = sum(1 for r in rank_a_w1["ranking"] if r["value"] and r["value"] > 0)
+        pos_w4 = sum(1 for r in rank_a_w4["ranking"] if r["value"] and r["value"] > 0)
+        check(pos_w1 == pos_w4, f"加权不改前沿成员数（w=1 有 {pos_w1} 个正贡献，w=4 有 {pos_w4} 个）")
+
+        # 权重仅对 A 可用：切回 C 后滑杆禁用
+        page.evaluate("() => window.aaSelectStandoutMetric('C')")
+        page.wait_for_timeout(30)
+        disabled_c = page.evaluate("() => document.getElementById('aa-weight-slider-intelligence').disabled")
+        check(disabled_c is True, "切回趋势残差C 后权重滑杆禁用（仅加权超体积可调）")
+        page.evaluate("() => window.aaSelectStandoutMetric('A')")
+        page.wait_for_timeout(30)
+        enabled_a = page.evaluate("() => document.getElementById('aa-weight-slider-intelligence').disabled")
+        check(enabled_a is False, "切到加权超体积A 后权重滑杆可用")
+
+        # 突出度光环 restyle 不重置用户旋转后的 3D camera（复用 fd72e24 的视角保持契约，
+        # 覆盖切指标/拖权重滑杆这条新 Plotly.restyle 路径）
+        standout_camera = page.evaluate("""async () => {
+            const gd = document.getElementById('frontier3d');
+            const clone = () => JSON.parse(JSON.stringify(gd._fullLayout.scene.camera));
+            const cn = (a, b) => Math.abs(Number(a) - Number(b)) < 1e-6;
+            const cv = (a, b) => cn(a.x, b.x) && cn(a.y, b.y) && cn(a.z, b.z);
+            const cc = (a, b) => cv(a.eye, b.eye) && cv(a.center, b.center) && cv(a.up, b.up);
+            const initial = clone();
+            const rotated = {up: {x: 0, y: 0, z: 1}, center: {x: 0.05, y: -0.1, z: 0.02},
+                             eye: {x: -1.4, y: 2.0, z: 0.9}};
+            await Plotly.relayout(gd, {"scene.camera": rotated});
+            await new Promise(r => setTimeout(r, 80));
+            const before = clone();
+            window.aaSelectStandoutMetric('B');   // 切指标 → 光环 restyle
+            await new Promise(r => requestAnimationFrame(() => setTimeout(r, 140)));
+            const afterSelect = clone();
+            window.aaSelectStandoutMetric('A');
+            window.aaSetWeights(4, 1, 1);          // 拖权重 → 加权 restyle
+            await new Promise(r => requestAnimationFrame(() => setTimeout(r, 140)));
+            const afterWeights = clone();
+            return {
+                userCameraChanged: !cc(initial, before),
+                selectPreserved: cc(before, afterSelect),
+                weightsPreserved: cc(before, afterWeights),
+            };
+        }""")
+        check(standout_camera["userCameraChanged"], "测试先把 3D camera 改到非初始视角（非假通过）")
+        check(standout_camera["selectPreserved"], "切突出度指标后 camera 保持用户旋转视角")
+        check(standout_camera["weightsPreserved"], "拖权重滑杆后 camera 仍保持用户旋转视角")
+
+        # 切成本/速度口径后光环与排行同步刷新（前沿点数随之变、编码仍一致）
+        page.evaluate("() => window.aaSetMetricCombination('blended', 'raw')")
+        page.wait_for_function("() => window.aaState().activeMetricKey === 'blended__raw'")
+        page.wait_for_timeout(60)
+        st_switch = page.evaluate("() => window.aaState()")
+        check(st_switch["paretoMarkerSizeLen"] == st_switch["frontierCount"],
+              f"切口径后光环 {st_switch['paretoMarkerSizeLen']} = 新前沿数 {st_switch['frontierCount']}（同步刷新）")
+        page.evaluate("() => window.aaSetMetricCombination('effective', 'effective')")
+        page.wait_for_function("() => window.aaState().activeMetricKey === 'effective__effective'")
+
         check(not errors, f"无 JS 运行时错误（捕获 {len(errors)} 条）")
         if errors:
             for e in errors[:5]:
