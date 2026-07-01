@@ -99,6 +99,11 @@ def parse_cost_by_model_id(page_html: str) -> dict[str, float]:
             continue
         mid = mids[-1]
         cost = float(m.group(1))
+        # 非正 total_cost 是「无托管定价」的占位（与下游 <=0->NaN 清洗同义）；与
+        # parse_intel_per_m 的 val>0 对齐，此处也只收录正值——否则当次页面给出的 0
+        # 会经 dict.get(key, default) 压制回退旧值、再被清洗抹成 NaN，白丢好缓存成本。
+        if cost <= 0:
+            continue
         # 若同一 model_id 出现多条（理论上不会），取最小成本端点
         if mid not in out or cost < out[mid]:
             out[mid] = cost
@@ -133,6 +138,24 @@ def build_dataframe(refresh: bool = False) -> pd.DataFrame:
     cost_by_id = parse_cost_by_model_id(page)
     perm_by_id = parse_intel_per_m_by_model_id(page)
 
+    # AA 的 /models 页面自 2026-06-17 起退化：只对少量模型内嵌 intelligence_index_cost /
+    # per_m_output（实测成本记录一度只有 39~71，远低于 ~540）。这两项 API 不提供、只能从
+    # 该页面取。对页面缺失的模型，回退到上一次已保存的 models.csv 里同 id 的旧值（同为 AA
+    # 官方 total_cost，隔日稳定），使新模型（如 GLM-5.2）能纳入而不牺牲存量已展示模型。
+    # ponytail: 回退源用 processed/models.csv（上次产物），页面恢复到 >=300 后此分支自然停用。
+    prev_cost: dict[str, float] = {}
+    prev_perm: dict[str, float] = {}
+    prev_csv = PROCESSED / "models.csv"
+    if prev_csv.exists():
+        try:
+            p = pd.read_csv(prev_csv, usecols=["id", "cost_to_run", "intel_per_m_output"])
+            prev_cost = {i: c for i, c in zip(p["id"], p["cost_to_run"]) if pd.notna(c)}
+            prev_perm = {i: v for i, v in zip(p["id"], p["intel_per_m_output"]) if pd.notna(v)}
+        except (ValueError, OSError, pd.errors.EmptyDataError) as e:
+            # 旧 schema（缺列）/ 空文件 / 读失败：回退本身是「保命」机制，不能因缓存文件
+            # 不整齐反而崩掉整条管线——视作无回退，退回纯页面（原始行为）。
+            print(f"[warn] 读取回退源 {prev_csv.name} 失败，忽略回退：{e}")
+
     rows = []
     for m in api:
         ev = m.get("evaluations") or {}
@@ -152,8 +175,8 @@ def build_dataframe(refresh: bool = False) -> pd.DataFrame:
                 "price_blended": pr.get("price_1m_blended_3_to_1"),
                 "price_input": pr.get("price_1m_input_tokens"),
                 "price_output": pr.get("price_1m_output_tokens"),
-                "cost_to_run": cost_by_id.get(m["id"]),
-                "intel_per_m_output": perm_by_id.get(m["id"]),
+                "cost_to_run": cost_by_id.get(m["id"], prev_cost.get(m["id"])),
+                "intel_per_m_output": perm_by_id.get(m["id"], prev_perm.get(m["id"])),
             }
         )
     df = pd.DataFrame(rows)
@@ -189,12 +212,23 @@ def _add_effective_speed(df: pd.DataFrame) -> None:
 
 def _validate(df: pd.DataFrame, cost_by_id: dict[str, float]) -> None:
     assert len(df) >= 500, f"API 模型数异常: {len(df)}"
-    assert len(cost_by_id) >= 300, f"成本记录数异常: {len(cost_by_id)}"
+    # 校验「合并后」的成本覆盖（含对 models.csv 的回退），而非仅当次页面解析数——
+    # 页面退化时 cost_by_id 可能只有几十条，但回退补齐后覆盖仍应 >=300。
+    n_cost = int(df["cost_to_run"].notna().sum())
+    assert n_cost >= 300, f"成本覆盖异常(含回退): {n_cost}（当次页面解析 {len(cost_by_id)}）"
+    # 锚点校验的目的：验证「本轮页面」的 slug↔cost 配对没错位。故须对 **当次页面解析
+    # 的 cost_by_id（fresh）** 校验，而非对 df——页面退化时锚点模型的 cost 可能来自回退，
+    # 拿缓存值自证成恒等式、护栏形同虚设。锚点若不在当次解析里，则本轮无从验证配对，诚实
+    # 跳过（覆盖仍由 n_cost 兜底），不假装通过。
     for name_sub, expected in COST_ANCHORS.items():
         hit = df[df["name"] == name_sub]
         assert not hit.empty, f"锚点模型缺失: {name_sub}"
-        got = hit.iloc[0]["cost_to_run"]
-        assert got is not None and abs(got - expected) / expected < 0.02, (
+        mid = hit.iloc[0]["id"]
+        if mid not in cost_by_id:
+            print(f"[warn] 锚点 {name_sub} 不在当次页面解析中（页面退化），跳过 slug↔cost 配对校验")
+            continue
+        got = cost_by_id[mid]
+        assert abs(got - expected) / expected < 0.02, (
             f"锚点成本不符 {name_sub}: 期望≈{expected} 实得={got}（slug↔cost 配对可能错位）"
         )
 
