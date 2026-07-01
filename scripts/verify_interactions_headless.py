@@ -203,7 +203,60 @@ def main() -> int:
         c4 = page.evaluate("() => window.__llRestyle")
         check(c4 == c3, f"重复 unhover 被去重（restyle 仍={c4}）")
 
-        print("\n[4c] 坐标轴范围固定（画跨界谱系不重缩放 → 消除 Qwen 类抖动）")
+        print("\n[4c] hover 谱系重画不重置用户旋转后的 3D camera")
+        page.evaluate("() => window.aaClearHover()")
+        camera_result = page.evaluate("""async (nm) => {
+            const gd = document.getElementById('frontier3d');
+            function cloneCamera() {
+                return JSON.parse(JSON.stringify(gd._fullLayout.scene.camera));
+            }
+            function closeNumber(a, b) {
+                return Math.abs(Number(a) - Number(b)) < 1e-6;
+            }
+            function closeVector(a, b) {
+                return closeNumber(a.x, b.x) && closeNumber(a.y, b.y) && closeNumber(a.z, b.z);
+            }
+            function closeCamera(a, b) {
+                return closeVector(a.eye, b.eye) && closeVector(a.center, b.center) && closeVector(a.up, b.up);
+            }
+            const initialCamera = cloneCamera();
+            const userRotatedCamera = {
+                up: {x: 0, y: 0, z: 1},
+                center: {x: 0.08, y: -0.12, z: 0.03},
+                eye: {x: -1.35, y: 2.15, z: 0.82},
+            };
+            await Plotly.relayout(gd, {"scene.camera": userRotatedCamera});
+            await new Promise(resolve => setTimeout(resolve, 80));
+            const beforeHoverCamera = cloneCamera();
+            window.aaOnHover({points: [{customdata: [nm]}]});
+            await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 140)));
+            const afterHoverCamera = cloneCamera();
+            window.aaOnUnhover();
+            await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 140)));
+            const afterUnhoverCamera = cloneCamera();
+            return {
+                beforeHoverCamera,
+                afterHoverCamera,
+                afterUnhoverCamera,
+                userCameraChanged: !closeCamera(initialCamera, beforeHoverCamera),
+                hoverPreserved: closeCamera(beforeHoverCamera, afterHoverCamera),
+                unhoverPreserved: closeCamera(beforeHoverCamera, afterUnhoverCamera),
+            };
+        }""", pick["anyName"])
+        check(
+            camera_result["userCameraChanged"],
+            "测试先把 3D camera 改到非初始视角（不是初始视角假通过）",
+        )
+        check(
+            camera_result["hoverPreserved"],
+            "hover 后 camera 保持用户旋转视角（不回到初始 view）",
+        )
+        check(
+            camera_result["unhoverPreserved"],
+            "unhover 后 camera 仍保持用户旋转视角",
+        )
+
+        print("\n[4d] 坐标轴范围固定（画跨界谱系不重缩放 → 消除 Qwen 类抖动）")
         ar = page.evaluate("""() => {
             const s = document.getElementById('frontier3d')._fullLayout.scene;
             return {x: s.xaxis.autorange, y: s.yaxis.autorange, z: s.zaxis.autorange};
@@ -340,6 +393,37 @@ def main() -> int:
         page.wait_for_timeout(30)
         enabled_a = page.evaluate("() => document.getElementById('aa-weight-slider-intelligence').disabled")
         check(enabled_a is False, "切到加权超体积A 后权重滑杆可用")
+
+        # 突出度光环 restyle 不重置用户旋转后的 3D camera（复用 fd72e24 的视角保持契约，
+        # 覆盖切指标/拖权重滑杆这条新 Plotly.restyle 路径）
+        standout_camera = page.evaluate("""async () => {
+            const gd = document.getElementById('frontier3d');
+            const clone = () => JSON.parse(JSON.stringify(gd._fullLayout.scene.camera));
+            const cn = (a, b) => Math.abs(Number(a) - Number(b)) < 1e-6;
+            const cv = (a, b) => cn(a.x, b.x) && cn(a.y, b.y) && cn(a.z, b.z);
+            const cc = (a, b) => cv(a.eye, b.eye) && cv(a.center, b.center) && cv(a.up, b.up);
+            const initial = clone();
+            const rotated = {up: {x: 0, y: 0, z: 1}, center: {x: 0.05, y: -0.1, z: 0.02},
+                             eye: {x: -1.4, y: 2.0, z: 0.9}};
+            await Plotly.relayout(gd, {"scene.camera": rotated});
+            await new Promise(r => setTimeout(r, 80));
+            const before = clone();
+            window.aaSelectStandoutMetric('B');   // 切指标 → 光环 restyle
+            await new Promise(r => requestAnimationFrame(() => setTimeout(r, 140)));
+            const afterSelect = clone();
+            window.aaSelectStandoutMetric('A');
+            window.aaSetWeights(4, 1, 1);          // 拖权重 → 加权 restyle
+            await new Promise(r => requestAnimationFrame(() => setTimeout(r, 140)));
+            const afterWeights = clone();
+            return {
+                userCameraChanged: !cc(initial, before),
+                selectPreserved: cc(before, afterSelect),
+                weightsPreserved: cc(before, afterWeights),
+            };
+        }""")
+        check(standout_camera["userCameraChanged"], "测试先把 3D camera 改到非初始视角（非假通过）")
+        check(standout_camera["selectPreserved"], "切突出度指标后 camera 保持用户旋转视角")
+        check(standout_camera["weightsPreserved"], "拖权重滑杆后 camera 仍保持用户旋转视角")
 
         # 切成本/速度口径后光环与排行同步刷新（前沿点数随之变、编码仍一致）
         page.evaluate("() => window.aaSetMetricCombination('blended', 'raw')")
