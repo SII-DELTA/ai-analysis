@@ -613,8 +613,6 @@ _POST_SCRIPT_TEMPLATE = r"""
   var pinnedBases = {};   // 集合：base_model_name -> true
   var hoverKey = null;    // 当前 hover 模型所属 lineage_key（临时）
   var gd = null;
-  var userSceneCameraRevision = 0;
-  var restoringSceneCamera = false;
 
   function baseLineageKey(base) {
     var idxs = baseGroups[base];
@@ -650,28 +648,11 @@ _POST_SCRIPT_TEMPLATE = r"""
       return b.toLowerCase().indexOf(q) >= 0;
     }).slice(0, 40);
   }
-  function currentSceneCameraSnapshot() {
-    var scene = gd && gd._fullLayout && gd._fullLayout.scene;
-    if (!scene || !scene.camera) return null;
-    return JSON.parse(JSON.stringify(scene.camera));
-  }
-  function restoreSceneCameraSnapshot(cameraSnapshot) {
-    if (!cameraSnapshot) return Promise.resolve();
-    restoringSceneCamera = true;
-    return Plotly.relayout(gd, { "scene.camera": cameraSnapshot }).finally(function () {
-      restoringSceneCamera = false;
-    });
-  }
-  function preserveSceneCameraWhileUpdating(plotlyUpdateFunction) {
-    var cameraSnapshot = currentSceneCameraSnapshot();
-    var cameraRevisionBeforeUpdate = userSceneCameraRevision;
-    return Promise.resolve(plotlyUpdateFunction()).then(function () {
-      // 若用户在 Plotly update 尚未完成时已经拖拽/缩放了 3D 视角，旧快照已过期。
-      // 此时恢复旧 camera 会把用户刚刚操作出的视角覆盖掉。
-      if (userSceneCameraRevision !== cameraRevisionBeforeUpdate) return Promise.resolve();
-      return restoreSceneCameraSnapshot(cameraSnapshot);
-    });
-  }
+  // 3D 视角保持：完全交给 layout/scene 的 uirevision（见 build_figure）。restyle / relayout
+  // (scene.annotations) / Plotly.react 在 uirevision 不变时都会保住用户拖拽出的 camera，
+  // 已在 headless [4c]/[7] 与 exp_uirevision 实测证实。此前的「快照 camera → 异步更新完再
+  // Plotly.relayout 回填」是多余的第二道保险：一旦快照在用户拖拽前/页面加载时被捕获成默认
+  // 视角，延迟回填就把视角强行拉回默认——正是「hover 后 1-2 秒视角回默认」的根因，故删除。
 
   // —— 重画：pin 高亮光环 + 常显注释 + 侧栏 + 谱系线 ——
   function rerenderPinned() {
@@ -689,10 +670,8 @@ _POST_SCRIPT_TEMPLATE = r"""
         bgcolor: "rgba(255,255,255,0.9)", bordercolor: "#888", borderwidth: 1, borderpad: 3
       };
     });
-    preserveSceneCameraWhileUpdating(function () {
-      return Plotly.restyle(gd, { x: [xs], y: [ys], z: [zs] }, [HL]).then(function () {
-        return Plotly.relayout(gd, { "scene.annotations": anns });
-      });
+    Plotly.restyle(gd, { x: [xs], y: [ys], z: [zs] }, [HL]).then(function () {
+      return Plotly.relayout(gd, { "scene.annotations": anns });
     });
     renderSidePanel();
     redrawLineage();
@@ -709,9 +688,7 @@ _POST_SCRIPT_TEMPLATE = r"""
       nodes.forEach(function (n) { xs.push(n.x); ys.push(n.y); zs.push(n.z); txt.push(n.label); });
       xs.push(null); ys.push(null); zs.push(null); txt.push("");   // 断开多条谱系
     });
-    preserveSceneCameraWhileUpdating(function () {
-      return Plotly.restyle(gd, { x: [xs], y: [ys], z: [zs], text: [txt] }, [LL]);
-    });
+    Plotly.restyle(gd, { x: [xs], y: [ys], z: [zs], text: [txt] }, [LL]);
   }
 
   function togglePin(base) {
@@ -839,11 +816,9 @@ _POST_SCRIPT_TEMPLATE = r"""
       if (!isFinite(v)) return 8;
       return (hi > lo) ? (9 + 19 * (v - lo) / (hi - lo)) : 15;
     });
-    // 与 rerenderPinned/redrawLineage 一致：包进 camera 保护，避免切指标/拖权重滑杆
-    // 触发的 restyle 把用户当前 3D 视角重置（沿用 fd72e24 的 hover 视角保持修复）
-    preserveSceneCameraWhileUpdating(function () {
-      return Plotly.restyle(gd, { "marker.size": [sizes] }, [DATA.pareto_emphasis_trace_index]);
-    });
+    // 与 rerenderPinned/redrawLineage 一致：直接 restyle 即可，uirevision 已保住 3D 视角
+    // （不要再手动快照+回填 camera——stale 快照的延迟回填正是视角回默认的根因）
+    Plotly.restyle(gd, { "marker.size": [sizes] }, [DATA.pareto_emphasis_trace_index]);
     renderStandoutRankingPanel(frontier, vals);
   }
 
@@ -1193,12 +1168,6 @@ _POST_SCRIPT_TEMPLATE = r"""
 
   ready(function () {
     buildDom();
-    gd.on("plotly_relayout", function (ev) {
-      if (restoringSceneCamera || !ev) return;
-      if (Object.keys(ev).some(function (k) { return k === "scene.camera" || k.indexOf("scene.camera.") === 0; })) {
-        userSceneCameraRevision += 1;
-      }
-    });
     gd.on("plotly_hover", onHover);
     gd.on("plotly_unhover", onUnhover);
     applyStandoutVisualEncoding();   // 初始按默认指标(趋势残差)编码光环 + 排行榜
