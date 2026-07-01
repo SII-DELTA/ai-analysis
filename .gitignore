@@ -4,6 +4,12 @@
 # 原始大缓存（API JSON / 9.6MB 网页）
 data/raw/
 
+# 生成数据快照：由 `python -m src.cli` 重新生成
+data/processed/
+
+# 生成输出产物：交互 HTML / 静态导出图等
+output/
+
 # Python
 __pycache__/
 *.pyc

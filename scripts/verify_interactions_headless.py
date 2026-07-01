@@ -31,7 +31,9 @@ def main() -> int:
         page.goto(HTML.as_uri())
         # 等注入与图就绪
         page.wait_for_function("() => window.aaState && window.LINEAGE_DATA && "
-                               "document.getElementById('aa-search-input')", timeout=30000)
+                               "document.getElementById('aa-search-input') && "
+                               "document.getElementById('aa-cost-metric-select') && "
+                               "document.getElementById('aa-speed-metric-select')", timeout=30000)
 
         print("\n[1] 注入与基础结构")
         data = page.evaluate("() => ({models: LINEAGE_DATA.models.length, "
@@ -42,6 +44,40 @@ def main() -> int:
         check(page.evaluate("() => !!document.getElementById('frontier3d')"), "#frontier3d 存在")
         check(page.evaluate("() => !!document.getElementById('aa-search-input')"), "搜索框存在")
         check(page.evaluate("() => !!document.getElementById('aa-pinned-panel')"), "侧栏容器存在")
+        check(page.evaluate("() => !!document.getElementById('aa-metric-controls')"), "指标切换控件存在")
+
+        print("\n[1b] 默认指标 + 四种组合")
+        default_metric_state = page.evaluate("() => window.aaState()")
+        check(default_metric_state["activeMetricKey"] == "effective__effective",
+              "默认组合 = 有效运行成本 × 有效速度")
+        check(default_metric_state["costAxisField"] == "cost_to_run", "默认成本轴 = cost_to_run")
+        check(default_metric_state["speedAxisField"] == "eff_speed", "默认速度轴 = eff_speed")
+        for cost_metric_name, speed_metric_name, expected_cost_field, expected_speed_field in [
+            ("effective", "effective", "cost_to_run", "eff_speed"),
+            ("effective", "raw", "cost_to_run", "output_speed"),
+            ("blended", "effective", "blended_price_cache_input_output_7_to_2_to_1", "eff_speed"),
+            ("blended", "raw", "blended_price_cache_input_output_7_to_2_to_1", "output_speed"),
+        ]:
+            metric_state = page.evaluate(
+                """async ([costMetricName, speedMetricName]) => {
+                    await window.aaSetMetricCombination(costMetricName, speedMetricName);
+                    const state = window.aaState();
+                    const scene = document.getElementById('frontier3d')._fullLayout.scene;
+                    return {...state, xTitle: scene.xaxis.title.text, yTitle: scene.yaxis.title.text,
+                            modelCount: window.LINEAGE_DATA.models.length};
+                }""",
+                [cost_metric_name, speed_metric_name],
+            )
+            expected_key = f"{cost_metric_name}__{speed_metric_name}"
+            check(metric_state["activeMetricKey"] == expected_key,
+                  f"{expected_key} 可切换")
+            check(metric_state["costAxisField"] == expected_cost_field
+                  and metric_state["speedAxisField"] == expected_speed_field,
+                  f"{expected_key} 使用正确字段")
+            check(metric_state["modelCount"] > 0, f"{expected_key} 有可见模型")
+
+        page.evaluate("() => window.aaSetMetricCombination('effective', 'effective')")
+        page.wait_for_function("() => window.aaState().activeMetricKey === 'effective__effective'")
 
         # 选一个「有谱系（>=2 代）」的 kept 基模型，优先 pro
         pick = page.evaluate("""() => {

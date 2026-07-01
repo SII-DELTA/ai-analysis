@@ -12,12 +12,15 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
-DIMS = ["intelligence", "cost_to_run", "output_speed"]  # 默认三维（速度=原始 tok/s）
+DIMS = ["intelligence", "cost_to_run", "eff_speed"]
 
 
-def dims_for(speed_col: str = "output_speed") -> list[str]:
-    """按所选速度口径返回三维列名。speed_col 可为 "output_speed"(原始) 或 "eff_speed"(有效)。"""
-    return ["intelligence", "cost_to_run", speed_col]
+def dims_for(
+    cost_metric_column_name: str = "cost_to_run",
+    speed_metric_column_name: str = "eff_speed",
+) -> list[str]:
+    """按所选成本与速度口径返回三维列名。"""
+    return ["intelligence", cost_metric_column_name, speed_metric_column_name]
 
 
 # ----------------------------------------------------------------------------- Pareto 分层
@@ -46,10 +49,14 @@ def _layers_for_points(intel: np.ndarray, cost: np.ndarray, speed: np.ndarray) -
     return layer
 
 
-def add_pareto_layers(df: pd.DataFrame, speed_col: str = "output_speed") -> pd.DataFrame:
+def add_pareto_layers(
+    df: pd.DataFrame,
+    cost_metric_column_name: str = "cost_to_run",
+    speed_metric_column_name: str = "eff_speed",
+) -> pd.DataFrame:
     """给三维齐全的行加 `layer` 与 `is_pareto`；缺维度的行 layer=NaN、is_pareto=False。"""
     df = df.copy()
-    dims = dims_for(speed_col)
+    dims = dims_for(cost_metric_column_name, speed_metric_column_name)
     df["layer"] = np.nan
     df["is_pareto"] = False
     full = df.dropna(subset=dims)
@@ -57,8 +64,8 @@ def add_pareto_layers(df: pd.DataFrame, speed_col: str = "output_speed") -> pd.D
         return df
     layers = _layers_for_points(
         full["intelligence"].to_numpy(float),
-        full["cost_to_run"].to_numpy(float),
-        full[speed_col].to_numpy(float),
+        full[cost_metric_column_name].to_numpy(float),
+        full[speed_metric_column_name].to_numpy(float),
     )
     df.loc[full.index, "layer"] = layers
     df.loc[full.index, "is_pareto"] = layers == 1
@@ -72,17 +79,22 @@ def apply_pruning(
     max_layers: int = 3,
     hard_age_cutoff_months: int = 36,
     today: datetime | None = None,
-    speed_col: str = "output_speed",
+    cost_metric_column_name: str = "cost_to_run",
+    speed_metric_column_name: str = "eff_speed",
 ) -> pd.DataFrame:
     """标注 `kept`：保留 = Pareto最优点 ∪ (近 since_months 月 ∧ 前 max_layers 层)，
     再剔除早于 hard_age_cutoff_months 的"远古"模型（即便 Pareto 最优）。
     缺三维者一律不保留。"""
-    df = add_pareto_layers(df, speed_col=speed_col)
+    df = add_pareto_layers(
+        df,
+        cost_metric_column_name=cost_metric_column_name,
+        speed_metric_column_name=speed_metric_column_name,
+    )
     today = pd.Timestamp(today or datetime.now())
     soft_cut = today - pd.DateOffset(months=since_months)
     hard_cut = today - pd.DateOffset(months=hard_age_cutoff_months)
 
-    has_all = df[dims_for(speed_col)].notna().all(axis=1)
+    has_all = df[dims_for(cost_metric_column_name, speed_metric_column_name)].notna().all(axis=1)
     rdate = df["release_date"]
     recent = rdate >= soft_cut
     near = df["layer"] <= max_layers
@@ -103,16 +115,23 @@ def apply_pruning(
 
 
 # ----------------------------------------------------------------------------- 可达前沿曲面（可选副视图）
-def achievable_frontier_grid(df: pd.DataFrame, nx: int = 40, ny: int = 40,
-                             speed_col: str = "output_speed"):
+def achievable_frontier_grid(
+    df: pd.DataFrame,
+    nx: int = 40,
+    ny: int = 40,
+    cost_metric_column_name: str = "cost_to_run",
+    speed_metric_column_name: str = "eff_speed",
+):
     """F(成本预算 c, 速度下限 s) = max{intel | cost≤c 且 speed≥s}。
 
     返回 (Cgrid_log, Sgrid, Z)，C 轴取 log10(成本)。无可行点处 Z=NaN。
     用三维齐全的模型构建（不限于保留集，以反映真实可达上界）。
     """
-    full = df.dropna(subset=dims_for(speed_col))
-    cost = full["cost_to_run"].to_numpy(float)
-    speed = full[speed_col].to_numpy(float)
+    full = df.dropna(
+        subset=dims_for(cost_metric_column_name, speed_metric_column_name)
+    )
+    cost = full[cost_metric_column_name].to_numpy(float)
+    speed = full[speed_metric_column_name].to_numpy(float)
     intel = full["intelligence"].to_numpy(float)
 
     cx = np.linspace(np.log10(cost.min()), np.log10(cost.max()), nx)

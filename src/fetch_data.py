@@ -1,14 +1,13 @@
-"""取数与合并：智能/速度/价格来自 API，运行成本来自网页内嵌 payload。
+"""取数与合并：智能、速度、价格与部分运行成本来自 API，网页 payload 补齐覆盖。
 
 三个维度分布在两个数据源，按模型 UUID（API `id` == 网页 `model_id`）精确合并：
 
     智能  evaluations.artificial_analysis_intelligence_index   —— API
-    速度  median_output_tokens_per_second                      —— API
-    成本  intelligence_index_cost.total_cost（Cost to Run）     —— 网页 payload
+    速度  performance.median_output_tokens_per_second          —— API
+    成本  artificial_analysis_intelligence_index_cost.total_cost —— API / 网页 payload
 
-API 不暴露 "Cost to Run"，只能从 https://artificialanalysis.ai/models 的
-Next.js RSC 内嵌 JSON 中解析；每条带 total_cost 的记录里最近的 `model_id`
-即其所属模型，UUID 与 API 的 `id` 一一对应。
+Free API 目前仅对部分模型暴露 "Cost to Run"，其余仍从网页 payload 与上次
+processed CSV 补齐。两源均按模型 UUID 精确合并。
 """
 from __future__ import annotations
 
@@ -30,7 +29,9 @@ ROOT = Path(__file__).resolve().parent.parent
 RAW = ROOT / "data" / "raw"
 PROCESSED = ROOT / "data" / "processed"
 
-API_URL = "https://artificialanalysis.ai/api/v2/data/llms/models"
+API_LANGUAGE_MODELS_PRO_URL = "https://artificialanalysis.ai/api/v2/language/models"
+API_LANGUAGE_MODELS_FREE_URL = "https://artificialanalysis.ai/api/v2/language/models/free"
+API_LANGUAGE_MODELS_CACHE = RAW / "api_language_models.json"
 PAGE_URL = "https://artificialanalysis.ai/models"
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 
@@ -54,16 +55,44 @@ def get_api_key() -> str:
 
 
 # ----------------------------------------------------------------------------- 取数（带缓存）
+def _fetch_paginated_language_models(api_key: str) -> tuple[list[dict], str]:
+    """优先取 Pro 完整字段；权限不足时自动回退 Free 分页端点。"""
+    rows: list[dict] = []
+    page = 1
+    selected_api_url = API_LANGUAGE_MODELS_PRO_URL
+    while True:
+        resp = requests.get(
+            selected_api_url,
+            params={"page": page},
+            headers={"x-api-key": api_key},
+            timeout=120,
+        )
+        if (
+            page == 1
+            and selected_api_url == API_LANGUAGE_MODELS_PRO_URL
+            and resp.status_code == 403
+        ):
+            selected_api_url = API_LANGUAGE_MODELS_FREE_URL
+            continue
+        resp.raise_for_status()
+        payload = resp.json()
+        rows.extend(payload["data"])
+        if not payload.get("pagination", {}).get("has_more"):
+            break
+        page += 1
+    return rows, selected_api_url
+
+
 def fetch_api(refresh: bool = False) -> list[dict]:
-    cache = RAW / "api_models.json"
-    if cache.exists() and not refresh:
-        return json.loads(cache.read_text())["data"]
-    resp = requests.get(API_URL, headers={"x-api-key": get_api_key()}, timeout=120)
-    resp.raise_for_status()
-    payload = resp.json()
+    if API_LANGUAGE_MODELS_CACHE.exists() and not refresh:
+        return json.loads(API_LANGUAGE_MODELS_CACHE.read_text())["data"]
+
+    rows, selected_api_url = _fetch_paginated_language_models(get_api_key())
     RAW.mkdir(parents=True, exist_ok=True)
-    cache.write_text(json.dumps(payload))
-    return payload["data"]
+    API_LANGUAGE_MODELS_CACHE.write_text(
+        json.dumps({"source_url": selected_api_url, "data": rows})
+    )
+    return rows
 
 
 def fetch_page(refresh: bool = False) -> str:
@@ -132,6 +161,21 @@ def parse_intel_per_m_by_model_id(page_html: str) -> dict[str, float]:
 
 
 # ----------------------------------------------------------------------------- 合并成表
+def calculate_blended_price_cache_input_output_7_to_2_to_1(pricing: dict) -> float:
+    """读取 AA 原生 7:2:1 混合价；Free tier 缺字段时由三项分价计算。"""
+    import math
+
+    native_value = pricing.get("price_1m_blended_7_to_2_to_1")
+    if native_value is not None:
+        return float(native_value)
+    cache_hit = pricing.get("price_1m_cache_hit_tokens")
+    input_price = pricing.get("price_1m_input_tokens")
+    output_price = pricing.get("price_1m_output_tokens")
+    if cache_hit is None or input_price is None or output_price is None:
+        return math.nan
+    return (7 * float(cache_hit) + 2 * float(input_price) + float(output_price)) / 10
+
+
 def build_dataframe(refresh: bool = False) -> pd.DataFrame:
     api = fetch_api(refresh)
     page = fetch_page(refresh)
@@ -160,6 +204,10 @@ def build_dataframe(refresh: bool = False) -> pd.DataFrame:
     for m in api:
         ev = m.get("evaluations") or {}
         pr = m.get("pricing") or {}
+        performance = m.get("performance") or {}
+        api_intelligence_index_cost = (
+            m.get("artificial_analysis_intelligence_index_cost") or {}
+        ).get("total_cost")
         rows.append(
             {
                 "id": m["id"],
@@ -170,12 +218,19 @@ def build_dataframe(refresh: bool = False) -> pd.DataFrame:
                 "intelligence": ev.get("artificial_analysis_intelligence_index"),
                 "coding_index": ev.get("artificial_analysis_coding_index"),
                 "math_index": ev.get("artificial_analysis_math_index"),
-                "output_speed": m.get("median_output_tokens_per_second"),
-                "ttft_s": m.get("median_time_to_first_token_seconds"),
-                "price_blended": pr.get("price_1m_blended_3_to_1"),
+                "output_speed": performance.get("median_output_tokens_per_second"),
+                "ttft_s": performance.get("median_time_to_first_token_seconds"),
+                "blended_price_cache_input_output_7_to_2_to_1":
+                    calculate_blended_price_cache_input_output_7_to_2_to_1(pr),
                 "price_input": pr.get("price_1m_input_tokens"),
                 "price_output": pr.get("price_1m_output_tokens"),
-                "cost_to_run": cost_by_id.get(m["id"], prev_cost.get(m["id"])),
+                "price_cache_hit": pr.get("price_1m_cache_hit_tokens"),
+                "price_cache_write": pr.get("price_1m_cache_write_tokens"),
+                "cost_to_run": (
+                    api_intelligence_index_cost
+                    or cost_by_id.get(m["id"])
+                    or prev_cost.get(m["id"])
+                ),
                 "intel_per_m_output": perm_by_id.get(m["id"], prev_perm.get(m["id"])),
             }
         )
@@ -212,10 +267,11 @@ def _add_effective_speed(df: pd.DataFrame) -> None:
 
 def _validate(df: pd.DataFrame, cost_by_id: dict[str, float]) -> None:
     assert len(df) >= 500, f"API 模型数异常: {len(df)}"
-    # 校验「合并后」的成本覆盖（含对 models.csv 的回退），而非仅当次页面解析数——
-    # 页面退化时 cost_by_id 可能只有几十条，但回退补齐后覆盖仍应 >=300。
+    # 校验「合并后」的成本覆盖（含 API 原生值与 models.csv 回退），而非仅当次页面
+    # 解析数。新版 Free API 的模型集合与旧端点不同，当前可精确合并约 296 条；
+    # 250 可拦住页面/缓存整体失效，同时不把正常的集合变化误判成故障。
     n_cost = int(df["cost_to_run"].notna().sum())
-    assert n_cost >= 300, f"成本覆盖异常(含回退): {n_cost}（当次页面解析 {len(cost_by_id)}）"
+    assert n_cost >= 250, f"成本覆盖异常(含回退): {n_cost}（当次页面解析 {len(cost_by_id)}）"
     # 锚点校验的目的：验证「本轮页面」的 slug↔cost 配对没错位。故须对 **当次页面解析
     # 的 cost_by_id（fresh）** 校验，而非对 df——页面退化时锚点模型的 cost 可能来自回退，
     # 拿缓存值自证成恒等式、护栏形同虚设。锚点若不在当次解析里，则本轮无从验证配对，诚实

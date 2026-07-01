@@ -1,4 +1,4 @@
-"""Plotly 三维可视化：智能 × 速度 × 有效运行成本 + Pareto 前沿流形。
+"""Plotly 三维可视化：智能 × 可切换速度 × 可切换成本 + Pareto 前沿流形。
 
 - Scatter3d：保留的模型，按厂商着色；Pareto 最优点用黑色空心圈叠加强调。
 - 前沿流形：Pareto 最优点在 (log成本, 速度) 平面做 Delaunay 三角化、抬升 z=智能，
@@ -6,10 +6,8 @@
   节点悬浮）；可切半透明实心 Mesh3d（观感更好，但触发 Plotly 痼疾——盖住其下方节点 hover）。
 - 可选 Surface：可达前沿 F(成本预算,速度下限)=max 智能（阶梯面，按钮/图例可开）。
 
-坐标：x=有效运行成本(对数轴, USD)、y=输出速度(tokens/s, 可对数)、z=智能指数。
-  x 轴=「跑完整套 Intelligence Index 的实测花费」——已按各模型实际消耗 token 量（含冗长输出与
-  思维链 reasoning token）加权，本质是「有效成本」而非每百万 token 牌价；底层单价取自 API 公开
-  牌价（不含编程/订阅套餐折扣，原因见 README「成本口径」一节）。
+坐标：x=有效运行成本或 7:2:1 混合单价（对数）、y=有效速度或原始速度（可对数）、
+z=智能指数。每种组合分别计算 Pareto、剪枝、前沿与轴范围。
 """
 from __future__ import annotations
 
@@ -21,6 +19,7 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.colors import qualitative
+from plotly.utils import PlotlyJSONEncoder
 from scipy.spatial import Delaunay
 
 from .frontier import achievable_frontier_grid
@@ -93,7 +92,14 @@ def _resolve_lineage(name: str) -> tuple[str, str]:
     return base, _classify_tier(base)
 
 
-def _build_lineage_payload(df_full: pd.DataFrame, speed_col: str) -> dict:
+def _build_lineage_payload(
+    df_full: pd.DataFrame,
+    cost_metric_column_name: str,
+    cost_metric_label: str,
+    cost_metric_unit: str,
+    speed_metric_column_name: str,
+    speed_metric_label: str,
+) -> dict:
     """构造注入前端 JS 的数据。
 
     - models[]（仅 kept，可见节点）：每模型 {name, base_model_name, creator, tier,
@@ -119,8 +125,8 @@ def _build_lineage_payload(df_full: pd.DataFrame, speed_col: str) -> dict:
             "creator": creator,
             "tier": tier,
             "lineage_key": f"{creator}||{tier}",
-            "x": float(r["cost_to_run"]),
-            "y": float(r[speed_col]),
+            "x": float(r[cost_metric_column_name]),
+            "y": float(r[speed_metric_column_name]),
             "z": float(r["intelligence"]),
             "panel": {
                 "release_date": rd.strftime("%Y-%m-%d") if pd.notna(rd) else "?",
@@ -128,7 +134,9 @@ def _build_lineage_payload(df_full: pd.DataFrame, speed_col: str) -> dict:
                 "output_speed": float(r["output_speed"]),
                 "eff_speed": float(r["eff_speed"]),
                 "cost_to_run": float(r["cost_to_run"]),
-                "price_blended": float(r["price_blended"]),
+                "blended_price_cache_input_output_7_to_2_to_1": float(
+                    r["blended_price_cache_input_output_7_to_2_to_1"]
+                ),
                 "layer": float(r["layer"]),
             },
         })
@@ -139,7 +147,7 @@ def _build_lineage_payload(df_full: pd.DataFrame, speed_col: str) -> dict:
 
     # —— lineages：全量三维齐全行（含被剪枝的历代前身）——
     kept_names = set(kept["name"].astype(str))
-    dims = ["cost_to_run", speed_col, "intelligence"]
+    dims = [cost_metric_column_name, speed_metric_column_name, "intelligence"]
     complete = df_full[df_full[dims].notna().all(axis=1)].copy()
     # 每个 creator||tier 内按基模型分代，每代取最高智能点为代表
     per_key_generations: dict[str, dict[str, dict]] = {}
@@ -158,8 +166,8 @@ def _build_lineage_payload(df_full: pd.DataFrame, speed_col: str) -> dict:
                 "base_model_name": base,
                 "label": base,
                 "release_date": rd.strftime("%Y-%m-%d") if pd.notna(rd) else "?",
-                "x": float(r["cost_to_run"]),
-                "y": float(r[speed_col]),
+                "x": float(r[cost_metric_column_name]),
+                "y": float(r[speed_metric_column_name]),
                 "z": z,
                 "intelligence": z,
                 "kept": name in kept_names,
@@ -177,20 +185,24 @@ def _build_lineage_payload(df_full: pd.DataFrame, speed_col: str) -> dict:
         if len(nodes) >= 2:
             lineages[key] = nodes
 
-    # 速度轴口径：让前端常显面板（注释 + 侧栏）的速度文案跟随当前 speed_col，
-    # 避免默认 raw 图（output_speed 轴）下面板却报告 eff_speed 的口径错位。
-    # panel 同时含 output_speed 与 eff_speed，故 JS 用 m.panel[speed_axis_field] 取值。
-    speed_axis_label = "有效速度" if speed_col == "eff_speed" else "原始速度"
     return {
         "models": models,
         "base_groups": base_groups,
         "lineages": lineages,
-        "speed_axis_field": speed_col,
-        "speed_axis_label": speed_axis_label,
+        "cost_axis_field": cost_metric_column_name,
+        "cost_axis_label": cost_metric_label,
+        "cost_axis_unit": cost_metric_unit,
+        "speed_axis_field": speed_metric_column_name,
+        "speed_axis_label": speed_metric_label,
     }
 
-def _fixed_axis_ranges(kept: pd.DataFrame, payload: dict, speed_col: str,
-                       speed_log: bool) -> tuple[list, list, list]:
+def _fixed_axis_ranges(
+    kept: pd.DataFrame,
+    payload: dict,
+    cost_metric_column_name: str,
+    speed_metric_column_name: str,
+    speed_log: bool,
+) -> tuple[list, list, list]:
     """计算固定坐标轴范围 (x_cost, y_speed, z_intelligence)。
 
     范围 = (kept 散点 ∪ payload 全部谱系节点) 的并集 + 留白。谱系节点取自全量三维齐全
@@ -198,8 +210,8 @@ def _fixed_axis_ranges(kept: pd.DataFrame, payload: dict, speed_col: str,
     使 hover 画谱系时坐标轴不再 autorange 扩张 → 消除「谱系扩范围→点位移→hover/unhover
     抖动」。对数轴的 range 须以 log10 为单位。
     """
-    costs = [float(v) for v in kept["cost_to_run"] if pd.notna(v)]
-    speeds = [float(v) for v in kept[speed_col] if pd.notna(v)]
+    costs = [float(v) for v in kept[cost_metric_column_name] if pd.notna(v)]
+    speeds = [float(v) for v in kept[speed_metric_column_name] if pd.notna(v)]
     intels = [float(v) for v in kept["intelligence"] if pd.notna(v)]
     for nodes in payload["lineages"].values():
         for n in nodes:
@@ -229,7 +241,7 @@ HOVER_TMPL = (
     "原始速度: %{customdata[4]:.0f} tok/s · 冗长度: %{customdata[8]:.1f}M 输出tok<br>"
     "有效速度: %{customdata[9]:.0f} tok/s（按中位冗长归一）<br>"
     "有效运行成本(跑完评测实花): $%{customdata[5]:.2f}<br>"
-    "混合价: $%{customdata[6]:.2f}/M · Pareto层: %{customdata[7]:.0f}"
+    "7:2:1 混合单价: $%{customdata[6]:.2f}/M · Pareto层: %{customdata[7]:.0f}"
     "<extra></extra>"
 )
 
@@ -248,7 +260,7 @@ def _customdata(df: pd.DataFrame) -> np.ndarray:
         df["intelligence"].astype(float).tolist(),
         df["output_speed"].astype(float).tolist(),
         df["cost_to_run"].astype(float).tolist(),
-        df["price_blended"].astype(float).tolist(),
+        df["blended_price_cache_input_output_7_to_2_to_1"].astype(float).tolist(),
         df["layer"].astype(float).tolist(),
         df["output_mtokens"].astype(float).tolist(),
         df["eff_speed"].astype(float).tolist(),
@@ -256,11 +268,16 @@ def _customdata(df: pd.DataFrame) -> np.ndarray:
     return np.array(cols, dtype=object).T
 
 
-def _frontier_mesh(pareto: pd.DataFrame, speed_log: bool, speed_col: str = "output_speed"):
+def _frontier_mesh(
+    pareto: pd.DataFrame,
+    speed_log: bool,
+    cost_metric_column_name: str,
+    speed_metric_column_name: str,
+):
     if len(pareto) < 4:
         return None
-    cost = pareto["cost_to_run"].to_numpy(float)
-    speed = pareto[speed_col].to_numpy(float)
+    cost = pareto[cost_metric_column_name].to_numpy(float)
+    speed = pareto[speed_metric_column_name].to_numpy(float)
     intel = pareto["intelligence"].to_numpy(float)
     # 2D 投影做三角剖分（与可视轴一致：x=log成本, y=log/线性速度），各轴归一化避免畸形三角
     px = np.log10(cost)
@@ -284,7 +301,12 @@ def _frontier_mesh(pareto: pd.DataFrame, speed_log: bool, speed_col: str = "outp
     )
 
 
-def _frontier_wireframe(pareto: pd.DataFrame, speed_log: bool, speed_col: str = "output_speed"):
+def _frontier_wireframe(
+    pareto: pd.DataFrame,
+    speed_log: bool,
+    cost_metric_column_name: str,
+    speed_metric_column_name: str,
+):
     """与 _frontier_mesh 同样的 Delaunay 三角化，但只画三角形的边（Scatter3d 线）。
 
     线只占极细像素，几乎不参与 3D 拾取缓冲 —— 故其下方/后方的散点仍可正常悬浮，
@@ -292,8 +314,8 @@ def _frontier_wireframe(pareto: pd.DataFrame, speed_log: bool, speed_col: str = 
     """
     if len(pareto) < 4:
         return None
-    cost = pareto["cost_to_run"].to_numpy(float)
-    speed = pareto[speed_col].to_numpy(float)
+    cost = pareto[cost_metric_column_name].to_numpy(float)
+    speed = pareto[speed_metric_column_name].to_numpy(float)
     intel = pareto["intelligence"].to_numpy(float)
     px = np.log10(cost)
     py = np.log10(speed) if speed_log else speed
@@ -322,8 +344,16 @@ def _frontier_wireframe(pareto: pd.DataFrame, speed_log: bool, speed_col: str = 
     )
 
 
-def _achievable_surface(df: pd.DataFrame, speed_col: str = "output_speed") -> go.Surface:
-    Cg_log, Sg, Z = achievable_frontier_grid(df, speed_col=speed_col)
+def _achievable_surface(
+    df: pd.DataFrame,
+    cost_metric_column_name: str,
+    speed_metric_column_name: str,
+) -> go.Surface:
+    Cg_log, Sg, Z = achievable_frontier_grid(
+        df,
+        cost_metric_column_name=cost_metric_column_name,
+        speed_metric_column_name=speed_metric_column_name,
+    )
     return go.Surface(
         x=10 ** Cg_log, y=Sg, z=Z,
         colorscale="Blues", opacity=0.30, showscale=False,
@@ -336,8 +366,11 @@ def build_figure(
     df: pd.DataFrame,
     speed_scale: str = "log",
     data_date: str | None = None,
-    speed_col: str = "output_speed",
-    speed_label: str = "输出速度",
+    cost_metric_column_name: str = "cost_to_run",
+    cost_metric_label: str = "有效运行成本",
+    cost_metric_unit: str = "USD",
+    speed_metric_column_name: str = "eff_speed",
+    speed_metric_label: str = "有效速度",
 ) -> tuple[go.Figure, dict]:
     kept = df[df["kept"]].copy()
     if kept.empty:
@@ -352,7 +385,9 @@ def build_figure(
     for creator, g in kept.groupby("creator", dropna=False):
         is_p = g["is_pareto"].to_numpy(bool)
         fig.add_trace(go.Scatter3d(
-            x=g["cost_to_run"], y=g[speed_col], z=g["intelligence"],
+            x=g[cost_metric_column_name],
+            y=g[speed_metric_column_name],
+            z=g["intelligence"],
             mode="markers",
             name=str(creator),
             legendgroup="creators", legendgrouptitle_text="厂商",
@@ -368,7 +403,9 @@ def build_figure(
     # 2) Pareto 强调：黑色空心圈叠加
     pareto = kept[kept["is_pareto"]]
     fig.add_trace(go.Scatter3d(
-        x=pareto["cost_to_run"], y=pareto[speed_col], z=pareto["intelligence"],
+        x=pareto[cost_metric_column_name],
+        y=pareto[speed_metric_column_name],
+        z=pareto["intelligence"],
         mode="markers", name=f"Pareto 最优 ({len(pareto)})",
         marker=dict(size=12, symbol="circle-open", color="black",
                     line=dict(color="black", width=2)),
@@ -376,8 +413,12 @@ def build_figure(
     ))
 
     # 3) 前沿流形：线框（默认显、不挡悬浮）+ 实心面（可切换）+ 可达前沿曲面（可切换）
-    wire = _frontier_wireframe(pareto, speed_log, speed_col)
-    mesh = _frontier_mesh(pareto, speed_log, speed_col)
+    wire = _frontier_wireframe(
+        pareto, speed_log, cost_metric_column_name, speed_metric_column_name
+    )
+    mesh = _frontier_mesh(
+        pareto, speed_log, cost_metric_column_name, speed_metric_column_name
+    )
     has_frontier = wire is not None and mesh is not None
     fa = fb = None
     if has_frontier:
@@ -386,7 +427,9 @@ def build_figure(
         mesh.update(visible="legendonly")         # 实心面，默认隐（图例可点）
         fig.add_trace(mesh)
         fb = len(fig.data) - 1
-    surf = _achievable_surface(df, speed_col)     # 自带 visible="legendonly"
+    surf = _achievable_surface(
+        df, cost_metric_column_name, speed_metric_column_name
+    )
     fig.add_trace(surf)
     fc = len(fig.data) - 1
 
@@ -436,7 +479,14 @@ def build_figure(
         ],
     ))
 
-    payload = _build_lineage_payload(df, speed_col)
+    payload = _build_lineage_payload(
+        df,
+        cost_metric_column_name,
+        cost_metric_label,
+        cost_metric_unit,
+        speed_metric_column_name,
+        speed_metric_label,
+    )
     payload["pinned_highlight_trace_index"] = idx_pinned_highlight
     payload["lineage_line_trace_index"] = idx_lineage_line
     # scene.annotations 的坐标须用「轴坐标」而非原始值：对数轴下注释的 x/y 必须传
@@ -444,7 +494,7 @@ def build_figure(
     # Plotly 会按 log10 解读 → 把注释放到 10^256，撑爆自动量程、把所有节点/流形挤到角落。
     # （散点 trace 传原始值由 Plotly 内部取 log，不受影响；故仅注释需此换算。）
     # 下列两个布尔标志告诉注入的 JS：哪些轴是对数轴、需对注释坐标做 log10。
-    payload["cost_axis_is_log"] = True          # x 轴（有效运行成本）恒为对数轴
+    payload["cost_axis_is_log"] = True          # 两种成本口径均使用对数轴
     payload["speed_axis_is_log"] = speed_log    # y 轴（速度）随 --speed-scale 决定
 
     # 固定坐标轴范围 = (kept 散点 ∪ 全部谱系节点) 并集 + 留白，并关闭 autorange。
@@ -452,26 +502,37 @@ def build_figure(
     # 散点范围之外。若用 autorange，则 hover 画出谱系 → 范围扩张 → 所有点位移 → hover
     # 点移出光标 → unhover → 范围回缩 → …… 抖动（尤以谱系跨度大的 Qwen 等明显）。
     # 把范围预先固定到「所有可能绘制的几何」之并集后，画/撤谱系不再改变范围，消除抖动。
-    x_range, y_range, z_range = _fixed_axis_ranges(kept, payload, speed_col, speed_log)
+    x_range, y_range, z_range = _fixed_axis_ranges(
+        kept,
+        payload,
+        cost_metric_column_name,
+        speed_metric_column_name,
+        speed_log,
+    )
 
     subtitle =(f"数据：Artificial Analysis · 拉取于 {data_date}"
                 if data_date else "数据：Artificial Analysis")
-    is_eff = speed_col == "eff_speed"
+    is_eff = speed_metric_column_name == "eff_speed"
     speed_note = ("有效速度=原始速度÷相对冗长度(按中位归一)，惩罚冗长推理模型"
                   if is_eff else "原始 median tok/s")
+    cost_note = (
+        "跑完 Intelligence Index 的实际总花费"
+        if cost_metric_column_name == "cost_to_run"
+        else "AA 7:2:1 cache-hit/input/output 混合单价"
+    )
     fig.update_layout(
         title=dict(
-            text=f"AI 模型三维前沿：智能 × {speed_label} × 有效运行成本<br>"
-                 f"<sub>{subtitle} · 成本=有效运行成本：跑完评测实花(含冗长/思维链token·基于API牌价·非$/M) · "
+            text=f"AI 模型三维前沿：智能 × {speed_metric_label} × {cost_metric_label}<br>"
+                 f"<sub>{subtitle} · 成本口径={cost_note} · "
                  f"速度口径={speed_note} · "
                  f"共 {len(kept)} 模型，其中 {len(pareto)} 个 Pareto 最优</sub>",
             x=0.5, xanchor="center",
         ),
         scene=dict(
-            xaxis=dict(title="有效运行成本 USD（对数）", type="log",
+            xaxis=dict(title=f"{cost_metric_label} {cost_metric_unit}（对数）", type="log",
                        range=x_range, autorange=False,
                        backgroundcolor="rgb(248,248,250)"),
-            yaxis=dict(title=f"{speed_label} tok/s" + ("（对数）" if speed_log else ""),
+            yaxis=dict(title=f"{speed_metric_label} tok/s" + ("（对数）" if speed_log else ""),
                        type="log" if speed_log else "linear",
                        range=y_range, autorange=False),
             zaxis=dict(title="智能指数 (AA Intelligence Index)",
@@ -494,19 +555,26 @@ GRAPH_DIV_ID = "frontier3d"
 _POST_SCRIPT_TEMPLATE = r"""
 (function () {
   var DATA = __LINEAGE_DATA_JSON__;
+  var METRIC_VARIANTS = __METRIC_VARIANTS_JSON__;
+  var ACTIVE_METRIC_KEY = "__INITIAL_VARIANT_KEY__";
   window.LINEAGE_DATA = DATA;                       // 测试/调试钩子
   var GD_ID = "frontier3d";
-  var HL = DATA.pinned_highlight_trace_index;       // pin 高亮光环 trace 下标
-  var LL = DATA.lineage_line_trace_index;           // 谱系连线 trace 下标
-  var models = DATA.models;                          // 仅 kept（可见节点）
-  var baseGroups = DATA.base_groups;                 // base_model_name -> [model 下标]
-  var lineages = DATA.lineages;                      // "creator||tier" -> [谱系节点]
-
-  var nameToIndex = {};
-  models.forEach(function (m, i) { nameToIndex[m.name] = i; });
-  var allBases = Object.keys(baseGroups).sort(function (a, b) {
-    return a.toLowerCase() < b.toLowerCase() ? -1 : 1;
-  });
+  var HL, LL, models, baseGroups, lineages, nameToIndex, allBases;
+  function loadMetricPayload(nextData) {
+    DATA = nextData;
+    window.LINEAGE_DATA = DATA;
+    HL = DATA.pinned_highlight_trace_index;
+    LL = DATA.lineage_line_trace_index;
+    models = DATA.models;
+    baseGroups = DATA.base_groups;
+    lineages = DATA.lineages;
+    nameToIndex = {};
+    models.forEach(function (m, i) { nameToIndex[m.name] = i; });
+    allBases = Object.keys(baseGroups).sort(function (a, b) {
+      return a.toLowerCase() < b.toLowerCase() ? -1 : 1;
+    });
+  }
+  loadMetricPayload(DATA);
 
   var pinnedBases = {};   // 集合：base_model_name -> true
   var hoverKey = null;    // 当前 hover 模型所属 lineage_key（临时）
@@ -536,7 +604,8 @@ _POST_SCRIPT_TEMPLATE = r"""
     var p = m.panel;
     return "<b>" + m.name + "</b><br>智能 " + fmt(p.intelligence) +
       " · " + DATA.speed_axis_label + " " + fmt(p[DATA.speed_axis_field], 0) +
-      " tok/s · $" + fmt(p.cost_to_run, 2);
+      " tok/s · " + DATA.cost_axis_label + " $" +
+      fmt(p[DATA.cost_axis_field], 2) + " " + DATA.cost_axis_unit;
   }
   function matchBases(q) {
     q = (q || "").trim().toLowerCase();
@@ -618,10 +687,41 @@ _POST_SCRIPT_TEMPLATE = r"""
   }
 
   // —— DOM：搜索框（左上，避开按钮组）+ 结果列表 + 侧栏（左下）——
-  var elSearchWrap, elInput, elResults, elPanel;
+  var elSearchWrap, elInput, elResults, elPanel, elCostMetricSelect, elSpeedMetricSelect;
   function css(el, s) { for (var k in s) el.style[k] = s[k]; }
 
   function buildDom() {
+    var metricControls = document.createElement("div");
+    metricControls.setAttribute("id", "aa-metric-controls");
+    css(metricControls, {
+      position: "fixed", top: "10px", right: "10px", zIndex: "1000",
+      padding: "6px 8px", border: "1px solid #ddd", borderRadius: "6px",
+      background: "rgba(255,255,255,0.96)", boxShadow: "0 1px 4px rgba(0,0,0,0.12)",
+      font: "12px/1.4 -apple-system,Segoe UI,Roboto,sans-serif"
+    });
+    metricControls.appendChild(document.createTextNode("成本 "));
+    elCostMetricSelect = document.createElement("select");
+    elCostMetricSelect.setAttribute("id", "aa-cost-metric-select");
+    [["effective", "有效运行成本"], ["blended", "7:2:1 混合单价"]].forEach(function (item) {
+      var option = document.createElement("option");
+      option.value = item[0]; option.textContent = item[1];
+      elCostMetricSelect.appendChild(option);
+    });
+    metricControls.appendChild(elCostMetricSelect);
+    metricControls.appendChild(document.createTextNode("　速度 "));
+    elSpeedMetricSelect = document.createElement("select");
+    elSpeedMetricSelect.setAttribute("id", "aa-speed-metric-select");
+    [["effective", "有效速度"], ["raw", "原始速度"]].forEach(function (item) {
+      var option = document.createElement("option");
+      option.value = item[0]; option.textContent = item[1];
+      elSpeedMetricSelect.appendChild(option);
+    });
+    metricControls.appendChild(elSpeedMetricSelect);
+    var initialParts = ACTIVE_METRIC_KEY.split("__");
+    elCostMetricSelect.value = initialParts[0];
+    elSpeedMetricSelect.value = initialParts[1];
+    document.body.appendChild(metricControls);
+
     elSearchWrap = document.createElement("div");
     css(elSearchWrap, {
       position: "fixed", top: "10px", left: "132px", zIndex: "1000",
@@ -659,6 +759,27 @@ _POST_SCRIPT_TEMPLATE = r"""
     document.body.appendChild(elPanel);
 
     elInput.addEventListener("input", renderResults);
+    elCostMetricSelect.addEventListener("change", activateSelectedMetricCombination);
+    elSpeedMetricSelect.addEventListener("change", activateSelectedMetricCombination);
+  }
+
+  function activateSelectedMetricCombination() {
+    return activateMetricCombination(elCostMetricSelect.value, elSpeedMetricSelect.value);
+  }
+
+  function activateMetricCombination(costMetricName, speedMetricName) {
+    var key = costMetricName + "__" + speedMetricName;
+    var variant = METRIC_VARIANTS[key];
+    if (!variant || key === ACTIVE_METRIC_KEY) return Promise.resolve(false);
+    pinnedBases = {};
+    hoverKey = null;
+    ACTIVE_METRIC_KEY = key;
+    return Plotly.react(gd, variant.data, variant.layout).then(function () {
+      loadMetricPayload(variant.payload);
+      renderResults();
+      renderSidePanel();
+      return true;
+    });
   }
 
   function renderResults() {
@@ -722,7 +843,7 @@ _POST_SCRIPT_TEMPLATE = r"""
         css(line, { color: "#444", fontSize: "11px", marginTop: "2px" });
         line.textContent = "· " + m.name + " — 智能 " + fmt(p.intelligence) +
           " · " + DATA.speed_axis_label + " " + fmt(p[DATA.speed_axis_field], 0) +
-          " · $" + fmt(p.cost_to_run, 2) +
+          " · " + DATA.cost_axis_label + " $" + fmt(p[DATA.cost_axis_field], 2) +
           " · " + p.release_date;
         card.appendChild(line);
       });
@@ -761,8 +882,12 @@ _POST_SCRIPT_TEMPLATE = r"""
     window.aaOnHover = onHover;
     window.aaOnUnhover = onUnhover;
     window.aaMatchBases = matchBases;
+    window.aaSetMetricCombination = activateMetricCombination;
     window.aaState = function () {
       return {
+        activeMetricKey: ACTIVE_METRIC_KEY,
+        costAxisField: DATA.cost_axis_field,
+        speedAxisField: DATA.speed_axis_field,
         pinned: Object.keys(pinnedBases), hoverKey: hoverKey,
         annCount: (gd._fullLayout && gd._fullLayout.scene && gd._fullLayout.scene.annotations || []).length,
         highlightLen: (gd.data[HL].x || []).length,
@@ -775,15 +900,46 @@ _POST_SCRIPT_TEMPLATE = r"""
 """
 
 
-def _build_post_script(payload: dict) -> str:
+def _build_post_script(
+    payload: dict,
+    metric_variants: dict[str, tuple[go.Figure, dict]] | None = None,
+    initial_variant_key: str = "effective__effective",
+) -> str:
     """把 payload 序列化进 JS 模板，产出注入 HTML 的 post_script。"""
     data_json = json.dumps(payload, ensure_ascii=False)
-    return _POST_SCRIPT_TEMPLATE.replace("__LINEAGE_DATA_JSON__", data_json)
+    variants_json = json.dumps(
+        {
+            key: {
+                "data": figure.to_plotly_json()["data"],
+                "layout": figure.to_plotly_json()["layout"],
+                "payload": variant_payload,
+            }
+            for key, (figure, variant_payload) in (metric_variants or {}).items()
+        },
+        ensure_ascii=False,
+        cls=PlotlyJSONEncoder,
+    )
+    return (
+        _POST_SCRIPT_TEMPLATE
+        .replace("__LINEAGE_DATA_JSON__", data_json)
+        .replace("__METRIC_VARIANTS_JSON__", variants_json)
+        .replace("__INITIAL_VARIANT_KEY__", initial_variant_key)
+    )
 
 
-def write_html(fig: go.Figure, out: Path, payload: dict | None = None) -> Path:
+def write_html(
+    fig: go.Figure,
+    out: Path,
+    payload: dict | None = None,
+    metric_variants: dict[str, tuple[go.Figure, dict]] | None = None,
+    initial_variant_key: str = "effective__effective",
+) -> Path:
     out.parent.mkdir(parents=True, exist_ok=True)
-    post_script = _build_post_script(payload) if payload is not None else None
+    post_script = (
+        _build_post_script(payload, metric_variants, initial_variant_key)
+        if payload is not None
+        else None
+    )
     fig.write_html(
         str(out), include_plotlyjs=True, full_html=True,
         div_id=GRAPH_DIV_ID, post_script=post_script,
