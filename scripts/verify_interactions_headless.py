@@ -256,6 +256,43 @@ def main() -> int:
             "unhover 后 camera 仍保持用户旋转视角",
         )
 
+        print("\n[4c-guard] hover/切指标/拖权重期间 app 不再显式回填 scene.camera（stale 快照回填=延迟视角回默认的根因）")
+        # 回归护栏：旧代码用 restoreSceneCameraSnapshot 在异步 restyle 完成后 Plotly.relayout
+        # 回填 scene.camera；一旦快照在页面加载/拖拽前被捕获成默认视角，这次延迟回填就把用户
+        # 视角强行拉回默认（= 用户报的「hover 后 1-2 秒回默认」）。改由 uirevision 独力保视角后，
+        # app 在任何交互路径下都不应再显式 relayout(scene.camera)。装 spy 计数，应恒为 0。
+        relayout_probe = page.evaluate("""async (nm) => {
+            const gd = document.getElementById('frontier3d');
+            const origRelayout = Plotly.relayout;
+            let cameraRelayoutCount = 0;
+            Plotly.relayout = function (graphDiv, update) {
+                try {
+                    if (update && Object.keys(update).some(function (k) {
+                        return k === "scene.camera" || k.indexOf("scene.camera.") === 0;
+                    })) cameraRelayoutCount += 1;
+                } catch (e) {}
+                return origRelayout.apply(this, arguments);
+            };
+            window.aaOnHover({points: [{customdata: [nm]}]});
+            await new Promise(r => requestAnimationFrame(() => setTimeout(r, 160)));
+            window.aaOnUnhover();
+            await new Promise(r => requestAnimationFrame(() => setTimeout(r, 160)));
+            window.aaSelectStandoutMetric('A');
+            await new Promise(r => setTimeout(r, 120));
+            window.aaSetWeights(4, 1, 1);
+            await new Promise(r => setTimeout(r, 120));
+            // 还原全局状态到默认（指标C + 权重1,1,1），避免污染后续 [7] 的「默认 w=1」断言
+            window.aaSetWeights(1, 1, 1);
+            window.aaSelectStandoutMetric('C');
+            await new Promise(r => setTimeout(r, 120));
+            Plotly.relayout = origRelayout;
+            return {cameraRelayoutCount: cameraRelayoutCount};
+        }""", pick["anyName"])
+        check(
+            relayout_probe["cameraRelayoutCount"] == 0,
+            f"hover/切指标/拖权重期间 app 未显式回填 scene.camera（实测 {relayout_probe['cameraRelayoutCount']} 次，应为 0；视角保持交给 uirevision）",
+        )
+
         print("\n[4d] 坐标轴范围固定（画跨界谱系不重缩放 → 消除 Qwen 类抖动）")
         ar = page.evaluate("""() => {
             const s = document.getElementById('frontier3d')._fullLayout.scene;
