@@ -88,6 +88,12 @@ def main() -> None:
                 cost_metric_column_name=cost_metric_column_name,
                 speed_metric_column_name=speed_metric_column_name,
             )
+            variant_df = frontier.add_standout_metrics(
+                variant_df,
+                cost_metric_column_name=cost_metric_column_name,
+                speed_metric_column_name=speed_metric_column_name,
+                speed_log=(args.speed_scale == "log"),
+            )
             fig, lineage_payload = visualize.build_figure(
                 variant_df,
                 speed_scale=args.speed_scale,

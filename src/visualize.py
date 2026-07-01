@@ -112,6 +112,10 @@ def _build_lineage_payload(
       仅保留 >=2 代的谱系（单代无连线）。
     """
     # —— models / base_groups：仅 kept ——
+    def _field_or_none(r, name):
+        # 突出度/归一坐标由 add_standout_metrics 写入；缺列或 NaN → None(→ JS null)。
+        return float(r[name]) if name in r.index and pd.notna(r[name]) else None
+
     kept = df_full[df_full["kept"]].reset_index(drop=True)
     models: list[dict] = []
     for _, r in kept.iterrows():
@@ -138,6 +142,20 @@ def _build_lineage_payload(
                     r["blended_price_cache_input_output_7_to_2_to_1"]
                 ),
                 "layer": float(r["layer"]),
+            },
+            # 四个突出度值（加权超体积为 w=1 静态值；JS 端按滑杆权重实时重算）
+            "standout": {
+                "trend_residual": _field_or_none(r, "standout_trend_residual"),
+                "trend_residual_sigma": _field_or_none(r, "standout_trend_residual_sigma"),
+                "intelligence_uplift": _field_or_none(r, "standout_intelligence_uplift"),
+                "weighted_hypervolume": _field_or_none(r, "standout_weighted_hypervolume"),
+                "frontier_distance": _field_or_none(r, "standout_frontier_distance"),
+            },
+            # 归一改进坐标（JS 实时重算加权超体积只需 g + 权重，无需回传轴范围）
+            "g": {
+                "c": _field_or_none(r, "g_cost"),
+                "s": _field_or_none(r, "g_speed"),
+                "i": _field_or_none(r, "g_intel"),
             },
         })
 
@@ -241,7 +259,9 @@ HOVER_TMPL = (
     "原始速度: %{customdata[4]:.0f} tok/s · 冗长度: %{customdata[8]:.1f}M 输出tok<br>"
     "有效速度: %{customdata[9]:.0f} tok/s（按中位冗长归一）<br>"
     "有效运行成本(跑完评测实花): $%{customdata[5]:.2f}<br>"
-    "7:2:1 混合单价: $%{customdata[6]:.2f}/M · Pareto层: %{customdata[7]:.0f}"
+    "7:2:1 混合单价: $%{customdata[6]:.2f}/M · Pareto层: %{customdata[7]:.0f}<br>"
+    "突出度｜趋势残差 %{customdata[10]:.1f} · 智能抬升 %{customdata[11]:.1f}"
+    " · 加权超体积 %{customdata[12]:.3f} · 到前沿垂距 %{customdata[13]:.3f}"
     "<extra></extra>"
 )
 
@@ -253,6 +273,12 @@ def _creator_colors(creators) -> dict:
 
 def _customdata(df: pd.DataFrame) -> np.ndarray:
     """构造保留原始类型(字符串/浮点)的 customdata，避免被 numpy 统一成字符串。"""
+
+    def col_or_nan(name: str) -> list:
+        # 突出度列由 add_standout_metrics 写入；某些调用路径可能未算，缺列则填 NaN。
+        return (df[name].astype(float).tolist()
+                if name in df.columns else [float("nan")] * len(df))
+
     cols = [
         df["name"].fillna("?").tolist(),
         df["creator"].fillna("?").tolist(),
@@ -264,6 +290,10 @@ def _customdata(df: pd.DataFrame) -> np.ndarray:
         df["layer"].astype(float).tolist(),
         df["output_mtokens"].astype(float).tolist(),
         df["eff_speed"].astype(float).tolist(),
+        col_or_nan("standout_trend_residual"),
+        col_or_nan("standout_intelligence_uplift"),
+        col_or_nan("standout_weighted_hypervolume"),
+        col_or_nan("standout_frontier_distance"),
     ]
     return np.array(cols, dtype=object).T
 
@@ -400,7 +430,7 @@ def build_figure(
         ))
         n_scatter += 1
 
-    # 2) Pareto 强调：黑色空心圈叠加
+    # 2) Pareto 强调：黑色空心圈叠加（同时兼作突出度视觉编码载体：JS 按选中指标改 marker.size）
     pareto = kept[kept["is_pareto"]]
     fig.add_trace(go.Scatter3d(
         x=pareto[cost_metric_column_name],
@@ -411,6 +441,7 @@ def build_figure(
                     line=dict(color="black", width=2)),
         customdata=_customdata(pareto), hovertemplate=HOVER_TMPL,
     ))
+    idx_pareto_emphasis = len(fig.data) - 1
 
     # 3) 前沿流形：线框（默认显、不挡悬浮）+ 实心面（可切换）+ 可达前沿曲面（可切换）
     wire = _frontier_wireframe(
@@ -489,6 +520,7 @@ def build_figure(
     )
     payload["pinned_highlight_trace_index"] = idx_pinned_highlight
     payload["lineage_line_trace_index"] = idx_lineage_line
+    payload["pareto_emphasis_trace_index"] = idx_pareto_emphasis
     # scene.annotations 的坐标须用「轴坐标」而非原始值：对数轴下注释的 x/y 必须传
     # log10(value)，Plotly 才会把它放在对应数据位置；若直接传原始值（如成本 $256），
     # Plotly 会按 log10 解读 → 把注释放到 10^256，撑爆自动量程、把所有节点/流形挤到角落。
@@ -690,6 +722,262 @@ _POST_SCRIPT_TEMPLATE = r"""
   var elSearchWrap, elInput, elResults, elPanel, elCostMetricSelect, elSpeedMetricSelect;
   function css(el, s) { for (var k in s) el.style[k] = s[k]; }
 
+  // ═══ 突出度指标：视觉编码(改 Pareto 光环大小) + 排行侧栏 + 可调轴权重(仅加权超体积) ═══
+  var STANDOUT_METRIC_REGISTRY = {
+    C: { label: "趋势残差", weighted: false, digits: 1,
+         get: function (m) { return m.standout ? m.standout.trend_residual : null; } },
+    B: { label: "智能抬升", weighted: false, digits: 1,
+         get: function (m) { return m.standout ? m.standout.intelligence_uplift : null; } },
+    A: { label: "加权超体积", weighted: true, digits: 3, get: null },
+    D: { label: "到前沿垂距", weighted: false, digits: 3,
+         get: function (m) { return m.standout ? m.standout.frontier_distance : null; } }
+  };
+  var activeStandoutMetricKey = "C";
+  var standoutAxisWeights = { intelligence: 1, cost: 1, speed: 1 };   // 指数权重 w=2^s
+  var WEIGHT_AXES = [
+    { key: "intelligence", label: "智能" },
+    { key: "cost", label: "成本" },
+    { key: "speed", label: "速度" }
+  ];
+  var elStandoutPanel, elStandoutMetricSelect, elStandoutRankingList,
+      elWeightResetButton, elWeightAvailabilityNote;
+  var weightSliderControls = {};   // axisKey -> { slider, numberInput }
+
+  function frontierModels() {
+    // 与 Pareto 黑色空心圈 trace 的点序一致（同一 kept 顺序 filter is_pareto=layer===1）
+    return models.filter(function (m) { return m.panel && m.panel.layer === 1; });
+  }
+
+  // —— 归一空间 3D 排他超体积（镜像 frontier.py 的 Python 版）——
+  function originAnchoredUnionArea(rects) {
+    var s = rects.slice().sort(function (a, b) { return (b[0] - a[0]) || (b[1] - a[1]); });
+    var area = 0, maxY = 0;
+    for (var i = 0; i < s.length; i++) {
+      var x = s[i][0], y = s[i][1];
+      if (y > maxY) { area += x * (y - maxY); maxY = y; }
+    }
+    return area;
+  }
+  function hypervolume3d(points) {
+    if (!points.length) return 0;
+    var s = points.slice().sort(function (a, b) { return b[2] - a[2]; });
+    var vol = 0, prevZ = null, rects = [];
+    for (var i = 0; i < s.length; i++) {
+      var z = s[i][2];
+      if (prevZ !== null) vol += originAnchoredUnionArea(rects) * (prevZ - z);
+      rects.push([s[i][0], s[i][1]]);
+      prevZ = z;
+    }
+    vol += originAnchoredUnionArea(rects) * prevZ;
+    return vol;
+  }
+  function exclusiveHypervolumeContributions(points) {
+    var full = hypervolume3d(points);
+    return points.map(function (unused, k) {
+      var rest = points.filter(function (unused2, j) { return j !== k; });
+      return full - hypervolume3d(rest);
+    });
+  }
+  function weightedExclusiveHypervolumeValues(frontier) {
+    // 指数权重进坐标 ḡ=g^w（单调保序 → 前沿成员不变，只改各点贡献量级）
+    var pts = frontier.map(function (m) {
+      return [Math.pow(m.g.c, standoutAxisWeights.cost),
+              Math.pow(m.g.s, standoutAxisWeights.speed),
+              Math.pow(m.g.i, standoutAxisWeights.intelligence)];
+    });
+    return exclusiveHypervolumeContributions(pts);
+  }
+  function standoutValuesForFrontier(frontier) {
+    var spec = STANDOUT_METRIC_REGISTRY[activeStandoutMetricKey];
+    if (spec.weighted) return weightedExclusiveHypervolumeValues(frontier);
+    return frontier.map(function (m) {
+      var v = spec.get(m);
+      return (v === null || v === undefined || isNaN(v)) ? NaN : v;
+    });
+  }
+
+  function applyStandoutVisualEncoding() {
+    if (!gd) return;
+    var frontier = frontierModels();
+    var vals = standoutValuesForFrontier(frontier);
+    var finite = vals.filter(function (v) { return isFinite(v); });
+    var lo = finite.length ? Math.min.apply(null, finite) : 0;
+    var hi = finite.length ? Math.max.apply(null, finite) : 1;
+    // 归一到光环直径 [9,28]；无值(NaN，如无预算内他者的极端点)给最小圈 8
+    var sizes = vals.map(function (v) {
+      if (!isFinite(v)) return 8;
+      return (hi > lo) ? (9 + 19 * (v - lo) / (hi - lo)) : 15;
+    });
+    Plotly.restyle(gd, { "marker.size": [sizes] }, [DATA.pareto_emphasis_trace_index]);
+    renderStandoutRankingPanel(frontier, vals);
+  }
+
+  function renderStandoutRankingPanel(frontier, vals) {
+    if (!elStandoutRankingList) return;
+    var spec = STANDOUT_METRIC_REGISTRY[activeStandoutMetricKey];
+    var ranked = frontier.map(function (m, i) { return { name: m.name, value: vals[i] }; })
+      .sort(function (a, b) {
+        var av = isFinite(a.value) ? a.value : -Infinity;
+        var bv = isFinite(b.value) ? b.value : -Infinity;
+        return bv - av;
+      }).slice(0, 12);
+    elStandoutRankingList.innerHTML = "";
+    ranked.forEach(function (row, rank) {
+      var line = document.createElement("div");
+      css(line, { display: "flex", justifyContent: "space-between",
+        padding: "3px 10px", borderBottom: "1px solid #f3f3f3", gap: "8px" });
+      var left = document.createElement("span");
+      left.textContent = (rank + 1) + ". " + row.name;
+      css(left, { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" });
+      var right = document.createElement("b");
+      right.textContent = isFinite(row.value) ? Number(row.value).toFixed(spec.digits) : "—";
+      css(right, { flex: "0 0 auto", color: "#1558b0" });
+      line.appendChild(left); line.appendChild(right);
+      elStandoutRankingList.appendChild(line);
+    });
+  }
+
+  function selectStandoutMetric(key) {
+    if (!STANDOUT_METRIC_REGISTRY[key]) return;
+    activeStandoutMetricKey = key;
+    if (elStandoutMetricSelect) elStandoutMetricSelect.value = key;
+    updateWeightControlsAvailability();
+    applyStandoutVisualEncoding();
+  }
+  function onWeightSliderInput(axisKey) {
+    standoutAxisWeights[axisKey] = Math.pow(2, parseFloat(weightSliderControls[axisKey].slider.value));
+    weightSliderControls[axisKey].numberInput.value = Number(standoutAxisWeights[axisKey]).toFixed(2);
+    applyStandoutVisualEncoding();
+  }
+  function onWeightNumberInput(axisKey) {
+    var w = parseFloat(weightSliderControls[axisKey].numberInput.value);
+    if (!isFinite(w) || w <= 0) return;
+    w = Math.min(4, Math.max(0.25, w));
+    standoutAxisWeights[axisKey] = w;
+    weightSliderControls[axisKey].slider.value = String(Math.log(w) / Math.log(2));
+    applyStandoutVisualEncoding();
+  }
+  function setStandoutAxisWeights(wIntelligence, wCost, wSpeed) {
+    standoutAxisWeights.intelligence = wIntelligence;
+    standoutAxisWeights.cost = wCost;
+    standoutAxisWeights.speed = wSpeed;
+    syncWeightControlInputs();
+    applyStandoutVisualEncoding();
+  }
+  function syncWeightControlInputs() {
+    WEIGHT_AXES.forEach(function (axis) {
+      var ctl = weightSliderControls[axis.key];
+      if (!ctl) return;
+      ctl.slider.value = String(Math.log(standoutAxisWeights[axis.key]) / Math.log(2));
+      ctl.numberInput.value = Number(standoutAxisWeights[axis.key]).toFixed(2);
+    });
+  }
+  function updateWeightControlsAvailability() {
+    var enabled = STANDOUT_METRIC_REGISTRY[activeStandoutMetricKey].weighted;
+    WEIGHT_AXES.forEach(function (axis) {
+      var ctl = weightSliderControls[axis.key];
+      if (!ctl) return;
+      ctl.slider.disabled = !enabled;
+      ctl.numberInput.disabled = !enabled;
+    });
+    if (elWeightResetButton) elWeightResetButton.disabled = !enabled;
+    if (elWeightAvailabilityNote) elWeightAvailabilityNote.style.color = enabled ? "#666" : "#bbb";
+  }
+
+  function buildStandoutControlsDom() {
+    elStandoutPanel = document.createElement("div");
+    elStandoutPanel.setAttribute("id", "aa-standout-panel");
+    css(elStandoutPanel, {
+      position: "fixed", top: "52px", right: "10px", zIndex: "1000",
+      width: "262px", maxHeight: "80vh", overflowY: "auto",
+      padding: "8px 0 4px", border: "1px solid #ddd", borderRadius: "8px",
+      background: "rgba(255,255,255,0.96)", boxShadow: "0 2px 10px rgba(0,0,0,0.15)",
+      font: "12px/1.45 -apple-system,Segoe UI,Roboto,sans-serif"
+    });
+
+    // 标题可点折叠：展开时面板会盖住右侧厂商图例，折叠即让出图例(可点选过滤)
+    var title = document.createElement("div");
+    css(title, { padding: "0 10px 6px", fontWeight: "bold", borderBottom: "1px solid #eee",
+      cursor: "pointer", userSelect: "none" });
+    var caret = document.createElement("span");
+    caret.textContent = "▾ ";
+    title.appendChild(caret);
+    title.appendChild(document.createTextNode("突出度指标（圈越大越突出）"));
+    elStandoutPanel.appendChild(title);
+
+    var body = document.createElement("div");
+    title.addEventListener("click", function () {
+      var collapsed = body.style.display === "none";
+      body.style.display = collapsed ? "block" : "none";
+      caret.textContent = collapsed ? "▾ " : "▸ ";
+    });
+    elStandoutPanel.appendChild(body);
+
+    var selRow = document.createElement("div");
+    css(selRow, { padding: "6px 10px" });
+    selRow.appendChild(document.createTextNode("口径 "));
+    elStandoutMetricSelect = document.createElement("select");
+    elStandoutMetricSelect.setAttribute("id", "aa-standout-metric-select");
+    [["C", "趋势残差（领先趋势面）"], ["B", "智能抬升（留一）"],
+     ["A", "加权超体积（可调权重）"], ["D", "到前沿垂距"]].forEach(function (item) {
+      var o = document.createElement("option");
+      o.value = item[0]; o.textContent = item[1];
+      elStandoutMetricSelect.appendChild(o);
+    });
+    elStandoutMetricSelect.value = activeStandoutMetricKey;
+    elStandoutMetricSelect.addEventListener("change", function () {
+      selectStandoutMetric(elStandoutMetricSelect.value);
+    });
+    selRow.appendChild(elStandoutMetricSelect);
+    body.appendChild(selRow);
+
+    elWeightAvailabilityNote = document.createElement("div");
+    css(elWeightAvailabilityNote, { padding: "0 10px 4px", color: "#bbb", fontSize: "11px" });
+    elWeightAvailabilityNote.textContent = "轴权重 w=2^s（仅「加权超体积」生效；w>1 放大该轴区分度）";
+    body.appendChild(elWeightAvailabilityNote);
+
+    WEIGHT_AXES.forEach(function (axis) {
+      var row = document.createElement("div");
+      css(row, { display: "flex", alignItems: "center", gap: "6px", padding: "2px 10px" });
+      var lab = document.createElement("span");
+      lab.textContent = axis.label; css(lab, { width: "28px", flex: "0 0 auto" });
+      var slider = document.createElement("input");
+      slider.type = "range"; slider.min = "-2"; slider.max = "2"; slider.step = "0.05";
+      slider.value = "0"; slider.setAttribute("id", "aa-weight-slider-" + axis.key);
+      css(slider, { flex: "1 1 auto", minWidth: "0" });
+      var numberInput = document.createElement("input");
+      numberInput.type = "number"; numberInput.min = "0.25"; numberInput.max = "4";
+      numberInput.step = "0.05"; numberInput.value = "1.00";
+      numberInput.setAttribute("id", "aa-weight-number-" + axis.key);
+      css(numberInput, { width: "52px", flex: "0 0 auto", boxSizing: "border-box" });
+      slider.addEventListener("input", function () { onWeightSliderInput(axis.key); });
+      numberInput.addEventListener("input", function () { onWeightNumberInput(axis.key); });
+      row.appendChild(lab); row.appendChild(slider); row.appendChild(numberInput);
+      body.appendChild(row);
+      weightSliderControls[axis.key] = { slider: slider, numberInput: numberInput };
+    });
+
+    var resetRow = document.createElement("div");
+    css(resetRow, { padding: "4px 10px 8px", borderBottom: "1px solid #eee" });
+    elWeightResetButton = document.createElement("button");
+    elWeightResetButton.setAttribute("id", "aa-weight-reset");
+    elWeightResetButton.textContent = "重置权重=1";
+    elWeightResetButton.addEventListener("click", function () { setStandoutAxisWeights(1, 1, 1); });
+    resetRow.appendChild(elWeightResetButton);
+    body.appendChild(resetRow);
+
+    var rankTitle = document.createElement("div");
+    css(rankTitle, { padding: "6px 10px 2px", fontWeight: "bold", color: "#333" });
+    rankTitle.textContent = "排行（前沿·Top 12）";
+    body.appendChild(rankTitle);
+    elStandoutRankingList = document.createElement("div");
+    elStandoutRankingList.setAttribute("id", "aa-standout-ranking");
+    body.appendChild(elStandoutRankingList);
+
+    document.body.appendChild(elStandoutPanel);
+    updateWeightControlsAvailability();
+  }
+
   function buildDom() {
     var metricControls = document.createElement("div");
     metricControls.setAttribute("id", "aa-metric-controls");
@@ -761,6 +1049,8 @@ _POST_SCRIPT_TEMPLATE = r"""
     elInput.addEventListener("input", renderResults);
     elCostMetricSelect.addEventListener("change", activateSelectedMetricCombination);
     elSpeedMetricSelect.addEventListener("change", activateSelectedMetricCombination);
+
+    buildStandoutControlsDom();
   }
 
   function activateSelectedMetricCombination() {
@@ -778,6 +1068,7 @@ _POST_SCRIPT_TEMPLATE = r"""
       loadMetricPayload(variant.payload);
       renderResults();
       renderSidePanel();
+      applyStandoutVisualEncoding();   // 前沿随口径变，重设光环大小 + 排行榜
       return true;
     });
   }
@@ -869,6 +1160,7 @@ _POST_SCRIPT_TEMPLATE = r"""
     buildDom();
     gd.on("plotly_hover", onHover);
     gd.on("plotly_unhover", onUnhover);
+    applyStandoutVisualEncoding();   // 初始按默认指标(趋势残差)编码光环 + 排行榜
     // —— 测试/调试钩子（headless 断言用）——
     window.aaPinBase = function (b) { pinnedBases[b] = true; rerenderPinned(); renderResults(); };
     window.aaUnpinBase = function (b) { delete pinnedBases[b]; rerenderPinned(); renderResults(); };
@@ -883,7 +1175,31 @@ _POST_SCRIPT_TEMPLATE = r"""
     window.aaOnUnhover = onUnhover;
     window.aaMatchBases = matchBases;
     window.aaSetMetricCombination = activateMetricCombination;
+    // —— 突出度钩子 ——
+    window.aaSelectStandoutMetric = selectStandoutMetric;
+    window.aaSetWeights = function (wIntelligence, wCost, wSpeed) {
+      setStandoutAxisWeights(wIntelligence, wCost, wSpeed);
+    };
+    window.aaStandoutRanking = function () {
+      var frontier = frontierModels();
+      var vals = standoutValuesForFrontier(frontier);
+      return {
+        metric: activeStandoutMetricKey,
+        weights: {
+          intelligence: standoutAxisWeights.intelligence,
+          cost: standoutAxisWeights.cost,
+          speed: standoutAxisWeights.speed
+        },
+        ranking: frontier.map(function (m, i) { return { name: m.name, value: vals[i] }; })
+          .sort(function (a, b) {
+            var av = isFinite(a.value) ? a.value : -Infinity;
+            var bv = isFinite(b.value) ? b.value : -Infinity;
+            return bv - av;
+          })
+      };
+    };
     window.aaState = function () {
+      var paretoSize = gd.data[DATA.pareto_emphasis_trace_index].marker.size;
       return {
         activeMetricKey: ACTIVE_METRIC_KEY,
         costAxisField: DATA.cost_axis_field,
@@ -892,7 +1208,15 @@ _POST_SCRIPT_TEMPLATE = r"""
         annCount: (gd._fullLayout && gd._fullLayout.scene && gd._fullLayout.scene.annotations || []).length,
         highlightLen: (gd.data[HL].x || []).length,
         lineageLen: (gd.data[LL].x || []).length,
-        lineageKeys: Object.keys(lineages).length
+        lineageKeys: Object.keys(lineages).length,
+        standoutMetric: activeStandoutMetricKey,
+        standoutWeights: {
+          intelligence: standoutAxisWeights.intelligence,
+          cost: standoutAxisWeights.cost,
+          speed: standoutAxisWeights.speed
+        },
+        paretoMarkerSizeLen: Array.isArray(paretoSize) ? paretoSize.length : 0,
+        frontierCount: frontierModels().length
       };
     };
   });
