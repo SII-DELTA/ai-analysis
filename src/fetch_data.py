@@ -313,7 +313,7 @@ def _validate(df: pd.DataFrame, cost_by_id: dict[str, float]) -> None:
     # 拿缓存值自证成恒等式、护栏形同虚设。锚点若不在当次解析里，则本轮无从验证配对，诚实
     # 跳过（覆盖仍由 n_cost 兜底），不假装通过。
     for name_sub, expected in COST_ANCHORS.items():
-        hit = df[df["name"] == name_sub]
+        hit = df[df["name"].astype(str).str.casefold() == name_sub.casefold()]
         assert not hit.empty, f"锚点模型缺失: {name_sub}"
         mid = hit.iloc[0]["id"]
         if mid not in cost_by_id:

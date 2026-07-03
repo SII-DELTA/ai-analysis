@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{REPORT_TITLE}}</title>
+  <style>
+{{REPORT_CSS}}
+  </style>
+</head>
+<body>
+  <div id="{{GRAPH_DIV_ID}}"></div>
+  <script>
+{{PLOTLY_JAVASCRIPT}}
+  </script>
+  <script id="frontier-3d-visualization-dataset-json" type="application/json">{{VISUALIZATION_DATASET_JSON}}</script>
+  <script>
+{{REPORT_JAVASCRIPT}}
+  </script>
+</body>
+</html>
