@@ -446,6 +446,15 @@ def main() -> int:
             const afterPin = clone();
             const pinnedAfterClick = window.aaState().pinned.indexOf(base) >= 0;
             const dragCoverAfterPin = document.querySelectorAll('.dragcover').length;
+            const delayedCover = document.createElement('div');
+            delayedCover.className = 'dragcover';
+            delayedCover.style.position = 'fixed';
+            delayedCover.style.inset = '0';
+            delayedCover.style.zIndex = '999999';
+            delayedCover.style.pointerEvents = 'auto';
+            document.body.appendChild(delayedCover);
+            await new Promise(r => setTimeout(r, 700));
+            const dragCoverAfterDelayedPlotlyCover = document.querySelectorAll('.dragcover').length;
             window.aaOnClick({points: [{customdata: [nm]}]});
             await new Promise(r => setTimeout(r, 120));
             const afterUnpin = clone();
@@ -454,6 +463,7 @@ def main() -> int:
                 pinnedAfterClick,
                 unpinnedAfterSecondClick,
                 dragCoverAfterPin,
+                dragCoverAfterDelayedPlotlyCover,
                 pinPreserved: cc(before, afterPin),
                 unpinPreserved: cc(before, afterUnpin)
             };
@@ -461,6 +471,8 @@ def main() -> int:
         check(click_probe["pinnedAfterClick"], "click 节点 pin 对应 base group")
         check(click_probe["unpinnedAfterSecondClick"], "再次 click 已 pin 同组节点会 unpin")
         check(click_probe["dragCoverAfterPin"] == 0, "click pin 后清理 Plotly stale dragcover，页面不被透明层锁住")
+        check(click_probe["dragCoverAfterDelayedPlotlyCover"] == 0,
+              "click pin 后较晚出现的 Plotly dragcover 也会被清理，避免 3D 画布冻结")
         check(click_probe["pinPreserved"], "click pin 后 camera 保持用户视角")
         check(click_probe["unpinPreserved"], "click unpin 后 camera 保持用户视角")
         page.locator("#aa-side-panel-toggle").click()

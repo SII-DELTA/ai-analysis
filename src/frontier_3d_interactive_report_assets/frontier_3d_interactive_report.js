@@ -117,6 +117,10 @@
     });
   }
 
+  function schedulePlotlyDragCoverClear(delayMilliseconds) {
+    window.setTimeout(clearPlotlyDragCovers, delayMilliseconds);
+  }
+
   function releasePlotlyDragCoverSoon() {
     clearPlotlyDragCovers();
     if (window.requestAnimationFrame) {
@@ -125,8 +129,7 @@
         window.requestAnimationFrame(clearPlotlyDragCovers);
       });
     }
-    window.setTimeout(clearPlotlyDragCovers, 50);
-    window.setTimeout(clearPlotlyDragCovers, 200);
+    [50, 100, 200, 400, 800, 1200, 1600].forEach(schedulePlotlyDragCoverClear);
   }
 
   function traceArrayLength(traceIndex, fieldName) {
@@ -806,19 +809,23 @@
         borderpad: 3
       };
     });
-    restyleTraceData(HL, { x: [xs], y: [ys], z: [zs] }).then(function () {
+    var pinnedTraceUpdate = restyleTraceData(HL, { x: [xs], y: [ys], z: [zs] }).then(function () {
       return Plotly.relayout(gd, { "scene.annotations": anns });
+    }).then(function () {
+      releasePlotlyDragCoverSoon();
     });
     renderSidePanel();
     redrawLineage();
     redrawReasoningVariants();
+    return pinnedTraceUpdate;
   }
 
   function togglePin(base) {
     if (pinnedBases[base]) delete pinnedBases[base];
     else pinnedBases[base] = true;
-    rerenderPinned();
+    var pinnedUpdate = rerenderPinned();
     renderResults();
+    return pinnedUpdate;
   }
 
   function modelFromPlotlyPoint(point) {
@@ -874,8 +881,9 @@
   function onClick(ev) {
     var model = modelFromPlotlyPoint(ev.points && ev.points[0]);
     if (!model) return;
-    togglePin(model.base_model_name);
+    var pinnedUpdate = togglePin(model.base_model_name);
     releasePlotlyDragCoverSoon();
+    Promise.resolve(pinnedUpdate).then(releasePlotlyDragCoverSoon);
   }
 
   function activateSelectedMetricCombination() {
