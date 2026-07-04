@@ -6,11 +6,17 @@
 from __future__ import annotations
 
 import sys
+import tempfile
 from pathlib import Path
 
+import plotly.graph_objects as go
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+from src import visualize
+
 HTML = (Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "output" / "frontier_3d.html").resolve()
 
 
@@ -45,6 +51,38 @@ def main() -> int:
         check(page.evaluate("() => !!document.getElementById('aa-search-input')"), "搜索框存在")
         check(page.evaluate("() => !!document.getElementById('aa-pinned-panel')"), "侧栏容器存在")
         check(page.evaluate("() => !!document.getElementById('aa-metric-controls')"), "指标切换控件存在")
+        check(page.evaluate("() => !!document.getElementById('frontier-3d-side-panel')"), "右侧控制栏存在")
+        check(page.evaluate("() => window.aaState().sidePanelExpanded === true"), "右侧控制栏默认展开")
+        check(page.evaluate("() => getComputedStyle(document.getElementById('aa-standout-panel')).position !== 'fixed'"),
+              "突出度面板不再是 fixed overlay")
+        check(page.evaluate("() => document.body.textContent.indexOf('仅散点') < 0"), "不存在视觉重复的“仅散点”按钮")
+
+        print("\n[1c] 前沿样式 + 可达曲面单 toggle")
+        toggle_contract = page.evaluate("""async () => {
+            const gd = document.getElementById('frontier3d');
+            const D = window.LINEAGE_DATA;
+            const toggleCount = document.querySelectorAll('#aa-achievable-surface-toggle').length;
+            const before = gd.data[D.achievable_surface_trace_index].visible;
+            await window.aaSetAchievableSurfaceVisible(true);
+            const afterOn = gd.data[D.achievable_surface_trace_index].visible;
+            await window.aaSetFrontierStyle('hidden');
+            const hiddenWire = gd.data[D.frontier_wireframe_trace_index].visible;
+            const hiddenMesh = gd.data[D.frontier_mesh_trace_index].visible;
+            const surfaceStillOn = gd.data[D.achievable_surface_trace_index].visible;
+            await window.aaSetAchievableSurfaceVisible(false);
+            const afterOff = gd.data[D.achievable_surface_trace_index].visible;
+            await window.aaSetFrontierStyle('wireframe');
+            return {toggleCount, before, afterOn, hiddenWire, hiddenMesh, surfaceStillOn, afterOff,
+                    state: window.aaState()};
+        }""")
+        check(toggle_contract["toggleCount"] == 1, "可达前沿曲面只有一个 checkbox toggle")
+        check(toggle_contract["before"] in (False, "legendonly"), f"可达曲面默认隐藏 ({toggle_contract['before']!r})")
+        check(toggle_contract["afterOn"] is True and toggle_contract["state"]["achievableSurfaceVisible"] is False,
+              "可达曲面 toggle 可独立开关，测试结束已关闭")
+        check(toggle_contract["hiddenWire"] == "legendonly" and toggle_contract["hiddenMesh"] == "legendonly",
+              "隐藏前沿只隐藏线框/实心面")
+        check(toggle_contract["surfaceStillOn"] is True, "隐藏前沿不影响已开启的可达曲面")
+        check(toggle_contract["afterOff"] == "legendonly", "可达曲面关闭后 trace 回到 legendonly")
 
         print("\n[1b] 默认指标 + 四种组合")
         default_metric_state = page.evaluate("() => window.aaState()")
@@ -86,8 +124,11 @@ def main() -> int:
             for (const base of Object.keys(bg)) {
                 const m = D.models[bg[base][0]]; const key = m.lineage_key;
                 if (lin[key] && lin[key].length >= 2) {
-                    if (!best || (base.toLowerCase().includes('pro') && !best.base.toLowerCase().includes('pro')))
-                        best = {base, key, gens: lin[key].length, anyName: m.name};
+                    const score = (bg[base].length >= 2 ? 100 : 0)
+                        + (base.toLowerCase().includes('pro') ? 10 : 0)
+                        + Math.min(bg[base].length, 9);
+                    if (!best || score > best.score)
+                        best = {base, key, gens: lin[key].length, anyName: m.name, score};
                 }
             }
             return best;
@@ -114,6 +155,9 @@ def main() -> int:
         check(st["annCount"] == nvar, f"scene.annotations = {st['annCount']}（=档位数 {nvar}）")
         check(st["highlightLen"] == nvar, f"高亮点 = {st['highlightLen']}（=档位数 {nvar}）")
         check(st["lineageLen"] >= pick["gens"], f"谱系线点数 = {st['lineageLen']}（含 {pick['gens']} 代节点）")
+        if nvar >= 2:
+            check(st["reasoningVariantLineLen"] >= nvar,
+                  f"reasoning 档位线点数 = {st['reasoningVariantLineLen']}（覆盖 {nvar} 档）")
         panel_shown = page.evaluate("() => getComputedStyle(document.getElementById('aa-pinned-panel')).display != 'none'")
         check(panel_shown, "侧栏可见")
 
@@ -158,13 +202,25 @@ def main() -> int:
         ok = page.evaluate("(nm) => window.aaShowLineageForName(nm)", pick["anyName"])
         page.wait_for_timeout(100)
         hovered = page.evaluate("() => window.aaState().lineageLen")
+        hovered_reasoning = page.evaluate("() => window.aaState().reasoningVariantLineLen")
         # hover-only 必须把谱系线从 0 拉出 >0 且覆盖该谱系节点（>= 代数）
         check(ok and hovered > 0 and hovered >= pick["gens"],
               f"hover-only 谱系线点数 {base0} → {hovered}（含 {pick['gens']} 代节点）")
+        if nvar >= 2:
+            check(hovered_reasoning >= nvar,
+                  f"hover-only reasoning 档位线点数 = {hovered_reasoning}（覆盖 {nvar} 档）")
+            reasoning_style = page.evaluate("""() => {
+                const t = document.getElementById('frontier3d').data[LINEAGE_DATA.reasoning_variant_line_trace_index];
+                return {color: t.line.color, name: t.name};
+            }""")
+            check("168,54,170" in reasoning_style["color"] and reasoning_style["name"] == "Reasoning 档位",
+                  f"reasoning 档位线使用固定非厂商色 ({reasoning_style['color']})")
         page.evaluate("() => window.aaClearHover()")
         page.wait_for_timeout(100)
-        cleared = page.evaluate("() => window.aaState().lineageLen")
-        check(cleared == 0, f"清除 hover 后谱系线点数回到 {cleared}（应为 0）")
+        cleared_state = page.evaluate("() => window.aaState()")
+        check(cleared_state["lineageLen"] == 0, f"清除 hover 后谱系线点数回到 {cleared_state['lineageLen']}（应为 0）")
+        check(cleared_state["reasoningVariantLineLen"] == 0,
+              f"清除 hover 后 reasoning 档位线点数回到 {cleared_state['reasoningVariantLineLen']}（应为 0）")
 
         print("\n[4b] hover 事件去重 + rAF（防 gl3d 重入：卡死/无法旋转/标签飞左上角）")
         # 包裹 Plotly.restyle 统计针对谱系线 trace(LL) 的重画次数：在 plotly_hover 里同步
@@ -349,23 +405,58 @@ def main() -> int:
         check(st2["highlightLen"] == 0, "高亮已清空")
         check(len(st2["pinned"]) == 0, "pinned 集合已空")
 
+        print("\n[5b] click 节点 → pin / 再 click → unpin，且 camera 不重置")
+        click_probe = page.evaluate("""async ([nm, base]) => {
+            const gd = document.getElementById('frontier3d');
+            const clone = () => JSON.parse(JSON.stringify(gd._fullLayout.scene.camera));
+            const cn = (a, b) => Math.abs(Number(a) - Number(b)) < 1e-6;
+            const cv = (a, b) => cn(a.x, b.x) && cn(a.y, b.y) && cn(a.z, b.z);
+            const cc = (a, b) => cv(a.eye, b.eye) && cv(a.center, b.center) && cv(a.up, b.up);
+            const rotated = {up: {x: 0, y: 0, z: 1}, center: {x: 0.06, y: -0.07, z: 0.02},
+                             eye: {x: -1.2, y: 2.05, z: 0.95}};
+            await Plotly.relayout(gd, {"scene.camera": rotated});
+            await new Promise(r => setTimeout(r, 80));
+            const before = clone();
+            window.aaOnClick({points: [{customdata: [nm]}]});
+            await new Promise(r => setTimeout(r, 120));
+            const afterPin = clone();
+            const pinnedAfterClick = window.aaState().pinned.indexOf(base) >= 0;
+            window.aaOnClick({points: [{customdata: [nm]}]});
+            await new Promise(r => setTimeout(r, 120));
+            const afterUnpin = clone();
+            const unpinnedAfterSecondClick = window.aaState().pinned.indexOf(base) < 0;
+            return {
+                pinnedAfterClick,
+                unpinnedAfterSecondClick,
+                pinPreserved: cc(before, afterPin),
+                unpinPreserved: cc(before, afterUnpin)
+            };
+        }""", [pick["anyName"], pick["base"]])
+        check(click_probe["pinnedAfterClick"], "click 节点 pin 对应 base group")
+        check(click_probe["unpinnedAfterSecondClick"], "再次 click 已 pin 同组节点会 unpin")
+        check(click_probe["pinPreserved"], "click pin 后 camera 保持用户视角")
+        check(click_probe["unpinPreserved"], "click unpin 后 camera 保持用户视角")
+
         print("\n[6] trace 下标回归（HL/LL 在末尾，前沿按钮目标未被波及）")
         reg = page.evaluate("""() => {
             const gd = document.getElementById('frontier3d');
             const n = gd.data.length;
             const HL = LINEAGE_DATA.pinned_highlight_trace_index;
             const LL = LINEAGE_DATA.lineage_line_trace_index;
+            const RV = LINEAGE_DATA.reasoning_variant_line_trace_index;
             const names = gd.data.map(t => t.name);
             // 前沿样式按钮的目标下标（restyle args[1]）应全部 < HL
             let maxBtnTarget = -1;
             (gd.layout.updatemenus || []).forEach(um => (um.buttons||[]).forEach(b => {
                 const tgt = b.args && b.args[1]; if (Array.isArray(tgt)) tgt.forEach(i => { if (i > maxBtnTarget) maxBtnTarget = i; });
             }));
-            return {n, HL, LL, hlName: names[HL], llName: names[LL], maxBtnTarget};
+            return {n, HL, LL, RV, hlName: names[HL], llName: names[LL], rvName: names[RV], maxBtnTarget};
         }""")
         check(reg["hlName"] == "已固定", f"HL trace[{reg['HL']}] = {reg['hlName']!r}")
         check(reg["llName"] == "谱系连线", f"LL trace[{reg['LL']}] = {reg['llName']!r}")
-        check(reg["HL"] == reg["n"] - 2 and reg["LL"] == reg["n"] - 1, "HL/LL 为末尾两个 trace")
+        check(reg["rvName"] == "Reasoning 档位", f"RV trace[{reg['RV']}] = {reg['rvName']!r}")
+        check(reg["HL"] == reg["n"] - 3 and reg["LL"] == reg["n"] - 2 and reg["RV"] == reg["n"] - 1,
+              "HL/LL/RV 为末尾三个 trace")
         check(reg["maxBtnTarget"] < reg["HL"], f"前沿按钮最大目标下标 {reg['maxBtnTarget']} < HL {reg['HL']}（不波及新 trace）")
 
         print("\n[7] 突出度：控件 + 视觉编码（光环大小）+ 排行 + 可调权重")
@@ -478,6 +569,33 @@ def main() -> int:
                 print("    JS error:", e)
 
         browser.close()
+
+    with tempfile.TemporaryDirectory() as temporary_directory_name:
+        legacy_html_path = Path(temporary_directory_name) / "legacy_payload_only.html"
+        visualize.write_html(
+            go.Figure(data=[go.Scatter3d(x=[1.0], y=[2.0], z=[3.0])]),
+            legacy_html_path,
+            payload={"models": [], "base_groups": {}, "lineages": {}},
+        )
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(headless=True)
+            page = browser.new_page(viewport={"width": 900, "height": 640})
+            errors: list[str] = []
+            page.on("pageerror", lambda e: errors.append(str(e)))
+            page.goto(legacy_html_path.resolve().as_uri())
+            page.wait_for_function("() => window.aaState", timeout=30000)
+            legacy_state = page.evaluate("() => window.aaState()")
+            check(
+                legacy_state["reasoningVariantLineLen"] == 0
+                and legacy_state["highlightLen"] == 0
+                and legacy_state["paretoMarkerSizeLen"] == 0,
+                "legacy write_html payload 缺少新增 trace index 时 aaState 可安全返回空状态",
+            )
+            check(not errors, f"legacy write_html payload 无 JS 运行时错误（捕获 {len(errors)} 条）")
+            if errors:
+                for e in errors[:5]:
+                    print("    legacy JS error:", e)
+            browser.close()
 
     print("\n" + ("✅ 全部通过" if not fails else f"❌ {len(fails)} 项失败"))
     return 0 if not fails else 1

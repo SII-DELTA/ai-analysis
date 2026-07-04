@@ -82,6 +82,47 @@ def _verify_standout_metrics() -> None:
     print("✅ 突出度指标语义验证通过")
 
 
+def _verify_achievable_frontier_step_mesh() -> None:
+    """可达曲面应由水平阶梯 cell 组成，并锚定每个可见 Pareto 节点。"""
+    pareto = pd.DataFrame(
+        [
+            ("A", 70.0, 1.0, 100.0),
+            ("B", 80.0, 2.0, 80.0),
+            ("C", 90.0, 4.0, 50.0),
+        ],
+        columns=["name", "intelligence", "cost_to_run", "eff_speed"],
+    )
+    pareto["kept"] = True
+    pareto["is_pareto"] = True
+
+    mesh = visualize._achievable_frontier_step_mesh(
+        pareto,
+        cost_metric_column_name="cost_to_run",
+        speed_metric_column_name="eff_speed",
+    )
+    xs = np.asarray(mesh.x, dtype=float)
+    ys = np.asarray(mesh.y, dtype=float)
+    zs = np.asarray(mesh.z, dtype=float)
+    ii = np.asarray(mesh.i, dtype=int)
+    jj = np.asarray(mesh.j, dtype=int)
+    kk = np.asarray(mesh.k, dtype=int)
+
+    assert len(xs) > 0 and len(ii) > 0, "可达曲面 mesh 不应为空"
+    for _, row in pareto.iterrows():
+        anchored = (
+            np.isclose(xs, row["cost_to_run"])
+            & np.isclose(ys, row["eff_speed"])
+            & np.isclose(zs, row["intelligence"])
+        ).any()
+        assert anchored, f"{row['name']} 缺少同坐标同 z 的可达曲面锚点"
+
+    assert len(ii) == len(jj) == len(kk), "mesh 三角索引长度不一致"
+    for a, b, c in zip(ii, jj, kk):
+        tri_z = zs[[a, b, c]]
+        assert np.allclose(tri_z, tri_z[0]), f"可达曲面出现非水平三角形: {tri_z}"
+    print("✅ 可达前沿阶梯 mesh 几何验证通过")
+
+
 class _FakeApiResponse:
     def __init__(self, status_code: int, payload: dict):
         self.status_code = status_code
@@ -249,6 +290,7 @@ def main() -> None:
     print("✅ 指标口径验证通过")
 
     _verify_standout_metrics()
+    _verify_achievable_frontier_step_mesh()
 
 
 if __name__ == "__main__":

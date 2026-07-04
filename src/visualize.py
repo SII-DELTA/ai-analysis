@@ -25,8 +25,6 @@ from plotly.offline import get_plotlyjs
 from plotly.utils import PlotlyJSONEncoder
 from scipy.spatial import Delaunay
 
-from .frontier import achievable_frontier_grid
-
 ROOT = Path(__file__).resolve().parent.parent
 PALETTE = qualitative.Dark24 + qualitative.Light24
 
@@ -39,6 +37,15 @@ REASONING_SUFFIX_KEYWORDS = {
     "reasoning", "non-reasoning", "non reasoning", "adaptive reasoning",
     "thinking", "high", "medium", "low", "minimal", "xhigh",
     "high effort", "low effort", "max effort", "medium effort",
+}
+REASONING_LEVEL_SORT_ORDER_BY_NORMALIZED_LABEL = {
+    "non-reasoning": 0,
+    "minimal": 10,
+    "low": 20,
+    "medium": 30,
+    "high": 40,
+    "xhigh": 50,
+    "max effort": 60,
 }
 
 # tier（产品档位）按优先序匹配：长词/更具体的在前，避免 "flash-lite" 被 "flash"/"lite"
@@ -75,6 +82,51 @@ def _parse_base_model_name(name: str) -> str:
         else:
             break
     return s
+
+
+def _reasoning_level_label_and_sort_order(name: str) -> tuple[str, int]:
+    """返回用于同基模型 reasoning 档位连线的稳定标签与排序。
+
+    未带纯 reasoning 后缀的模型视为 non-reasoning；未知后缀保留可读名称，
+    排在已知档位之后并按名称稳定排序。
+    """
+    s = (name or "").strip()
+    suffix_segments: list[str] = []
+    while True:
+        m = _TRAILING_PAREN_RE.search(s)
+        if not m:
+            break
+        segments = [seg.strip().lower() for seg in m.group(1).split(",")]
+        if segments and all(seg in REASONING_SUFFIX_KEYWORDS for seg in segments):
+            suffix_segments = segments + suffix_segments
+            s = s[: m.start()].strip()
+        else:
+            break
+    if not suffix_segments:
+        return "non-reasoning", REASONING_LEVEL_SORT_ORDER_BY_NORMALIZED_LABEL["non-reasoning"]
+
+    normalized = " ".join(suffix_segments).replace("non reasoning", "non-reasoning")
+    if "max effort" in normalized:
+        label = "max effort"
+    elif "xhigh" in normalized:
+        label = "xhigh"
+    elif "high" in normalized:
+        label = "high"
+    elif "medium" in normalized:
+        label = "medium"
+    elif "low" in normalized:
+        label = "low"
+    elif "minimal" in normalized:
+        label = "minimal"
+    elif "non-reasoning" in normalized:
+        label = "non-reasoning"
+    else:
+        label = " / ".join(suffix_segments)
+    sort_order = REASONING_LEVEL_SORT_ORDER_BY_NORMALIZED_LABEL.get(
+        label,
+        1000 + sum(ord(ch) for ch in label.lower()),
+    )
+    return label, sort_order
 
 
 def _classify_tier(base_model_name: str) -> str:
@@ -124,11 +176,16 @@ def _build_lineage_payload(
     for _, r in kept.iterrows():
         name = str(r["name"])
         base, tier = _resolve_lineage(name)
+        reasoning_level_label, reasoning_level_sort_order = (
+            _reasoning_level_label_and_sort_order(name)
+        )
         creator = str(r["creator"]) if pd.notna(r["creator"]) else "?"
         rd = r["release_date"]
         models.append({
             "name": name,
             "base_model_name": base,
+            "reasoning_level_label": reasoning_level_label,
+            "reasoning_level_sort_order": reasoning_level_sort_order,
             "creator": creator,
             "tier": tier,
             "lineage_key": f"{creator}||{tier}",
@@ -165,6 +222,18 @@ def _build_lineage_payload(
     base_groups: dict[str, list[int]] = {}
     for i, m in enumerate(models):
         base_groups.setdefault(m["base_model_name"], []).append(i)
+    reasoning_variant_groups: dict[str, list[int]] = {
+        base: sorted(
+            indices,
+            key=lambda i: (
+                models[i]["reasoning_level_sort_order"],
+                models[i]["reasoning_level_label"].lower(),
+                models[i]["name"].lower(),
+            ),
+        )
+        for base, indices in base_groups.items()
+        if len(indices) >= 2
+    }
 
     # —— lineages：全量三维齐全行（含被剪枝的历代前身）——
     kept_names = set(kept["name"].astype(str))
@@ -209,6 +278,7 @@ def _build_lineage_payload(
     return {
         "models": models,
         "base_groups": base_groups,
+        "reasoning_variant_group_model_indices_by_base_model_name": reasoning_variant_groups,
         "lineages": lineages,
         "cost_axis_field": cost_metric_column_name,
         "cost_axis_label": cost_metric_label,
@@ -377,20 +447,92 @@ def _frontier_wireframe(
     )
 
 
-def _achievable_surface(
-    df: pd.DataFrame,
+def _achievable_frontier_step_mesh(
+    pareto: pd.DataFrame,
     cost_metric_column_name: str,
     speed_metric_column_name: str,
-) -> go.Surface:
-    Cg_log, Sg, Z = achievable_frontier_grid(
-        df,
-        cost_metric_column_name=cost_metric_column_name,
-        speed_metric_column_name=speed_metric_column_name,
-    )
-    return go.Surface(
-        x=10 ** Cg_log, y=Sg, z=Z,
-        colorscale="Blues", opacity=0.30, showscale=False,
-        name="可达前沿 F(成本,速度)", showlegend=True, visible="legendonly",
+) -> go.Mesh3d:
+    """用当前可见 Pareto 节点构造 rectilinear step mesh。
+
+    每个水平 plateau 使用不共享顶点的两个三角形，避免 Plotly 在相邻 cell
+    间插值形成斜坡。网格锚点取 Pareto 节点自身的成本/速度边界，每个 Pareto
+    点都会作为某个 plateau 的顶点出现，且该顶点 z 等于该点 intelligence。
+    """
+    if pareto.empty:
+        return go.Mesh3d(
+            x=[], y=[], z=[], i=[], j=[], k=[],
+            name="可达前沿曲面", visible="legendonly", showlegend=True,
+            hoverinfo="skip",
+        )
+
+    points = pareto[
+        [cost_metric_column_name, speed_metric_column_name, "intelligence"]
+    ].dropna().copy()
+    points = points[
+        (points[cost_metric_column_name] > 0)
+        & (points[speed_metric_column_name] > 0)
+    ]
+    if points.empty:
+        return go.Mesh3d(
+            x=[], y=[], z=[], i=[], j=[], k=[],
+            name="可达前沿曲面", visible="legendonly", showlegend=True,
+            hoverinfo="skip",
+        )
+
+    costs = np.sort(points[cost_metric_column_name].astype(float).unique())
+    speeds = np.sort(points[speed_metric_column_name].astype(float).unique())
+    if len(costs) == 1:
+        cost_upper = costs[0] * 1.08 if costs[0] > 0 else costs[0] + 1.0
+    else:
+        cost_upper = costs[-1] * (costs[-1] / costs[-2]) ** 0.25
+    if len(speeds) == 1:
+        speed_lower = speeds[0] / 1.08 if speeds[0] > 0 else speeds[0] - 1.0
+    else:
+        speed_lower = max(
+            speeds[0] / (speeds[1] / speeds[0]) ** 0.25,
+            np.nextafter(0.0, 1.0),
+        )
+    x_edges = np.r_[costs, cost_upper]
+    y_edges = np.r_[speed_lower, speeds]
+
+    point_cost = points[cost_metric_column_name].to_numpy(float)
+    point_speed = points[speed_metric_column_name].to_numpy(float)
+    point_intel = points["intelligence"].to_numpy(float)
+
+    xs: list[float] = []
+    ys: list[float] = []
+    zs: list[float] = []
+    ii: list[int] = []
+    jj: list[int] = []
+    kk: list[int] = []
+
+    def best_intelligence_at(cost_budget: float, speed_floor: float) -> float | None:
+        feasible = (point_cost <= cost_budget) & (point_speed >= speed_floor)
+        if not feasible.any():
+            return None
+        return float(point_intel[feasible].max())
+
+    for x_index in range(len(x_edges) - 1):
+        for y_index in range(len(y_edges) - 1):
+            z_value = best_intelligence_at(x_edges[x_index], y_edges[y_index + 1])
+            if z_value is None:
+                continue
+            vertex_offset = len(xs)
+            xs.extend([x_edges[x_index], x_edges[x_index + 1], x_edges[x_index + 1], x_edges[x_index]])
+            ys.extend([y_edges[y_index], y_edges[y_index], y_edges[y_index + 1], y_edges[y_index + 1]])
+            zs.extend([z_value, z_value, z_value, z_value])
+            ii.extend([vertex_offset, vertex_offset])
+            jj.extend([vertex_offset + 1, vertex_offset + 2])
+            kk.extend([vertex_offset + 2, vertex_offset + 3])
+
+    return go.Mesh3d(
+        x=xs, y=ys, z=zs, i=ii, j=jj, k=kk,
+        color="rgba(49,130,189,0.62)",
+        opacity=0.32,
+        flatshading=True,
+        name="可达前沿曲面",
+        showlegend=True,
+        visible="legendonly",
         hoverinfo="skip",
     )
 
@@ -461,14 +603,15 @@ def build_figure(
         mesh.update(visible="legendonly")         # 实心面，默认隐（图例可点）
         fig.add_trace(mesh)
         fb = len(fig.data) - 1
-    surf = _achievable_surface(
-        df, cost_metric_column_name, speed_metric_column_name
+    surf = _achievable_frontier_step_mesh(
+        pareto, cost_metric_column_name, speed_metric_column_name
     )
     fig.add_trace(surf)
     fc = len(fig.data) - 1
 
-    # 4) 预留两个「空」trace（追加在 fc 之后，故 fa/fb/fc 下标不漂移、按钮无需改）：
-    #    交给注入的 JS 用 Plotly.restyle 动态填充——一个画 pin 高亮光环，一个画谱系连线。
+    # 4) 预留三个「空」trace（追加在前沿之后，故 fa/fb/fc 下标不漂移）：
+    #    交给注入的 JS 用 Plotly.restyle 动态填充：pin 高亮、谱系连线、
+    #    同基模型 reasoning 档位连线。
     #    沿用「细线/marker、不挡拾取」原则，避免吞掉下方 kept 节点的 hover。
     fig.add_trace(go.Scatter3d(
         x=[], y=[], z=[], mode="markers",
@@ -485,33 +628,14 @@ def build_figure(
         text=[], textposition="top center", textfont=dict(size=9, color="#333"),
     ))
     idx_lineage_line = len(fig.data) - 1
-
-    # 按钮：左组切前沿样式（线框/实心/隐藏/仅散点），右组独立开关可达前沿曲面。
-    # 用 targeted restyle（args 第二项=目标 trace 下标）使两组互不干扰，散点恒显。
-    updatemenus = []
-    if has_frontier:
-        updatemenus.append(dict(
-            type="buttons", direction="right", x=0.01, y=0.99, xanchor="left",
-            pad=dict(t=2, r=4), showactive=True,
-            buttons=[
-                dict(label="前沿线框", method="restyle",
-                     args=[{"visible": [True, "legendonly"]}, [fa, fb]]),
-                dict(label="前沿实心面", method="restyle",
-                     args=[{"visible": ["legendonly", True]}, [fa, fb]]),
-                dict(label="隐藏前沿", method="restyle",
-                     args=[{"visible": ["legendonly", "legendonly"]}, [fa, fb]]),
-                dict(label="仅散点", method="restyle",
-                     args=[{"visible": ["legendonly", "legendonly", "legendonly"]}, [fa, fb, fc]]),
-            ],
-        ))
-    updatemenus.append(dict(
-        type="buttons", direction="right", x=0.99, y=0.99, xanchor="right",
-        pad=dict(t=2, l=4), showactive=True,
-        buttons=[
-            dict(label="+可达前沿曲面", method="restyle", args=[{"visible": [True]}, [fc]]),
-            dict(label="−可达前沿曲面", method="restyle", args=[{"visible": ["legendonly"]}, [fc]]),
-        ],
+    fig.add_trace(go.Scatter3d(
+        x=[], y=[], z=[], mode="lines+markers+text",
+        name="Reasoning 档位", showlegend=False, hoverinfo="skip", visible=True,
+        line=dict(color="rgba(168,54,170,0.92)", width=6),
+        marker=dict(size=5, color="rgba(168,54,170,0.92)"),
+        text=[], textposition="bottom center", textfont=dict(size=10, color="#7a197e"),
     ))
+    idx_reasoning_variant_line = len(fig.data) - 1
 
     payload = _build_lineage_payload(
         df,
@@ -523,7 +647,11 @@ def build_figure(
     )
     payload["pinned_highlight_trace_index"] = idx_pinned_highlight
     payload["lineage_line_trace_index"] = idx_lineage_line
+    payload["reasoning_variant_line_trace_index"] = idx_reasoning_variant_line
     payload["pareto_emphasis_trace_index"] = idx_pareto_emphasis
+    payload["frontier_wireframe_trace_index"] = fa
+    payload["frontier_mesh_trace_index"] = fb
+    payload["achievable_surface_trace_index"] = fc
     # scene.annotations 的坐标须用「轴坐标」而非原始值：对数轴下注释的 x/y 必须传
     # log10(value)，Plotly 才会把它放在对应数据位置；若直接传原始值（如成本 $256），
     # Plotly 会按 log10 解读 → 把注释放到 10^256，撑爆自动量程、把所有节点/流形挤到角落。
@@ -545,8 +673,6 @@ def build_figure(
         speed_log,
     )
 
-    subtitle =(f"数据：Artificial Analysis · 拉取于 {data_date}"
-                if data_date else "数据：Artificial Analysis")
     is_eff = speed_metric_column_name == "eff_speed"
     speed_note = ("有效速度=原始速度÷相对冗长度(按中位归一)，惩罚冗长推理模型"
                   if is_eff else "原始 median tok/s")
@@ -555,30 +681,49 @@ def build_figure(
         if cost_metric_column_name == "cost_to_run"
         else "AA 7:2:1 cache-hit/input/output 混合单价"
     )
+    payload["current_view"] = {
+        "data_date": data_date or "?",
+        "cost_metric_label": cost_metric_label,
+        "cost_metric_unit": cost_metric_unit,
+        "cost_metric_note": cost_note,
+        "speed_metric_label": speed_metric_label,
+        "speed_metric_note": speed_note,
+        "kept_model_count": int(len(kept)),
+        "pareto_model_count": int(len(pareto)),
+    }
     fig.update_layout(
         title=dict(
-            text=f"AI 模型三维前沿：智能 × {speed_metric_label} × {cost_metric_label}<br>"
-                 f"<sub>{subtitle} · 成本口径={cost_note} · "
-                 f"速度口径={speed_note} · "
-                 f"共 {len(kept)} 模型，其中 {len(pareto)} 个 Pareto 最优</sub>",
+            text=f"AI 模型三维前沿：智能 × {speed_metric_label} × {cost_metric_label}",
             x=0.5, xanchor="center",
+            font=dict(size=18),
         ),
+        font=dict(size=13),
         scene=dict(
             uirevision="ai-frontier-3d-camera",
-            xaxis=dict(title=f"{cost_metric_label} {cost_metric_unit}（对数）", type="log",
+            xaxis=dict(title=dict(text=f"{cost_metric_label} {cost_metric_unit}（对数）",
+                                  font=dict(size=13)),
+                       type="log",
                        range=x_range, autorange=False,
-                       backgroundcolor="rgb(248,248,250)"),
-            yaxis=dict(title=f"{speed_metric_label} tok/s" + ("（对数）" if speed_log else ""),
+                       backgroundcolor="rgb(248,248,250)",
+                       tickfont=dict(size=12)),
+            yaxis=dict(title=dict(text=f"{speed_metric_label} tok/s" + ("（对数）" if speed_log else ""),
+                                  font=dict(size=13)),
                        type="log" if speed_log else "linear",
-                       range=y_range, autorange=False),
-            zaxis=dict(title="智能指数 (AA Intelligence Index)",
-                       range=z_range, autorange=False),
+                       range=y_range, autorange=False,
+                       tickfont=dict(size=12)),
+            zaxis=dict(title=dict(text="智能指数 (AA Intelligence Index)",
+                                  font=dict(size=13)),
+                       range=z_range, autorange=False,
+                       tickfont=dict(size=12)),
             camera=dict(eye=dict(x=1.7, y=-1.7, z=1.1)),
         ),
         uirevision="ai-frontier-3d-user-view",
-        legend=dict(itemsizing="constant", x=1.02, y=1, font=dict(size=10)),
-        margin=dict(l=0, r=0, t=90, b=0),
-        updatemenus=updatemenus,
+        legend=dict(
+            itemsizing="constant", x=0.99, y=0.99, xanchor="right",
+            font=dict(size=13), bgcolor="rgba(255,255,255,0.72)",
+        ),
+        hoverlabel=dict(font=dict(size=13)),
+        margin=dict(l=0, r=150, t=56, b=0),
     )
     return fig, payload
 
