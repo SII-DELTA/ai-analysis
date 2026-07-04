@@ -128,9 +128,10 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 export ARTIFICIAL_ANALYSIS_API_KEY="aa_xxx"   # 设备级（已写入 ~/.zshenv / ~/.zshrc）
 # 或：cp .env.example .env 后填入
 
-# 3) 生成交互式 HTML（默认均衡剪枝）
+# 3) 生成交互式 HTML 与前端复渲染数据契约（默认均衡剪枝）
 .venv/bin/python -m src.cli
-# → output/frontier_3d.html  （浏览器双击打开即可旋转/缩放）
+# → output/frontier_3d.html
+# → output/frontier_3d_visualization_dataset.json
 ```
 
 ### 参数
@@ -160,6 +161,28 @@ export ARTIFICIAL_ANALYSIS_API_KEY="aa_xxx"   # 设备级（已写入 ~/.zshenv 
 .venv/bin/python -m src.cli \
   --frontier-3d-visualization-dataset-in output/frontier_3d_visualization_dataset.json
 ```
+
+### 打开与本地托管
+
+`output/frontier_3d.html` 是自包含单文件 HTML，Plotly、数据契约与前端交互资源都已内联，
+因此可以直接打开：
+
+```bash
+open output/frontier_3d.html
+```
+
+也可以把 `output/` 作为静态目录本地托管，便于在浏览器里固定使用 URL、刷新调试或分享给同机其他工具：
+
+```bash
+.venv/bin/python -m http.server 8765 --bind 127.0.0.1 --directory output
+# 浏览器打开：http://127.0.0.1:8765/frontier_3d.html
+```
+
+如果只改前端资源或 HTML renderer，优先复用现有
+`output/frontier_3d_visualization_dataset.json` 走 `--frontier-3d-visualization-dataset-in`，
+避免反复重算 Pareto 指标。需要重新生成数据契约但仍可复用 `data/raw/` 缓存时，运行无
+`--frontier-3d-visualization-dataset-in` 的默认生成命令；需要重拉 AA API 与网页时，必须加
+`--refresh`（或清理 `data/raw/` 缓存）。
 
 ## 交互
 
