@@ -7,6 +7,9 @@ data/raw/
 # 生成数据快照：由 `python -m src.cli` 重新生成
 data/processed/
 
+# 本地分析导出的临时 CSV；版本化快照放在 data/reference/
+data/*.csv
+
 # 生成输出产物：交互 HTML / 静态导出图等
 output/
 
