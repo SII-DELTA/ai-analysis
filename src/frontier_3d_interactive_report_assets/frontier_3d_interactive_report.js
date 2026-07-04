@@ -109,6 +109,24 @@
     return Plotly.restyle(gd, update, [traceIndex]);
   }
 
+  function clearPlotlyDragCovers() {
+    document.querySelectorAll(".dragcover").forEach(function (el) {
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+    });
+  }
+
+  function releasePlotlyDragCoverSoon() {
+    clearPlotlyDragCovers();
+    if (window.requestAnimationFrame) {
+      window.requestAnimationFrame(function () {
+        clearPlotlyDragCovers();
+        window.requestAnimationFrame(clearPlotlyDragCovers);
+      });
+    }
+    window.setTimeout(clearPlotlyDragCovers, 50);
+    window.setTimeout(clearPlotlyDragCovers, 200);
+  }
+
   function traceArrayLength(traceIndex, fieldName) {
     var trace = traceAt(traceIndex);
     var values = trace && trace[fieldName];
@@ -834,6 +852,7 @@
     var model = modelFromPlotlyPoint(ev.points && ev.points[0]);
     if (!model) return;
     togglePin(model.base_model_name);
+    releasePlotlyDragCoverSoon();
   }
 
   function activateSelectedMetricCombination() {

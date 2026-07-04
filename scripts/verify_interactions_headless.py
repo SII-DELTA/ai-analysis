@@ -417,10 +417,18 @@ def main() -> int:
             await Plotly.relayout(gd, {"scene.camera": rotated});
             await new Promise(r => setTimeout(r, 80));
             const before = clone();
+            const staleCover = document.createElement('div');
+            staleCover.className = 'dragcover';
+            staleCover.style.position = 'fixed';
+            staleCover.style.inset = '0';
+            staleCover.style.zIndex = '999999';
+            staleCover.style.pointerEvents = 'auto';
+            document.body.appendChild(staleCover);
             window.aaOnClick({points: [{customdata: [nm]}]});
-            await new Promise(r => setTimeout(r, 120));
+            await new Promise(r => setTimeout(r, 260));
             const afterPin = clone();
             const pinnedAfterClick = window.aaState().pinned.indexOf(base) >= 0;
+            const dragCoverAfterPin = document.querySelectorAll('.dragcover').length;
             window.aaOnClick({points: [{customdata: [nm]}]});
             await new Promise(r => setTimeout(r, 120));
             const afterUnpin = clone();
@@ -428,14 +436,24 @@ def main() -> int:
             return {
                 pinnedAfterClick,
                 unpinnedAfterSecondClick,
+                dragCoverAfterPin,
                 pinPreserved: cc(before, afterPin),
                 unpinPreserved: cc(before, afterUnpin)
             };
         }""", [pick["anyName"], pick["base"]])
         check(click_probe["pinnedAfterClick"], "click 节点 pin 对应 base group")
         check(click_probe["unpinnedAfterSecondClick"], "再次 click 已 pin 同组节点会 unpin")
+        check(click_probe["dragCoverAfterPin"] == 0, "click pin 后清理 Plotly stale dragcover，页面不被透明层锁住")
         check(click_probe["pinPreserved"], "click pin 后 camera 保持用户视角")
         check(click_probe["unpinPreserved"], "click unpin 后 camera 保持用户视角")
+        page.locator("#aa-side-panel-toggle").click()
+        page.wait_for_timeout(80)
+        check(page.evaluate("() => window.aaState().sidePanelExpanded === false"),
+              "click pin 后右侧控制栏按钮仍可交互")
+        page.locator("#aa-side-panel-toggle").click()
+        page.wait_for_timeout(80)
+        check(page.evaluate("() => window.aaState().sidePanelExpanded === true"),
+              "右侧控制栏可重新展开")
 
         print("\n[6] trace 下标回归（HL/LL 在末尾，前沿按钮目标未被波及）")
         reg = page.evaluate("""() => {
