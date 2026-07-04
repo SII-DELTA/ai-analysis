@@ -20,6 +20,13 @@ from src import visualize
 HTML = (Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "output" / "frontier_3d.html").resolve()
 
 
+def launch_headless_chromium_for_verification(playwright):
+    try:
+        return playwright.chromium.launch(headless=True, channel="chromium")
+    except Exception:
+        return playwright.chromium.launch(headless=True)
+
+
 def main() -> int:
     assert HTML.exists(), f"找不到 HTML: {HTML}"
     fails: list[str] = []
@@ -30,7 +37,7 @@ def main() -> int:
             fails.append(msg)
 
     with sync_playwright() as pw:
-        browser = pw.chromium.launch(headless=True)
+        browser = launch_headless_chromium_for_verification(pw)
         page = browser.new_page(viewport={"width": 1400, "height": 900})
         errors: list[str] = []
         page.on("pageerror", lambda e: errors.append(str(e)))
@@ -249,8 +256,18 @@ def main() -> int:
         page.wait_for_timeout(120)
         c2 = page.evaluate("() => window.__llRestyle")
         check(c2 == c1, f"相同点二次 hover 被去重、不再重画（restyle 仍={c2}）— 打断 gl3d 重入循环")
+        page.evaluate("() => window.aaOnUnhover()")          # gl3d 新增谱系 trace 可能触发瞬时 unhover
+        page.wait_for_timeout(30)
+        page.evaluate("(ev) => window.aaOnHover(ev)", ev)    # 光标仍在同一点上时，新 hover 应取消清空
+        page.wait_for_timeout(140)
+        c_transient = page.evaluate("() => window.__llRestyle")
+        len_transient = page.evaluate("() => window.aaState().lineageLen")
+        check(
+            c_transient == c2 and len_transient > 0,
+            f"瞬时 unhover 被后续 hover 抵消，谱系不闪烁（restyle={c_transient}, len={len_transient}）",
+        )
         page.evaluate("() => window.aaOnUnhover()")
-        page.wait_for_timeout(120)
+        page.wait_for_timeout(180)
         c3 = page.evaluate("() => window.__llRestyle")
         len3 = page.evaluate("() => window.aaState().lineageLen")
         check(c3 == c2 + 1 and len3 == 0, f"unhover：重画 1 次并清空谱系（restyle={c3}, len={len3}）")
@@ -596,7 +613,7 @@ def main() -> int:
             payload={"models": [], "base_groups": {}, "lineages": {}},
         )
         with sync_playwright() as pw:
-            browser = pw.chromium.launch(headless=True)
+            browser = launch_headless_chromium_for_verification(pw)
             page = browser.new_page(viewport={"width": 900, "height": 640})
             errors: list[str] = []
             page.on("pageerror", lambda e: errors.append(str(e)))

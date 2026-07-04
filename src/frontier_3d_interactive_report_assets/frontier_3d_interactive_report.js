@@ -47,6 +47,8 @@
   var pinnedBases = {};
   var hoverLineageKey = null;
   var hoverReasoningBase = null;
+  var pendingHoverStateClearTimer = null;
+  var hoverStateClearDelayMilliseconds = 90;
   var frontierStyle = "wireframe";
   var achievableSurfaceVisible = false;
 
@@ -827,6 +829,7 @@
   }
 
   function onHover(ev) {
+    cancelPendingHoverStateClear();
     var model = modelFromPlotlyPoint(ev.points && ev.points[0]);
     if (!model) return;
     var changed = false;
@@ -841,11 +844,31 @@
     if (changed) scheduleConnectionRedraw();
   }
 
-  function onUnhover() {
-    if (hoverLineageKey === null && hoverReasoningBase === null) return;
+  function cancelPendingHoverStateClear() {
+    if (pendingHoverStateClearTimer === null) return;
+    clearTimeout(pendingHoverStateClearTimer);
+    pendingHoverStateClearTimer = null;
+  }
+
+  function clearHoverStateImmediately() {
+    cancelPendingHoverStateClear();
+    if (hoverLineageKey === null && hoverReasoningBase === null) return false;
     hoverLineageKey = null;
     hoverReasoningBase = null;
     scheduleConnectionRedraw();
+    return true;
+  }
+
+  function onUnhover() {
+    if (hoverLineageKey === null && hoverReasoningBase === null) return;
+    if (pendingHoverStateClearTimer !== null) return;
+    pendingHoverStateClearTimer = setTimeout(function () {
+      pendingHoverStateClearTimer = null;
+      if (hoverLineageKey === null && hoverReasoningBase === null) return;
+      hoverLineageKey = null;
+      hoverReasoningBase = null;
+      scheduleConnectionRedraw();
+    }, hoverStateClearDelayMilliseconds);
   }
 
   function onClick(ev) {
@@ -913,10 +936,7 @@
       return true;
     };
     window.aaClearHover = function () {
-      hoverLineageKey = null;
-      hoverReasoningBase = null;
-      redrawLineage();
-      redrawReasoningVariants();
+      clearHoverStateImmediately();
     };
     window.aaOnHover = onHover;
     window.aaOnUnhover = onUnhover;
