@@ -260,8 +260,8 @@
     if (!elCurrentViewPanel) return;
     var view = DATA.current_view || {};
     elCurrentViewPanel.innerHTML = "";
-    var title = document.createElement("h2");
-    title.className = "aa-section-title";
+    var title = document.createElement("summary");
+    title.className = "aa-section-title aa-collapsible-summary";
     title.textContent = "当前视图";
     elCurrentViewPanel.appendChild(title);
 
@@ -310,18 +310,32 @@
     return section;
   }
 
-  function createFieldRow(labelText, control) {
-    var row = document.createElement("div");
-    row.className = "aa-field-row";
-    var label = document.createElement("label");
-    label.textContent = labelText;
-    row.appendChild(label);
-    row.appendChild(control);
-    return row;
+  function createToolbarGroup(labelText) {
+    var group = document.createElement("div");
+    group.className = "aa-toolbar-group";
+    if (labelText) {
+      var label = document.createElement("span");
+      label.className = "aa-toolbar-group-label";
+      label.textContent = labelText;
+      group.appendChild(label);
+    }
+    return group;
+  }
+
+  function createToolbarSelectField(inlineLabelText, selectControl) {
+    var field = document.createElement("label");
+    field.className = "aa-toolbar-field";
+    var span = document.createElement("span");
+    span.className = "aa-toolbar-field-label";
+    span.textContent = inlineLabelText;
+    field.appendChild(span);
+    field.appendChild(selectControl);
+    return field;
   }
 
   function buildMetricControlsDom() {
-    var section = createSection("aa-metric-controls", "指标");
+    var group = createToolbarGroup("坐标轴口径");
+    group.id = "aa-metric-controls";
 
     elCostMetricSelect = document.createElement("select");
     elCostMetricSelect.id = "aa-cost-metric-select";
@@ -331,7 +345,7 @@
       option.textContent = item[1];
       elCostMetricSelect.appendChild(option);
     });
-    section.appendChild(createFieldRow("成本", elCostMetricSelect));
+    group.appendChild(createToolbarSelectField("成本", elCostMetricSelect));
 
     elSpeedMetricSelect = document.createElement("select");
     elSpeedMetricSelect.id = "aa-speed-metric-select";
@@ -341,18 +355,18 @@
       option.textContent = item[1];
       elSpeedMetricSelect.appendChild(option);
     });
-    section.appendChild(createFieldRow("速度", elSpeedMetricSelect));
+    group.appendChild(createToolbarSelectField("速度", elSpeedMetricSelect));
 
     var initialParts = ACTIVE_METRIC_KEY.split("__");
     elCostMetricSelect.value = initialParts[0];
     elSpeedMetricSelect.value = initialParts[1];
     elCostMetricSelect.addEventListener("change", activateSelectedMetricCombination);
     elSpeedMetricSelect.addEventListener("change", activateSelectedMetricCombination);
-    return section;
+    return group;
   }
 
   function buildFrontierControlsDom() {
-    var section = createSection("aa-frontier-controls", "前沿显示");
+    var group = createToolbarGroup("前沿外观");
     var segmented = document.createElement("div");
     segmented.className = "aa-segmented-control";
     elFrontierStyleButtons = [];
@@ -370,7 +384,7 @@
       segmented.appendChild(button);
       elFrontierStyleButtons.push(button);
     });
-    section.appendChild(segmented);
+    group.appendChild(segmented);
 
     var toggleLabel = document.createElement("label");
     toggleLabel.className = "aa-toggle-row";
@@ -383,8 +397,8 @@
     });
     toggleLabel.appendChild(elAchievableSurfaceToggle);
     toggleLabel.appendChild(document.createTextNode("可达前沿曲面"));
-    section.appendChild(toggleLabel);
-    return section;
+    group.appendChild(toggleLabel);
+    return group;
   }
 
   function buildSearchDom() {
@@ -404,7 +418,14 @@
   }
 
   function buildPinnedCardFieldsDom() {
-    var section = createSection("aa-pinned-card-field-controls", "固定卡片字段");
+    // Demo A: 固定卡片字段做成可折叠分区，默认收起（10 个复选框体量大，收起以免拥挤）。
+    var section = document.createElement("details");
+    section.id = "aa-pinned-card-field-controls";
+    section.className = "aa-control-section aa-collapsible-section";
+    var summary = document.createElement("summary");
+    summary.className = "aa-section-title aa-collapsible-summary";
+    summary.textContent = "固定卡片字段";
+    section.appendChild(summary);
     elPinnedCardFieldControls = document.createElement("div");
     elPinnedCardFieldControls.className = "aa-pinned-card-field-grid";
     PINNED_CARD_FIELD_DEFINITIONS.forEach(function (field) {
@@ -444,7 +465,7 @@
     { key: "speed", label: "速度" }
   ];
   var elStandoutPanel, elStandoutMetricSelect, elStandoutRankingList,
-      elWeightResetButton, elWeightAvailabilityNote;
+      elWeightResetButton, elWeightAvailabilityNote, elWeightBlock;
   var weightSliderControls = {};
 
   function frontierModels() {
@@ -589,20 +610,19 @@
   }
 
   function updateWeightControlsAvailability() {
+    // Demo A: 权重块（说明 + 3 轴滑块 + 重置）只在「加权超体积」口径下显示，其他口径整块隐藏并禁用。
     var enabled = STANDOUT_METRIC_REGISTRY[activeStandoutMetricKey].weighted;
-    WEIGHT_AXES.forEach(function (axis) {
-      var ctl = weightSliderControls[axis.key];
-      if (!ctl) return;
-      ctl.slider.disabled = !enabled;
-      ctl.numberInput.disabled = !enabled;
-    });
-    if (elWeightResetButton) elWeightResetButton.disabled = !enabled;
-    if (elWeightAvailabilityNote) elWeightAvailabilityNote.style.color = enabled ? "#52606d" : "#9aa5b1";
+    if (elWeightBlock) {
+      elWeightBlock.style.display = enabled ? "block" : "none";
+      // 隐藏时一并禁用块内控件：既让不可见控件无法 tab 聚焦，也保持“仅加权超体积口径可调”的语义。
+      var controls = elWeightBlock.querySelectorAll("input, button");
+      for (var i = 0; i < controls.length; i++) controls[i].disabled = !enabled;
+    }
   }
 
-  function buildStandoutControlsDom() {
-    elStandoutPanel = createSection("aa-standout-panel", "突出度");
-
+  function buildStandoutMetricSelectDom() {
+    // Demo A: 突出度口径 select 放顶部工具栏；权重块与排行留右栏。
+    var group = createToolbarGroup("突出度口径");
     elStandoutMetricSelect = document.createElement("select");
     elStandoutMetricSelect.id = "aa-standout-metric-select";
     [["C", "趋势残差"], ["B", "智能抬升"], ["A", "加权超体积"], ["D", "到前沿垂距"]].forEach(function (item) {
@@ -615,12 +635,22 @@
     elStandoutMetricSelect.addEventListener("change", function () {
       selectStandoutMetric(elStandoutMetricSelect.value);
     });
-    elStandoutPanel.appendChild(createFieldRow("口径", elStandoutMetricSelect));
+    group.appendChild(elStandoutMetricSelect);
+    return group;
+  }
+
+  function buildStandoutControlsDom() {
+    // Demo A: 口径 select 已挪到顶部工具栏（buildStandoutMetricSelectDom）；
+    // 这里只保留权重块（可整块显隐）与 Top12 排行。
+    elStandoutPanel = createSection("aa-standout-panel", "突出度");
+
+    elWeightBlock = document.createElement("div");
+    elWeightBlock.className = "aa-weight-block";
 
     elWeightAvailabilityNote = document.createElement("p");
     elWeightAvailabilityNote.className = "aa-weight-note";
-    elWeightAvailabilityNote.textContent = "轴权重 w=2^s，仅加权超体积生效。";
-    elStandoutPanel.appendChild(elWeightAvailabilityNote);
+    elWeightAvailabilityNote.textContent = "轴权重 w=2^s，仅加权超体积口径下可调。";
+    elWeightBlock.appendChild(elWeightAvailabilityNote);
 
     WEIGHT_AXES.forEach(function (axis) {
       var row = document.createElement("div");
@@ -647,7 +677,7 @@
       row.appendChild(label);
       row.appendChild(slider);
       row.appendChild(numberInput);
-      elStandoutPanel.appendChild(row);
+      elWeightBlock.appendChild(row);
       weightSliderControls[axis.key] = { slider: slider, numberInput: numberInput };
     });
 
@@ -657,7 +687,8 @@
     elWeightResetButton.className = "aa-secondary-button";
     elWeightResetButton.textContent = "重置权重";
     elWeightResetButton.addEventListener("click", function () { setStandoutAxisWeights(1, 1, 1); });
-    elStandoutPanel.appendChild(elWeightResetButton);
+    elWeightBlock.appendChild(elWeightResetButton);
+    elStandoutPanel.appendChild(elWeightBlock);
 
     var rankTitle = document.createElement("h3");
     rankTitle.className = "aa-section-title";
@@ -705,16 +736,32 @@
     header.appendChild(elSidePanelToggleButton);
     sidePanel.appendChild(header);
 
+    // Demo A: 顶部横向工具栏承载坐标轴口径 / 前沿外观 / 突出度口径。
+    var toolbar = document.getElementById("frontier-3d-toolbar");
+    if (!toolbar) {
+      toolbar = document.createElement("div");
+      toolbar.id = "frontier-3d-toolbar";
+      toolbar.className = "frontier-3d-toolbar";
+      if (shell) shell.insertBefore(toolbar, shell.firstChild);
+    }
+    toolbar.innerHTML = "";
+    toolbar.appendChild(buildMetricControlsDom());
+    toolbar.appendChild(buildFrontierControlsDom());
+    toolbar.appendChild(buildStandoutMetricSelectDom());
+
+    // Demo A: 右侧精简栏——搜索/pin → 已固定 → 突出度(权重块 + 排行)
+    //         → 固定卡片字段(可折叠，默认收起) → 当前视图(details，默认展开)。
     var body = document.createElement("div");
     body.className = "aa-side-panel-body";
-    elCurrentViewPanel = createSection("aa-current-view-panel");
     body.appendChild(buildSearchDom());
-    body.appendChild(buildPinnedCardFieldsDom());
     body.appendChild(buildPinnedPanelDom());
-    body.appendChild(elCurrentViewPanel);
-    body.appendChild(buildMetricControlsDom());
-    body.appendChild(buildFrontierControlsDom());
     body.appendChild(buildStandoutControlsDom());
+    body.appendChild(buildPinnedCardFieldsDom());
+    elCurrentViewPanel = document.createElement("details");
+    elCurrentViewPanel.id = "aa-current-view-panel";
+    elCurrentViewPanel.className = "aa-control-section aa-current-view-details";
+    elCurrentViewPanel.open = true;
+    body.appendChild(elCurrentViewPanel);
     sidePanel.appendChild(body);
     setSidePanelExpanded(true);
     renderCurrentView();
@@ -1091,6 +1138,8 @@
     gd.on("plotly_click", onClick);
     applyFrontierTraceVisibility();
     applyStandoutVisualEncoding();
+    // Demo A: 顶部工具栏占用高度后，让 3D 图重新适配主区。
+    if (Plotly && Plotly.Plots) Plotly.Plots.resize(gd);
 
     window.aaPinBase = function (base) { pinnedBases[base] = true; rerenderPinned(); renderResults(); };
     window.aaUnpinBase = function (base) { delete pinnedBases[base]; rerenderPinned(); renderResults(); };

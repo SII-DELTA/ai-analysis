@@ -10,10 +10,13 @@
 </head>
 <body>
   <div id="frontier-3d-report-shell" class="frontier-3d-report-shell">
-    <main id="frontier-3d-plot-region" class="frontier-3d-plot-region">
-      <div id="{{GRAPH_DIV_ID}}"></div>
-    </main>
-    <aside id="frontier-3d-side-panel" class="frontier-3d-side-panel" aria-label="图表控制栏"></aside>
+    <div id="frontier-3d-toolbar" class="frontier-3d-toolbar" aria-label="顶部工具栏"></div>
+    <div id="frontier-3d-main-row" class="frontier-3d-main-row">
+      <main id="frontier-3d-plot-region" class="frontier-3d-plot-region">
+        <div id="{{GRAPH_DIV_ID}}"></div>
+      </main>
+      <aside id="frontier-3d-side-panel" class="frontier-3d-side-panel" aria-label="图表控制栏"></aside>
+    </div>
   </div>
   <script>
 {{PLOTLY_JAVASCRIPT}}

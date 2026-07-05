@@ -22,15 +22,86 @@ select {
 
 .frontier-3d-report-shell {
   display: flex;
+  flex-direction: column;
   width: 100vw;
   height: 100vh;
   min-width: 0;
 }
 
+.frontier-3d-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 8px 14px;
+  border-bottom: 1px solid #d8dee6;
+  background: #fbfcfd;
+}
+
+.aa-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.aa-toolbar-group + .aa-toolbar-group {
+  padding-left: 16px;
+  border-left: 1px solid #e0e5ec;
+}
+
+.aa-toolbar-group-label {
+  color: #52606d;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.aa-toolbar-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.aa-toolbar-field-label {
+  color: #52606d;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.frontier-3d-toolbar select {
+  height: 30px;
+  padding: 3px 8px;
+  border: 1px solid #c9d1db;
+  border-radius: 6px;
+  color: #1f2933;
+  background: #ffffff;
+}
+
+.frontier-3d-toolbar .aa-segmented-control {
+  display: inline-flex;
+  width: auto;
+}
+
+.frontier-3d-toolbar .aa-segmented-control button {
+  height: 30px;
+  padding: 0 12px;
+}
+
+.frontier-3d-toolbar .aa-toggle-row {
+  margin-top: 0;
+}
+
+.frontier-3d-main-row {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+}
+
 .frontier-3d-plot-region {
   flex: 1 1 auto;
   min-width: 0;
-  height: 100vh;
+  height: 100%;
   background: #ffffff;
 }
 
@@ -43,7 +114,7 @@ select {
   flex: 0 0 360px;
   width: 360px;
   max-width: 38vw;
-  height: 100vh;
+  height: 100%;
   overflow-y: auto;
   border-left: 1px solid #d8dee6;
   background: #fbfcfd;
@@ -116,6 +187,43 @@ select {
   margin: 0 0 8px;
   font-size: 14px;
   font-weight: 700;
+}
+
+.aa-collapsible-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.aa-collapsible-summary::-webkit-details-marker {
+  display: none;
+}
+
+.aa-collapsible-summary::before {
+  content: "▸";
+  flex: 0 0 auto;
+  color: #52606d;
+  font-size: 11px;
+  transition: transform 120ms ease-out;
+}
+
+details[open] > .aa-collapsible-summary::before {
+  transform: rotate(90deg);
+}
+
+.aa-collapsible-section > .aa-collapsible-summary {
+  margin-bottom: 0;
+}
+
+.aa-collapsible-section[open] > .aa-collapsible-summary {
+  margin-bottom: 8px;
+}
+
+.aa-current-view-details > summary {
+  margin-bottom: 8px;
 }
 
 .aa-current-view-grid {
@@ -463,20 +571,22 @@ select {
 }
 
 @media (max-width: 900px) {
-  .frontier-3d-report-shell {
+  .frontier-3d-main-row {
     flex-direction: column;
   }
 
   .frontier-3d-plot-region {
-    height: 73vh;
-    min-height: 360px;
+    flex: 73 1 0;
+    min-height: 240px;
+    height: auto;
   }
 
   .frontier-3d-side-panel {
-    flex: 1 1 auto;
+    flex: 27 1 0;
     width: 100%;
     max-width: none;
-    height: 27vh;
+    min-height: 0;
+    height: auto;
     border-top: 1px solid #d8dee6;
     border-left: 0;
   }
