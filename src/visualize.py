@@ -720,7 +720,9 @@ def build_figure(
                                   font=dict(size=13)),
                        range=z_range, autorange=False,
                        tickfont=dict(size=12)),
-            camera=dict(eye=dict(x=1.7, y=-1.7, z=1.1)),
+            # 默认视角：从（低费用, 高速度, 高智能）看向（高费用, 低速度, 低智能）
+            # 视线方向 = center(0,0,0) − eye = (+1.7, -1.7, -1.1) → +x 高费用 / −y 低速度 / −z 低智能
+            camera=dict(eye=dict(x=-1.7, y=1.7, z=1.1)),
         ),
         uirevision="ai-frontier-3d-user-view",
         legend=dict(
