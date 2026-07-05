@@ -363,11 +363,16 @@ def main() -> int:
             "unhover 后 camera 仍保持用户旋转视角",
         )
 
-        print("\n[4c-guard] hover/切指标/拖权重期间 app 不再显式回填 scene.camera（stale 快照回填=延迟视角回默认的根因）")
+        print("\n[4c-guard] 默认组合 hover/切指标/拖权重（无真实拖拽旋转）期间 app 不显式回填 scene.camera")
         # 回归护栏：旧代码用 restoreSceneCameraSnapshot 在异步 restyle 完成后 Plotly.relayout
         # 回填 scene.camera；一旦快照在页面加载/拖拽前被捕获成默认视角，这次延迟回填就把用户
-        # 视角强行拉回默认（= 用户报的「hover 后 1-2 秒回默认」）。改由 uirevision 独力保视角后，
-        # app 在任何交互路径下都不应再显式 relayout(scene.camera)。装 spy 计数，应恒为 0。
+        # 视角强行拉回默认（= 用户报的「hover 后 1-2 秒回默认」）。
+        # 现方案 installSceneCameraDragCommit 注册 plotly_relayout 监听，仅在**用户拖拽结束**发出
+        # scene.camera 变更时才调 commitSceneCameraToUiRevision()：读 _fullLayout.scene.camera 显式
+        # Plotly.relayout 一次，把当前视角提交进 uirevision 的 preGUI 基线（该拖拽路径由 [4c-drag] 覆盖）。
+        # 本探针场景（默认组合、无真实拖拽旋转 → 不触发拖拽的 plotly_relayout(scene.camera)）永不调
+        # commitSceneCameraToUiRevision → camera relayout 计数应恒为 0；视角保持交给 uirevision，
+        # 证明护栏路径既不引入多余的 camera 回填、也不重蹈 stale 快照回填的覆辙。
         relayout_probe = page.evaluate("""async (nm) => {
             const gd = document.getElementById('frontier3d');
             const origRelayout = Plotly.relayout;
@@ -399,6 +404,87 @@ def main() -> int:
             relayout_probe["cameraRelayoutCount"] == 0,
             f"hover/切指标/拖权重期间 app 未显式回填 scene.camera（实测 {relayout_probe['cameraRelayoutCount']} 次，应为 0；视角保持交给 uirevision）",
         )
+
+        print("\n[4c-drag] react 重建的坐标轴组合上 真实鼠标拖拽旋转后 hover 不重置相机（老 bug 的核心回归）")
+        # 覆盖 effective__effective 与 effective__raw 两个组合：进到本段时页面已被 [1b] 切换过，二者的 gl3d
+        # 场景都是被 Plotly.react 重建过的（react-born，正是出 bug 的相机生命周期）。四个坐标轴组合共用同一套
+        # 渲染/相机代码、仅数据与轴字段不同，故 react-born 的 effective__raw 传递性覆盖 blended__effective /
+        # blended__raw 这两个非默认组合——它们走的是完全相同的 react 路径。
+        # 为何不在此直接真实拖拽 blended：blended 成本轴的 gl3d 场景 aspectratio 非均匀，在【无 GPU 的 headless
+        # 软件 WebGL】下每次拖拽 mouse-move 的重渲染要停顿 ~12s（真实用户有 GPU 不受影响），10 步拖拽即上百秒，
+        # 不适合放进例行回归；其行为由相同代码路径的 effective__raw 覆盖。
+        # 关键：必须用**真实鼠标拖拽**(page.mouse) 而非 Plotly.relayout 来旋转、并读**真实 GL 相机**
+        # (_scene.getCamera())。因为 Plotly.relayout 会把相机提交进 uirevision 的 preGUI 基线、天然不复现此
+        # bug；只有真实拖拽在 react-born 场景上「更新 live 相机 + _fullLayout 但不更新 preGUI」，随后的 hover
+        # restyle 才会按仍是默认的 preGUI 把视角拉回默认。[4c] 用 relayout、只覆盖默认组合，复现不了此路径。
+
+        def _live_camera():
+            return page.evaluate(
+                "() => { const s=document.getElementById('frontier3d')._fullLayout.scene._scene;"
+                "  const c=(s.getCamera?s.getCamera():s.camera);"
+                "  return {eye:{x:c.eye.x,y:c.eye.y,z:c.eye.z},"
+                "          center:{x:c.center.x,y:c.center.y,z:c.center.z},"
+                "          up:{x:c.up.x,y:c.up.y,z:c.up.z}}; }"
+            )
+
+        def _close_camera(a, b, eps=1e-2):
+            def close_vec(u, v):
+                return all(abs(u[k] - v[k]) < eps for k in ("x", "y", "z"))
+            return (close_vec(a["eye"], b["eye"]) and close_vec(a["center"], b["center"])
+                    and close_vec(a["up"], b["up"]))
+
+        def _drag_once():
+            # 切组合(react)后可能残留 Plotly dragcover 透明层拦截 mousedown → 拖拽不生效；先清掉。
+            page.evaluate("() => document.querySelectorAll('.dragcover').forEach(function (e) { e.remove(); })")
+            page.wait_for_timeout(60)
+            box = page.evaluate(
+                "() => { const r=document.getElementById('frontier3d').getBoundingClientRect();"
+                "  return {x:r.x,y:r.y,w:r.width,h:r.height}; }"
+            )
+            cx, cy = box["x"] + box["w"] / 2, box["y"] + box["h"] / 2
+            page.mouse.move(cx, cy)
+            page.mouse.down()
+            for i in range(1, 11):
+                page.mouse.move(cx + i * 16, cy - i * 7)
+                page.wait_for_timeout(15)
+            page.mouse.up()
+            page.wait_for_timeout(160)
+
+        def _drag_until_rotated(reference_camera, attempts=3):
+            # gl3d 拖拽在 headless 下偶发不触发旋转（dragcover/时序）；未旋转就重试，最多 attempts 次。
+            current = _live_camera()
+            for _ in range(attempts):
+                _drag_once()
+                current = _live_camera()
+                if not _close_camera(reference_camera, current):
+                    break
+            return current
+
+        for cost_metric_name, speed_metric_name in [
+            ("effective", "effective"),
+            ("effective", "raw"),
+        ]:
+            combo_key = f"{cost_metric_name}__{speed_metric_name}"
+            page.evaluate("([c, s]) => window.aaSetMetricCombination(c, s)",
+                          [cost_metric_name, speed_metric_name])
+            page.wait_for_function(f"() => window.aaState().activeMetricKey === '{combo_key}'")
+            page.wait_for_timeout(280)
+            page.evaluate("() => window.aaClearHover()")
+            page.wait_for_timeout(80)
+
+            before_drag_camera = _live_camera()
+            after_drag_camera = _drag_until_rotated(before_drag_camera)
+            page.evaluate("(nm) => window.aaOnHover({points:[{customdata:[nm]}]})", pick["anyName"])
+            page.wait_for_timeout(320)
+            after_hover_camera = _live_camera()
+
+            check(not _close_camera(before_drag_camera, after_drag_camera),
+                  f"[{combo_key}] 真实拖拽确实旋转了相机（排除「相机没动」的假通过）")
+            check(_close_camera(after_drag_camera, after_hover_camera),
+                  f"[{combo_key}] 真实拖拽后 hover 保持相机视角（不回默认视角）")
+
+        page.evaluate("() => window.aaSetMetricCombination('effective', 'effective')")
+        page.wait_for_function("() => window.aaState().activeMetricKey === 'effective__effective'")
 
         print("\n[4d] 坐标轴范围固定（画跨界谱系不重缩放 → 消除 Qwen 类抖动）")
         ar = page.evaluate("""() => {

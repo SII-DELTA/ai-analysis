@@ -168,6 +168,72 @@
     }).slice(0, 40);
   }
 
+  // ── 3D 相机保持（非默认坐标轴组合下 拖拽后 hover 视角被拉回默认 的根因修复）──────────
+  // 根因：非默认坐标轴组合的 gl3d 场景由 activateMetricCombination 的 Plotly.react 重建。gl3d 的
+  // restyle 重绘会把相机复位到 uirevision 的「用户编辑基线」(preGUI)；该基线在 react 时被按 layout 里
+  // 写死的默认相机 seed。而**真实鼠标拖拽旋转虽更新了 live GL 相机 + _fullLayout.scene.camera，却不更新
+  // preGUI 基线**（唯有显式 Plotly.relayout 才把相机记为「用户编辑」写进 preGUI）。于是在 react 重建过的
+  // 场景上：拖拽 → hover 触发 restyle → 相机按仍是默认的 preGUI 基线被拉回默认视角。默认组合由初始 newPlot
+  // 建立、其拖拽会正确进入 preGUI，故不受影响——这正是「只有默认组合修好过」的机制来源。
+  // 修法（installSceneCameraDragCommit）：监听 gl3d 拖拽结束发出的 plotly_relayout(scene.camera)，用一次显式
+  // Plotly.relayout 把当前视角「提交」进 preGUI 基线，之后任何 restyle 都按当前视角复位、不再跳。
+  // 三个关键工程点（都是实测踩过的坑）：
+  //  1) 提交在**拖拽时**发生（不在 hover/restyle 路径），故既有 [4c-guard]「hover 期间不显式回填 camera」仍成立。
+  //  2) 提交源必须是 _fullLayout.scene.camera（Plotly 自身的相机表示），**不能**用 _scene.getCamera() 的 live
+  //     相机：在 blended 等非均匀 aspectratio 的场景下，relayout(getCamera()) 会被 gl3d 重新归一化而每次漂移，
+  //     配合去重就成了无限重入 relayout、冻结整张图。_fullLayout.scene.camera 是拖拽已写好的值，relayout 它幂等。
+  //  3) 双重防重入：committingSceneCamera 在途标志吞掉本次 relayout 自身补发的 plotly_relayout；
+  //     lastCommittedSceneCameraEye 去重挡掉「相机没变还反复提交」。二者缺一，非均匀 aspectratio 下都可能死循环。
+  var committingSceneCamera = false;
+  var lastCommittedSceneCameraEye = null;
+
+  function sceneCameraFromLayout() {
+    if (!gd || !gd._fullLayout || !gd._fullLayout.scene) return null;
+    var cam = gd._fullLayout.scene.camera;
+    if (!cam || !cam.eye || !cam.center || !cam.up) return null;
+    return {
+      eye: { x: cam.eye.x, y: cam.eye.y, z: cam.eye.z },
+      center: { x: cam.center.x, y: cam.center.y, z: cam.center.z },
+      up: { x: cam.up.x, y: cam.up.y, z: cam.up.z }
+    };
+  }
+
+  function sceneCameraEyeChangedSinceCommit(camera) {
+    var prev = lastCommittedSceneCameraEye;
+    if (!prev) return true;
+    var eps = 1e-4;
+    return ["x", "y", "z"].some(function (axis) {
+      return Math.abs((camera.eye[axis] || 0) - (prev[axis] || 0)) > eps;
+    });
+  }
+
+  function releaseSceneCameraCommitLatch() {
+    committingSceneCamera = false;
+  }
+
+  // 把 _fullLayout.scene.camera（= 拖拽后 Plotly 已写好的当前视角）显式提交进 uirevision 基线(preGUI)。
+  function commitSceneCameraToUiRevision() {
+    if (committingSceneCamera) return Promise.resolve();
+    var camera = sceneCameraFromLayout();
+    if (!camera || !sceneCameraEyeChangedSinceCommit(camera)) return Promise.resolve();
+    committingSceneCamera = true;
+    lastCommittedSceneCameraEye = { x: camera.eye.x, y: camera.eye.y, z: camera.eye.z };
+    return Plotly.relayout(gd, { "scene.camera": camera }).then(
+      releaseSceneCameraCommitLatch, releaseSceneCameraCommitLatch
+    );
+  }
+
+  function installSceneCameraDragCommit() {
+    if (!gd || !gd.on) return;
+    gd.on("plotly_relayout", function (eventData) {
+      if (!eventData) return;
+      var touchedCamera = Object.keys(eventData).some(function (k) {
+        return k === "scene.camera" || k.indexOf("scene.camera.") === 0;
+      });
+      if (touchedCamera) commitSceneCameraToUiRevision();
+    });
+  }
+
   function restyleTraceVisible(traceIndex, visibleValue) {
     if (!gd || traceIndex === null || traceIndex === undefined) return Promise.resolve();
     if (!traceAt(traceIndex)) return Promise.resolve();
@@ -1106,7 +1172,11 @@
     hoverLineageKey = null;
     hoverReasoningBase = null;
     ACTIVE_METRIC_KEY = key;
-    return Plotly.react(gd, variant.data, variant.layout).then(function () {
+    // 用户选择「切换坐标轴组合时保留当前视角」：react 前先把当前相机提交进 uirevision 基线，
+    // 这样 react（uirevision 不变）会沿用用户当前（可能刚拖拽过的）视角，而非回到写死的默认相机。
+    return commitSceneCameraToUiRevision().then(function () {
+      return Plotly.react(gd, variant.data, variant.layout);
+    }).then(function () {
       loadMetricPayload(variant.payload);
       if (elCostMetricSelect) elCostMetricSelect.value = costMetricName;
       if (elSpeedMetricSelect) elSpeedMetricSelect.value = speedMetricName;
@@ -1136,6 +1206,7 @@
     gd.on("plotly_hover", onHover);
     gd.on("plotly_unhover", onUnhover);
     gd.on("plotly_click", onClick);
+    installSceneCameraDragCommit();  // 拖拽后把视角提交进 uirevision 基线，防非默认组合 hover 拉回默认视角
     applyFrontierTraceVisibility();
     applyStandoutVisualEncoding();
     // Demo A: 顶部工具栏占用高度后，让 3D 图重新适配主区。
