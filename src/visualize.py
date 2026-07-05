@@ -626,9 +626,22 @@ def build_figure(
         line=dict(color="rgba(70,70,70,0.85)", width=5),
     ))
     idx_lineage_line = len(fig.data) - 1
+    # 谱系节点拆两条：原单条可 hover 的「谱系节点」marker 会与其正下方的 kept 散点争夺
+    # Plotly 拾取——光标在节点附近（非正中）时最近点在两者间来回翻 → hover 反复 on/off = 闪烁。
+    #   ① 灰色装饰层 hoverinfo="skip"：只作视觉强调，画 kept 谱系节点（其 hover 交给底层散点，
+    #      与之重合也无妨，因装饰层不参与拾取）；
+    #   ② 剪枝前身悬浮层：可 hover、带 hovertemplate，只画「不在 kept 散点中的历代前身」
+    #      （孤立点、无重合，故不引入拾取争夺），保留查看被剪枝前身信息的唯一途径。
+    # JS redrawLineage 按 nameToIndex 把谱系节点分流填充进这两条。
     fig.add_trace(go.Scatter3d(
         x=[], y=[], z=[], mode="markers",
-        name="谱系节点", showlegend=False, visible=True,
+        name="谱系节点", showlegend=False, hoverinfo="skip", visible=True,
+        marker=dict(size=5, color="rgba(70,70,70,0.82)"),
+    ))
+    idx_lineage_node_grey_decoration_marker = len(fig.data) - 1
+    fig.add_trace(go.Scatter3d(
+        x=[], y=[], z=[], mode="markers",
+        name="谱系剪枝前身节点", showlegend=False, visible=True,
         marker=dict(size=5, color="rgba(70,70,70,0.82)"),
         hovertemplate=(
             "<b>%{customdata[0]}</b><br>"
@@ -638,10 +651,10 @@ def build_figure(
             "智能指数: %{customdata[4]:.1f}<br>"
             f"{speed_metric_label}: %{{customdata[6]:.1f}}<br>"
             f"{cost_metric_label}: $%{{customdata[5]:.2f}} {cost_metric_unit}"
-            "<extra>谱系节点</extra>"
+            "<extra>谱系剪枝前身节点</extra>"
         ),
     ))
-    idx_lineage_node = len(fig.data) - 1
+    idx_lineage_pruned_ancestor_hover_marker = len(fig.data) - 1
     fig.add_trace(go.Scatter3d(
         x=[], y=[], z=[], mode="lines",
         name="Reasoning 档位", showlegend=False, hoverinfo="skip", visible=True,
@@ -659,7 +672,12 @@ def build_figure(
     )
     payload["pinned_highlight_trace_index"] = idx_pinned_highlight
     payload["lineage_line_trace_index"] = idx_lineage_line
-    payload["lineage_node_trace_index"] = idx_lineage_node
+    payload["lineage_node_grey_decoration_marker_trace_index"] = (
+        idx_lineage_node_grey_decoration_marker
+    )
+    payload["lineage_pruned_ancestor_hover_marker_trace_index"] = (
+        idx_lineage_pruned_ancestor_hover_marker
+    )
     payload["reasoning_variant_line_trace_index"] = idx_reasoning_variant_line
     payload["pareto_emphasis_trace_index"] = idx_pareto_emphasis
     payload["frontier_wireframe_trace_index"] = fa

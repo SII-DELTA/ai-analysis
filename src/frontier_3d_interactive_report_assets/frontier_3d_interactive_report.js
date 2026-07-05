@@ -20,7 +20,7 @@
   var sidePanel = null;
   var sidePanelExpanded = true;
 
-  var HL, LL, LN, RV, FW, FM, AS, models, baseGroups, reasoningVariantGroups,
+  var HL, LL, lineageNodeGreyDecorationTrace, lineagePrunedAncestorHoverTrace, RV, FW, FM, AS, models, baseGroups, reasoningVariantGroups,
       lineages, nameToIndex, allBases;
 
   function loadMetricPayload(nextData) {
@@ -28,7 +28,8 @@
     window.LINEAGE_DATA = DATA;
     HL = DATA.pinned_highlight_trace_index;
     LL = DATA.lineage_line_trace_index;
-    LN = DATA.lineage_node_trace_index;
+    lineageNodeGreyDecorationTrace = DATA.lineage_node_grey_decoration_marker_trace_index;
+    lineagePrunedAncestorHoverTrace = DATA.lineage_pruned_ancestor_hover_marker_trace_index;
     RV = DATA.reasoning_variant_line_trace_index;
     FW = DATA.frontier_wireframe_trace_index;
     FM = DATA.frontier_mesh_trace_index;
@@ -991,7 +992,11 @@
     if (hoverLineageKey) keys[hoverLineageKey] = true;
 
     var lineXs = [], lineYs = [], lineZs = [];
-    var nodeXs = [], nodeYs = [], nodeZs = [], nodeCustomdata = [];
+    // 装饰层：仅 kept 谱系节点的灰点（其 hover 交给下方散点，本层不参与拾取）。
+    var keptDecorationXs = [], keptDecorationYs = [], keptDecorationZs = [];
+    // 前身悬浮层：仅「不在 kept 散点中的历代前身」，可 hover、带 customdata；
+    // 孤立点无重合散点 → 不与任何点争夺 Plotly 拾取，故不引入 hover 闪烁。
+    var ancestorXs = [], ancestorYs = [], ancestorZs = [], ancestorCustomdata = [];
     Object.keys(keys).forEach(function (key) {
       var nodes = lineages[key];
       if (!nodes || nodes.length < 2) return;
@@ -999,27 +1004,40 @@
         lineXs.push(node.x);
         lineYs.push(node.y);
         lineZs.push(node.z);
-        nodeXs.push(node.x);
-        nodeYs.push(node.y);
-        nodeZs.push(node.z);
-        nodeCustomdata.push([
-          node.name,
-          node.base_model_name,
-          key.replace("||", " · "),
-          node.release_date,
-          node.intelligence,
-          node.x,
-          node.y,
-          node.kept ? "yes" : "no"
-        ]);
+        // ponytail: kept 谱系节点的 hover 交给其正下方的 kept 散点，装饰层只作视觉强调、不拾取。
+        // 已知取舍：用户经图例隐藏该厂商散点后，其 kept 节点底层散点随之隐藏，装饰层灰点虽可见却不可 hover
+        // → 该极小众路径丢 tooltip。升级路径：如需保留，可在此按厂商图例可见性条件化装饰层的可拾取性
+        // （代价是重新引入本次修复刻意消除的「同屏坐标多个可拾取点」拾取争夺与 hover 闪烁）。
+        if (nameToIndex[node.name] !== undefined) {
+          keptDecorationXs.push(node.x);
+          keptDecorationYs.push(node.y);
+          keptDecorationZs.push(node.z);
+        } else {
+          ancestorXs.push(node.x);
+          ancestorYs.push(node.y);
+          ancestorZs.push(node.z);
+          ancestorCustomdata.push([
+            node.name,
+            node.base_model_name,
+            key.replace("||", " · "),
+            node.release_date,
+            node.intelligence,
+            node.x,
+            node.y,
+            node.kept ? "yes" : "no"
+          ]);
+        }
       });
       lineXs.push(null);
       lineYs.push(null);
       lineZs.push(null);
     });
     restyleTraceData(LL, { x: [lineXs], y: [lineYs], z: [lineZs] });
-    restyleTraceData(LN, {
-      x: [nodeXs], y: [nodeYs], z: [nodeZs], customdata: [nodeCustomdata]
+    restyleTraceData(lineageNodeGreyDecorationTrace, {
+      x: [keptDecorationXs], y: [keptDecorationYs], z: [keptDecorationZs]
+    });
+    restyleTraceData(lineagePrunedAncestorHoverTrace, {
+      x: [ancestorXs], y: [ancestorYs], z: [ancestorZs], customdata: [ancestorCustomdata]
     });
   }
 
@@ -1268,7 +1286,10 @@
         annCount: (gd._fullLayout && gd._fullLayout.scene && gd._fullLayout.scene.annotations || []).length,
         highlightLen: traceArrayLength(HL, "x"),
         lineageLen: traceArrayLength(LL, "x"),
-        lineageNodeLen: traceArrayLength(LN, "x"),
+        lineageNodeDecorationLen: traceArrayLength(lineageNodeGreyDecorationTrace, "x"),
+        lineagePrunedAncestorHoverLen: traceArrayLength(lineagePrunedAncestorHoverTrace, "x"),
+        lineageNodeLen: traceArrayLength(lineageNodeGreyDecorationTrace, "x")
+          + traceArrayLength(lineagePrunedAncestorHoverTrace, "x"),
         reasoningVariantLineLen: traceArrayLength(RV, "x"),
         lineageKeys: Object.keys(lineages).length,
         standoutMetric: activeStandoutMetricKey,

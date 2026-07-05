@@ -132,18 +132,21 @@ def main() -> int:
         page.evaluate("() => window.aaSetMetricCombination('effective', 'effective')")
         page.wait_for_function("() => window.aaState().activeMetricKey === 'effective__effective'")
 
-        # 选一个「有谱系（>=2 代）」的 kept 基模型，优先 pro
+        # 选一个「有谱系（>=2 代）」的 kept 基模型，优先「含剪枝前身」（供前身悬浮层验证）再优先 pro
         pick = page.evaluate("""() => {
             const D = window.LINEAGE_DATA; const bg = D.base_groups; const lin = D.lineages;
             let best = null;
             for (const base of Object.keys(bg)) {
                 const m = D.models[bg[base][0]]; const key = m.lineage_key;
                 if (lin[key] && lin[key].length >= 2) {
+                    const prunedAncestors = lin[key].filter((n) => !n.kept).length;
                     const score = (bg[base].length >= 2 ? 100 : 0)
+                        + (prunedAncestors > 0 ? 50 : 0)
                         + (base.toLowerCase().includes('pro') ? 10 : 0)
                         + Math.min(bg[base].length, 9);
                     if (!best || score > best.score)
-                        best = {base, key, gens: lin[key].length, anyName: m.name, score};
+                        best = {base, key, gens: lin[key].length, prunedAncestors,
+                                anyName: m.name, score};
                 }
             }
             return best;
@@ -631,15 +634,20 @@ def main() -> int:
             window.aaPinBase(base);
             await new Promise(r => setTimeout(r, 160));
             const HL = LINEAGE_DATA.pinned_highlight_trace_index;
-            const LN = LINEAGE_DATA.lineage_node_trace_index;
+            const DEC = LINEAGE_DATA.lineage_node_grey_decoration_marker_trace_index;
+            const ANC = LINEAGE_DATA.lineage_pruned_ancestor_hover_marker_trace_index;
             const firstNonNull = (items) => (items || []).find((item) => item);
             const hlCd = firstNonNull(gd.data[HL].customdata);
-            const lnCd = firstNonNull(gd.data[LN].customdata);
-            const hiddenNodeCd = (gd.data[LN].customdata || []).find((item) => item && item[7] === 'no');
+            const ancCd = firstNonNull(gd.data[ANC].customdata);
+            // 消除闪烁的核心不变量：可拾取的前身悬浮层，其每个点都不在 kept 散点里（无重合 → 不争夺拾取）
+            const keptNames = new Set((LINEAGE_DATA.models || []).map((m) => m.name));
+            const ancCds = (gd.data[ANC].customdata || []).filter(Boolean);
+            const ancAllPruned = ancCds.length > 0
+                && ancCds.every((cd) => !keptNames.has(cd[0]) && cd[7] === 'no');
             const beforePinned = window.aaState().pinned.indexOf(base) >= 0;
-            if (lnCd) window.aaOnHover({points: [{customdata: lnCd}]});
+            if (ancCd) window.aaOnHover({points: [{customdata: ancCd}]});
             await new Promise(r => setTimeout(r, 120));
-            const hoverViaLineageOverlayWorked = window.aaState().hoverKey !== null;
+            const hoverViaAncestorOverlayWorked = window.aaState().hoverKey !== null;
             if (hlCd) window.aaOnClick({points: [{customdata: hlCd}]});
             await new Promise(r => setTimeout(r, 160));
             const unpinnedViaHighlightOverlay = window.aaState().pinned.indexOf(base) < 0;
@@ -648,20 +656,27 @@ def main() -> int:
             return {
                 beforePinned,
                 hasHighlightCustomdata: !!hlCd,
-                hasLineageNodeCustomdata: !!lnCd,
-                hasHiddenLineageNodeCustomdata: !!hiddenNodeCd,
-                lineageNodeHoverTemplate: gd.data[LN].hovertemplate || '',
-                hoverViaLineageOverlayWorked,
+                decorationHoverinfo: gd.data[DEC].hoverinfo || '',
+                decorationHoverTemplate: gd.data[DEC].hovertemplate || '',
+                hasAncestorCustomdata: !!ancCd,
+                ancestorHoverTemplate: gd.data[ANC].hovertemplate || '',
+                ancAllPruned,
+                hoverViaAncestorOverlayWorked,
                 unpinnedViaHighlightOverlay,
             };
         }""", [pick["anyName"], pick["base"]])
         check(overlay_probe["beforePinned"], "覆盖层回归先建立 pin 状态")
         check(overlay_probe["hasHighlightCustomdata"], "高亮覆盖 trace 带 customdata，不吞 click")
-        check(overlay_probe["hasLineageNodeCustomdata"], "谱系节点 trace 带 customdata，不吞 hover")
-        check("谱系节点" in overlay_probe["lineageNodeHoverTemplate"] and "kept" in overlay_probe["lineageNodeHoverTemplate"],
-              "谱系节点 trace 带完整 hover tooltip（含 hidden/kept 信息）")
-        check(overlay_probe["hasHiddenLineageNodeCustomdata"], "被谱系带出的 hidden 节点也有 hover customdata")
-        check(overlay_probe["hoverViaLineageOverlayWorked"], "hover 命中谱系节点 trace 也能更新谱系状态")
+        # 装饰层：不参与拾取 —— 消除「叠加灰点与下方 kept 散点争夺 hover 拾取」的闪烁根因
+        check(overlay_probe["decorationHoverinfo"] == "skip" and not overlay_probe["decorationHoverTemplate"],
+              "谱系节点装饰层 hoverinfo=skip 且无 hovertemplate（不与下方散点争夺拾取）")
+        # 前身悬浮层：可 hover、带完整 tooltip、只含剪枝前身（无重合散点 → 不引入闪烁）
+        check(overlay_probe["hasAncestorCustomdata"], "剪枝前身悬浮层带 customdata，不吞 hover")
+        check("谱系" in overlay_probe["ancestorHoverTemplate"] and "kept" in overlay_probe["ancestorHoverTemplate"],
+              "剪枝前身悬浮层带完整 hover tooltip（含 kept 信息）")
+        check(overlay_probe["ancAllPruned"],
+              "前身悬浮层每个点都不在 kept 散点中（可拾取叠加点绝不与 kept 重合 → 无 hover 闪烁）")
+        check(overlay_probe["hoverViaAncestorOverlayWorked"], "hover 命中剪枝前身悬浮层也能更新谱系状态")
         check(overlay_probe["unpinnedViaHighlightOverlay"], "click 命中高亮覆盖 trace 也能 unpin")
         page.locator("#aa-side-panel-toggle").click()
         page.wait_for_timeout(80)
@@ -672,13 +687,14 @@ def main() -> int:
         check(page.evaluate("() => window.aaState().sidePanelExpanded === true"),
               "右侧控制栏可重新展开")
 
-        print("\n[6] trace 下标回归（HL/LL 在末尾，前沿按钮目标未被波及）")
+        print("\n[6] trace 下标回归（HL/LL/装饰层/前身层/RV 在末尾，前沿按钮目标未被波及）")
         reg = page.evaluate("""() => {
             const gd = document.getElementById('frontier3d');
             const n = gd.data.length;
             const HL = LINEAGE_DATA.pinned_highlight_trace_index;
             const LL = LINEAGE_DATA.lineage_line_trace_index;
-            const LN = LINEAGE_DATA.lineage_node_trace_index;
+            const DEC = LINEAGE_DATA.lineage_node_grey_decoration_marker_trace_index;
+            const ANC = LINEAGE_DATA.lineage_pruned_ancestor_hover_marker_trace_index;
             const RV = LINEAGE_DATA.reasoning_variant_line_trace_index;
             const names = gd.data.map(t => t.name);
             // 前沿样式按钮的目标下标（restyle args[1]）应全部 < HL
@@ -687,21 +703,26 @@ def main() -> int:
                 const tgt = b.args && b.args[1]; if (Array.isArray(tgt)) tgt.forEach(i => { if (i > maxBtnTarget) maxBtnTarget = i; });
             }));
             return {
-                n, HL, LL, LN, RV,
-                hlName: names[HL], llName: names[LL], lnName: names[LN], rvName: names[RV],
-                llMode: gd.data[LL].mode, lnMode: gd.data[LN].mode, rvMode: gd.data[RV].mode,
+                n, HL, LL, DEC, ANC, RV,
+                hlName: names[HL], llName: names[LL], decName: names[DEC], ancName: names[ANC], rvName: names[RV],
+                llMode: gd.data[LL].mode, decMode: gd.data[DEC].mode, ancMode: gd.data[ANC].mode, rvMode: gd.data[RV].mode,
+                decHoverinfo: gd.data[DEC].hoverinfo || '',
                 maxBtnTarget
             };
         }""")
         check(reg["hlName"] == "已固定", f"HL trace[{reg['HL']}] = {reg['hlName']!r}")
         check(reg["llName"] == "谱系连线", f"LL trace[{reg['LL']}] = {reg['llName']!r}")
-        check(reg["lnName"] == "谱系节点", f"LN trace[{reg['LN']}] = {reg['lnName']!r}")
+        check(reg["decName"] == "谱系节点", f"装饰层 trace[{reg['DEC']}] = {reg['decName']!r}")
+        check(reg["ancName"] == "谱系剪枝前身节点", f"前身悬浮层 trace[{reg['ANC']}] = {reg['ancName']!r}")
         check(reg["rvName"] == "Reasoning 档位", f"RV trace[{reg['RV']}] = {reg['rvName']!r}")
-        check(reg["llMode"] == "lines" and reg["lnMode"] == "markers" and reg["rvMode"] == "lines",
-              f"动态谱系使用纯线 + 独立节点 hover trace：LL={reg['llMode']} LN={reg['lnMode']} RV={reg['rvMode']}")
-        check(reg["HL"] == reg["n"] - 4 and reg["LL"] == reg["n"] - 3
-              and reg["LN"] == reg["n"] - 2 and reg["RV"] == reg["n"] - 1,
-              "HL/LL/LN/RV 为末尾四个 trace")
+        check(reg["llMode"] == "lines" and reg["decMode"] == "markers"
+              and reg["ancMode"] == "markers" and reg["rvMode"] == "lines",
+              f"动态谱系：纯线 + 装饰/前身两层节点 marker：LL={reg['llMode']} DEC={reg['decMode']} ANC={reg['ancMode']} RV={reg['rvMode']}")
+        check(reg["decHoverinfo"] == "skip",
+              "谱系节点装饰层 hoverinfo=skip（可拾取叠加层不与 kept 散点争夺 → 无 hover 闪烁）")
+        check(reg["HL"] == reg["n"] - 5 and reg["LL"] == reg["n"] - 4
+              and reg["DEC"] == reg["n"] - 3 and reg["ANC"] == reg["n"] - 2 and reg["RV"] == reg["n"] - 1,
+              "HL/LL/装饰层/前身层/RV 为末尾五个 trace")
         check(reg["maxBtnTarget"] < reg["HL"], f"前沿按钮最大目标下标 {reg['maxBtnTarget']} < HL {reg['HL']}（不波及新 trace）")
 
         print("\n[7] 突出度：控件 + 视觉编码（光环大小）+ 排行 + 可调权重")
