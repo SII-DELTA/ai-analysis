@@ -158,7 +158,7 @@ def _build_lineage_payload(
     """构造注入前端 JS 的数据。
 
     - models[]（仅 kept，可见节点）：每模型 {name, base_model_name, creator, tier,
-      lineage_key, x, y, z, panel}；用于搜索 / pin / 高亮 / 常显注释。
+      lineage_key, x, y, z, panel}；用于搜索 / pin / 高亮 / 侧栏详情。
     - base_groups{base_model_name: [models 下标...]}：pin 时整组固定其全部档位。
     - lineages{"creator||tier": [按发布日升序的「每代取最高智能点」节点...]}：**基于全量
       三维齐全的数据（不限 kept）**，使被剪枝的历代前身仍能连成谱系（用户示例 Gemini
@@ -609,9 +609,9 @@ def build_figure(
     fig.add_trace(surf)
     fc = len(fig.data) - 1
 
-    # 4) 预留三个「空」trace（追加在前沿之后，故 fa/fb/fc 下标不漂移）：
+    # 4) 预留四个「空」trace（追加在前沿之后，故 fa/fb/fc 下标不漂移）：
     #    交给注入的 JS 用 Plotly.restyle 动态填充：pin 高亮、谱系连线、
-    #    同基模型 reasoning 档位连线。
+    #    谱系节点 hover marker、同基模型 reasoning 档位连线。
     #    沿用「细线/marker、不挡拾取」原则，避免吞掉下方 kept 节点的 hover。
     fig.add_trace(go.Scatter3d(
         x=[], y=[], z=[], mode="markers",
@@ -621,19 +621,31 @@ def build_figure(
     ))
     idx_pinned_highlight = len(fig.data) - 1
     fig.add_trace(go.Scatter3d(
-        x=[], y=[], z=[], mode="lines+markers+text",
+        x=[], y=[], z=[], mode="lines",
         name="谱系连线", showlegend=False, hoverinfo="skip", visible=True,
         line=dict(color="rgba(70,70,70,0.85)", width=5),
-        marker=dict(size=4, color="rgba(70,70,70,0.85)"),
-        text=[], textposition="top center", textfont=dict(size=9, color="#333"),
     ))
     idx_lineage_line = len(fig.data) - 1
     fig.add_trace(go.Scatter3d(
-        x=[], y=[], z=[], mode="lines+markers+text",
+        x=[], y=[], z=[], mode="markers",
+        name="谱系节点", showlegend=False, visible=True,
+        marker=dict(size=5, color="rgba(70,70,70,0.82)"),
+        hovertemplate=(
+            "<b>%{customdata[0]}</b><br>"
+            "基模型: %{customdata[1]}<br>"
+            "谱系: %{customdata[2]}<br>"
+            "发布: %{customdata[3]} · kept: %{customdata[7]}<br>"
+            "智能指数: %{customdata[4]:.1f}<br>"
+            f"{speed_metric_label}: %{{customdata[6]:.1f}}<br>"
+            f"{cost_metric_label}: $%{{customdata[5]:.2f}} {cost_metric_unit}"
+            "<extra>谱系节点</extra>"
+        ),
+    ))
+    idx_lineage_node = len(fig.data) - 1
+    fig.add_trace(go.Scatter3d(
+        x=[], y=[], z=[], mode="lines",
         name="Reasoning 档位", showlegend=False, hoverinfo="skip", visible=True,
         line=dict(color="rgba(168,54,170,0.92)", width=6),
-        marker=dict(size=5, color="rgba(168,54,170,0.92)"),
-        text=[], textposition="bottom center", textfont=dict(size=10, color="#7a197e"),
     ))
     idx_reasoning_variant_line = len(fig.data) - 1
 
@@ -647,19 +659,12 @@ def build_figure(
     )
     payload["pinned_highlight_trace_index"] = idx_pinned_highlight
     payload["lineage_line_trace_index"] = idx_lineage_line
+    payload["lineage_node_trace_index"] = idx_lineage_node
     payload["reasoning_variant_line_trace_index"] = idx_reasoning_variant_line
     payload["pareto_emphasis_trace_index"] = idx_pareto_emphasis
     payload["frontier_wireframe_trace_index"] = fa
     payload["frontier_mesh_trace_index"] = fb
     payload["achievable_surface_trace_index"] = fc
-    # scene.annotations 的坐标须用「轴坐标」而非原始值：对数轴下注释的 x/y 必须传
-    # log10(value)，Plotly 才会把它放在对应数据位置；若直接传原始值（如成本 $256），
-    # Plotly 会按 log10 解读 → 把注释放到 10^256，撑爆自动量程、把所有节点/流形挤到角落。
-    # （散点 trace 传原始值由 Plotly 内部取 log，不受影响；故仅注释需此换算。）
-    # 下列两个布尔标志告诉注入的 JS：哪些轴是对数轴、需对注释坐标做 log10。
-    payload["cost_axis_is_log"] = True          # 两种成本口径均使用对数轴
-    payload["speed_axis_is_log"] = speed_log    # y 轴（速度）随 --speed-scale 决定
-
     # 固定坐标轴范围 = (kept 散点 ∪ 全部谱系节点) 并集 + 留白，并关闭 autorange。
     # 谱系线基于「全量三维齐全数据」，含被剪枝的历代前身，其成本/速度可能落在 kept
     # 散点范围之外。若用 autorange，则 hover 画出谱系 → 范围扩张 → 所有点位移 → hover

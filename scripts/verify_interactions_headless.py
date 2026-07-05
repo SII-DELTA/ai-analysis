@@ -56,10 +56,18 @@ def main() -> int:
         check(data["lineages"] > 0, f"lineages(>=2 代) = {data['lineages']}")
         check(page.evaluate("() => !!document.getElementById('frontier3d')"), "#frontier3d 存在")
         check(page.evaluate("() => !!document.getElementById('aa-search-input')"), "搜索框存在")
+        check(page.evaluate("() => !!document.getElementById('aa-pinned-card-field-controls')"),
+              "固定卡片字段配置存在")
         check(page.evaluate("() => !!document.getElementById('aa-pinned-panel')"), "侧栏容器存在")
         check(page.evaluate("() => !!document.getElementById('aa-metric-controls')"), "指标切换控件存在")
         check(page.evaluate("() => !!document.getElementById('frontier-3d-side-panel')"), "右侧控制栏存在")
         check(page.evaluate("() => window.aaState().sidePanelExpanded === true"), "右侧控制栏默认展开")
+        search_near_top = page.evaluate("""() => {
+            const search = document.getElementById('aa-search-panel').getBoundingClientRect();
+            const panel = document.getElementById('frontier-3d-side-panel').getBoundingClientRect();
+            return search.top - panel.top < 90;
+        }""")
+        check(search_near_top, "搜索与 pin 位于右侧控制栏顶部可见区")
         check(page.evaluate("() => getComputedStyle(document.getElementById('aa-standout-panel')).position !== 'fixed'"),
               "突出度面板不再是 fixed overlay")
         check(page.evaluate("() => document.body.textContent.indexOf('仅散点') < 0"), "不存在视觉重复的“仅散点”按钮")
@@ -152,58 +160,82 @@ def main() -> int:
         check(res_count > 0, f"搜 {token!r} 出 {res_count} 条候选")
         match = page.evaluate("(b) => window.aaMatchBases(b.split(' ')[0]).includes(b)", pick["base"])
         check(match, f"候选含 {pick['base']!r}")
-
-        print("\n[3] pin → 高亮 + 注释 + 侧栏 + 谱系线")
-        page.evaluate("(b) => window.aaPinBase(b)", pick["base"])
+        search_pin_clicked = page.evaluate("""(b) => {
+            const rows = Array.from(document.querySelectorAll('.aa-result-row'));
+            const row = rows.find((el) => el.dataset.baseModelName === b);
+            const button = row && row.querySelector('.aa-search-result-pin-button');
+            if (!button) return false;
+            button.click();
+            return true;
+        }""", pick["base"])
+        check(search_pin_clicked, "搜索结果含显式 Pin/取消按钮，且可点击")
         page.wait_for_timeout(150)
+
+        print("\n[3] pin → 高亮 + 侧栏 + 谱系线（不写入 3D annotations）")
         st = page.evaluate("() => window.aaState()")
         nvar = page.evaluate("(b) => LINEAGE_DATA.base_groups[b].length", pick["base"])
         check(pick["base"] in st["pinned"], "pinned 集合含该基模型")
-        check(st["annCount"] == nvar, f"scene.annotations = {st['annCount']}（=档位数 {nvar}）")
+        check(st["annCount"] == 0,
+              "scene.annotations 保持为空（pin 详情交给侧栏，避免 3D annotation relayout 锁住画布）")
         check(st["highlightLen"] == nvar, f"高亮点 = {st['highlightLen']}（=档位数 {nvar}）")
         check(st["lineageLen"] >= pick["gens"], f"谱系线点数 = {st['lineageLen']}（含 {pick['gens']} 代节点）")
+        check(st["lineageNodeLen"] >= pick["gens"],
+              f"谱系节点 hover marker = {st['lineageNodeLen']}（含 {pick['gens']} 代节点）")
         if nvar >= 2:
             check(st["reasoningVariantLineLen"] >= nvar,
                   f"reasoning 档位线点数 = {st['reasoningVariantLineLen']}（覆盖 {nvar} 档）")
         panel_shown = page.evaluate("() => getComputedStyle(document.getElementById('aa-pinned-panel')).display != 'none'")
         check(panel_shown, "侧栏可见")
+        pinned_card_state = page.evaluate("""() => {
+            const cards = Array.from(document.querySelectorAll('.aa-pinned-variant-card'));
+            const labels = Array.from(document.querySelectorAll('.aa-pinned-variant-field dt'))
+                .map((el) => el.textContent);
+            return {
+                cardCount: cards.length,
+                firstTitle: cards[0] ? cards[0].querySelector('.aa-pinned-variant-title').textContent : '',
+                labels,
+                visibleFields: window.aaState().pinnedCardVisibleFields,
+            };
+        }""")
+        check(pinned_card_state["cardCount"] == nvar,
+              f"已固定缩略卡 = {pinned_card_state['cardCount']}（=档位数 {nvar}）")
+        check(bool(pinned_card_state["firstTitle"]), f"缩略卡显示具体模型标题 {pinned_card_state['firstTitle']!r}")
+        check("当前速度" in pinned_card_state["labels"] and "当前成本" in pinned_card_state["labels"],
+              f"缩略卡默认显示核心字段 {pinned_card_state['labels']}")
+        field_toggle_state = page.evaluate("""() => {
+            const input = document.querySelector('[data-pinned-card-field-key="selected_cost_metric"]');
+            if (!input) return {hasInput: false};
+            input.click();
+            const labelsAfterOff = Array.from(document.querySelectorAll('.aa-pinned-variant-field dt'))
+                .map((el) => el.textContent);
+            input.click();
+            const labelsAfterOn = Array.from(document.querySelectorAll('.aa-pinned-variant-field dt'))
+                .map((el) => el.textContent);
+            return {
+                hasInput: true,
+                offHidden: labelsAfterOff.indexOf('当前成本') < 0,
+                onShown: labelsAfterOn.indexOf('当前成本') >= 0,
+                visibleFields: window.aaState().pinnedCardVisibleFields,
+            };
+        }""")
+        check(field_toggle_state["hasInput"] and field_toggle_state["offHidden"] and field_toggle_state["onShown"],
+              f"固定卡片字段可由用户勾选控制 {field_toggle_state}")
 
-        # 回归：pin 注入 scene.annotations 后坐标轴量程不得爆炸。
-        # 注释坐标在对数轴上须用 log10(value)；若误传原始值，Plotly 会把它当 log10 解读，
-        # 把注释放到 10^value（如成本 $256 → 10^256），自动量程冲到天文数字、所有节点被挤到角落。
-        # 对数轴的 _fullLayout range 以 log10 为单位，正常上界仅个位数；阈值 < 12 可稳健区分。
+        # 回归：pin 不应通过 scene.annotations 修改 3D scene。历史上 annotation relayout
+        # 既可能撑爆坐标轴量程，也可能让 Plotly 的 3D 交互层卡住。
         rng = page.evaluate("""() => {
             const fl = document.getElementById('frontier3d')._fullLayout.scene;
-            return {x: fl.xaxis.range, y: fl.yaxis.range,
-                    xlog: LINEAGE_DATA.cost_axis_is_log, ylog: LINEAGE_DATA.speed_axis_is_log};
+            return {x: fl.xaxis.range, y: fl.yaxis.range};
         }""")
-        if rng["xlog"]:
-            check(rng["x"][1] < 12, f"pin 后成本轴(对数)量程上界 {rng['x'][1]:.2f} < 12（未因注释坐标爆炸）")
-        if rng["ylog"]:
-            check(rng["y"][1] < 12, f"pin 后速度轴(对数)量程上界 {rng['y'][1]:.2f} < 12（未因注释坐标爆炸）")
-        # 注释坐标须与高亮 marker 的数据位置一致（同一节点）：对数轴下注释应为 log10(节点值)
-        coord_ok = page.evaluate("""() => {
-            const gd = document.getElementById('frontier3d');
-            const anns = (gd._fullLayout.scene.annotations) || [];
-            const HL = LINEAGE_DATA.pinned_highlight_trace_index;
-            const xs = gd.data[HL].x || [];
-            if (!anns.length || !xs.length) return false;
-            const a = anns[0];
-            // 找到与该注释 z 匹配的高亮点，比较 x（对数轴下注释 x 应≈log10(marker x)）
-            const zi = (gd.data[HL].z || []).findIndex(z => Math.abs(z - a.z) < 1e-6);
-            if (zi < 0) return false;
-            const mx = xs[zi];
-            const expect = LINEAGE_DATA.cost_axis_is_log ? Math.log10(mx) : mx;
-            return Math.abs(a.x - expect) < 1e-6;
-        }""")
-        check(coord_ok, "注释 x 坐标 = 对应高亮点的轴坐标（对数轴下为 log10(成本)，与 marker 重合)")
+        check(rng["x"][1] < 12, f"pin 后成本轴量程上界 {rng['x'][1]:.2f} < 12（未因 pin 扩张）")
+        check(rng["y"][1] < 12, f"pin 后速度轴量程上界 {rng['y'][1]:.2f} < 12（未因 pin 扩张）")
 
         print("\n[4] hover-only 临时谱系（无 pin 干净态下隔离验证）")
         # 隔离 hover-only：临时取消该 base 的 pin 并清除 hover，使谱系线归零作为基线；
         # 若仍带 pin，则该谱系本就绘出、hover 不新增点（after==before 恒真），无法暴露 hover-only 失效。
         page.evaluate("(b) => window.aaUnpinBase(b)", pick["base"])
         page.evaluate("() => window.aaClearHover()")
-        page.wait_for_timeout(100)
+        page.wait_for_timeout(220)
         base0 = page.evaluate("() => window.aaState().lineageLen")
         check(base0 == 0, f"无 pin 无 hover 时谱系线点数 = {base0}（应为 0）")
         ok = page.evaluate("(nm) => window.aaShowLineageForName(nm)", pick["anyName"])
@@ -218,12 +250,14 @@ def main() -> int:
                   f"hover-only reasoning 档位线点数 = {hovered_reasoning}（覆盖 {nvar} 档）")
             reasoning_style = page.evaluate("""() => {
                 const t = document.getElementById('frontier3d').data[LINEAGE_DATA.reasoning_variant_line_trace_index];
-                return {color: t.line.color, name: t.name};
+                return {color: t.line.color, name: t.name, mode: t.mode};
             }""")
             check("168,54,170" in reasoning_style["color"] and reasoning_style["name"] == "Reasoning 档位",
                   f"reasoning 档位线使用固定非厂商色 ({reasoning_style['color']})")
+            check(reasoning_style["mode"] == "lines",
+                  "reasoning 档位使用纯 3D line，避免 null marker 触发 WebGL/Safari shader 错误")
         page.evaluate("() => window.aaClearHover()")
-        page.wait_for_timeout(100)
+        page.wait_for_timeout(220)
         cleared_state = page.evaluate("() => window.aaState()")
         check(cleared_state["lineageLen"] == 0, f"清除 hover 后谱系线点数回到 {cleared_state['lineageLen']}（应为 0）")
         check(cleared_state["reasoningVariantLineLen"] == 0,
@@ -267,7 +301,7 @@ def main() -> int:
             f"瞬时 unhover 被后续 hover 抵消，谱系不闪烁（restyle={c_transient}, len={len_transient}）",
         )
         page.evaluate("() => window.aaOnUnhover()")
-        page.wait_for_timeout(180)
+        page.wait_for_timeout(260)
         c3 = page.evaluate("() => window.__llRestyle")
         len3 = page.evaluate("() => window.aaState().lineageLen")
         check(c3 == c2 + 1 and len3 == 0, f"unhover：重画 1 次并清空谱系（restyle={c3}, len={len3}）")
@@ -418,7 +452,7 @@ def main() -> int:
         page.evaluate("(b) => window.aaUnpinBase(b)", pick["base"])
         page.wait_for_timeout(100)
         st2 = page.evaluate("() => window.aaState()")
-        check(st2["annCount"] == 0, "注释已清空")
+        check(st2["annCount"] == 0, "scene.annotations 仍为空")
         check(st2["highlightLen"] == 0, "高亮已清空")
         check(len(st2["pinned"]) == 0, "pinned 集合已空")
 
@@ -446,6 +480,12 @@ def main() -> int:
             const afterPin = clone();
             const pinnedAfterClick = window.aaState().pinned.indexOf(base) >= 0;
             const dragCoverAfterPin = document.querySelectorAll('.dragcover').length;
+            const glplotAfterPin = gd._fullLayout.scene._scene.glplot;
+            const interactionAfterPin = {
+                buttons: glplotAfterPin.mouseListener.buttons,
+                rotating: glplotAfterPin._mouseRotating,
+                stopped: glplotAfterPin._stopped,
+            };
             const delayedCover = document.createElement('div');
             delayedCover.className = 'dragcover';
             delayedCover.style.position = 'fixed';
@@ -453,8 +493,23 @@ def main() -> int:
             delayedCover.style.zIndex = '999999';
             delayedCover.style.pointerEvents = 'auto';
             document.body.appendChild(delayedCover);
-            await new Promise(r => setTimeout(r, 700));
+            const glplotDuringNewDrag = gd._fullLayout.scene._scene.glplot;
+            glplotDuringNewDrag.mouseListener.buttons = 1;
+            glplotDuringNewDrag._prevButtons = 1;
+            glplotDuringNewDrag._mouseRotating = true;
+            glplotDuringNewDrag._stopped = true;
+            await new Promise(r => setTimeout(r, 1700));
             const dragCoverAfterDelayedPlotlyCover = document.querySelectorAll('.dragcover').length;
+            const interactionAfterDelayedCleanups = {
+                buttons: glplotDuringNewDrag.mouseListener.buttons,
+                previousButtons: glplotDuringNewDrag._prevButtons,
+                rotating: glplotDuringNewDrag._mouseRotating,
+                stopped: glplotDuringNewDrag._stopped,
+            };
+            glplotDuringNewDrag.mouseListener.buttons = 0;
+            glplotDuringNewDrag._prevButtons = 0;
+            glplotDuringNewDrag._mouseRotating = false;
+            glplotDuringNewDrag._stopped = false;
             window.aaOnClick({points: [{customdata: [nm]}]});
             await new Promise(r => setTimeout(r, 120));
             const afterUnpin = clone();
@@ -464,6 +519,8 @@ def main() -> int:
                 unpinnedAfterSecondClick,
                 dragCoverAfterPin,
                 dragCoverAfterDelayedPlotlyCover,
+                interactionAfterPin,
+                interactionAfterDelayedCleanups,
                 pinPreserved: cc(before, afterPin),
                 unpinPreserved: cc(before, afterUnpin)
             };
@@ -471,10 +528,55 @@ def main() -> int:
         check(click_probe["pinnedAfterClick"], "click 节点 pin 对应 base group")
         check(click_probe["unpinnedAfterSecondClick"], "再次 click 已 pin 同组节点会 unpin")
         check(click_probe["dragCoverAfterPin"] == 0, "click pin 后清理 Plotly stale dragcover，页面不被透明层锁住")
+        check(click_probe["interactionAfterPin"]["buttons"] == 0
+              and click_probe["interactionAfterPin"]["rotating"] is False
+              and click_probe["interactionAfterPin"]["stopped"] is False,
+              f"click pin 后释放 gl3d 鼠标状态 {click_probe['interactionAfterPin']}")
         check(click_probe["dragCoverAfterDelayedPlotlyCover"] == 0,
               "click pin 后较晚出现的 Plotly dragcover 也会被清理，避免 3D 画布冻结")
+        check(click_probe["interactionAfterDelayedCleanups"]["previousButtons"] == 1
+              and click_probe["interactionAfterDelayedCleanups"]["rotating"] is True
+              and click_probe["interactionAfterDelayedCleanups"]["stopped"] is True,
+              f"延迟清理只移除 dragcover，不打断用户新拖拽状态 {click_probe['interactionAfterDelayedCleanups']}")
         check(click_probe["pinPreserved"], "click pin 后 camera 保持用户视角")
         check(click_probe["unpinPreserved"], "click unpin 后 camera 保持用户视角")
+        overlay_probe = page.evaluate("""async ([nm, base]) => {
+            const gd = document.getElementById('frontier3d');
+            window.aaPinBase(base);
+            await new Promise(r => setTimeout(r, 160));
+            const HL = LINEAGE_DATA.pinned_highlight_trace_index;
+            const LN = LINEAGE_DATA.lineage_node_trace_index;
+            const firstNonNull = (items) => (items || []).find((item) => item);
+            const hlCd = firstNonNull(gd.data[HL].customdata);
+            const lnCd = firstNonNull(gd.data[LN].customdata);
+            const hiddenNodeCd = (gd.data[LN].customdata || []).find((item) => item && item[7] === 'no');
+            const beforePinned = window.aaState().pinned.indexOf(base) >= 0;
+            if (lnCd) window.aaOnHover({points: [{customdata: lnCd}]});
+            await new Promise(r => setTimeout(r, 120));
+            const hoverViaLineageOverlayWorked = window.aaState().hoverKey !== null;
+            if (hlCd) window.aaOnClick({points: [{customdata: hlCd}]});
+            await new Promise(r => setTimeout(r, 160));
+            const unpinnedViaHighlightOverlay = window.aaState().pinned.indexOf(base) < 0;
+            window.aaUnpinBase(base);
+            window.aaClearHover();
+            return {
+                beforePinned,
+                hasHighlightCustomdata: !!hlCd,
+                hasLineageNodeCustomdata: !!lnCd,
+                hasHiddenLineageNodeCustomdata: !!hiddenNodeCd,
+                lineageNodeHoverTemplate: gd.data[LN].hovertemplate || '',
+                hoverViaLineageOverlayWorked,
+                unpinnedViaHighlightOverlay,
+            };
+        }""", [pick["anyName"], pick["base"]])
+        check(overlay_probe["beforePinned"], "覆盖层回归先建立 pin 状态")
+        check(overlay_probe["hasHighlightCustomdata"], "高亮覆盖 trace 带 customdata，不吞 click")
+        check(overlay_probe["hasLineageNodeCustomdata"], "谱系节点 trace 带 customdata，不吞 hover")
+        check("谱系节点" in overlay_probe["lineageNodeHoverTemplate"] and "kept" in overlay_probe["lineageNodeHoverTemplate"],
+              "谱系节点 trace 带完整 hover tooltip（含 hidden/kept 信息）")
+        check(overlay_probe["hasHiddenLineageNodeCustomdata"], "被谱系带出的 hidden 节点也有 hover customdata")
+        check(overlay_probe["hoverViaLineageOverlayWorked"], "hover 命中谱系节点 trace 也能更新谱系状态")
+        check(overlay_probe["unpinnedViaHighlightOverlay"], "click 命中高亮覆盖 trace 也能 unpin")
         page.locator("#aa-side-panel-toggle").click()
         page.wait_for_timeout(80)
         check(page.evaluate("() => window.aaState().sidePanelExpanded === false"),
@@ -490,6 +592,7 @@ def main() -> int:
             const n = gd.data.length;
             const HL = LINEAGE_DATA.pinned_highlight_trace_index;
             const LL = LINEAGE_DATA.lineage_line_trace_index;
+            const LN = LINEAGE_DATA.lineage_node_trace_index;
             const RV = LINEAGE_DATA.reasoning_variant_line_trace_index;
             const names = gd.data.map(t => t.name);
             // 前沿样式按钮的目标下标（restyle args[1]）应全部 < HL
@@ -497,13 +600,22 @@ def main() -> int:
             (gd.layout.updatemenus || []).forEach(um => (um.buttons||[]).forEach(b => {
                 const tgt = b.args && b.args[1]; if (Array.isArray(tgt)) tgt.forEach(i => { if (i > maxBtnTarget) maxBtnTarget = i; });
             }));
-            return {n, HL, LL, RV, hlName: names[HL], llName: names[LL], rvName: names[RV], maxBtnTarget};
+            return {
+                n, HL, LL, LN, RV,
+                hlName: names[HL], llName: names[LL], lnName: names[LN], rvName: names[RV],
+                llMode: gd.data[LL].mode, lnMode: gd.data[LN].mode, rvMode: gd.data[RV].mode,
+                maxBtnTarget
+            };
         }""")
         check(reg["hlName"] == "已固定", f"HL trace[{reg['HL']}] = {reg['hlName']!r}")
         check(reg["llName"] == "谱系连线", f"LL trace[{reg['LL']}] = {reg['llName']!r}")
+        check(reg["lnName"] == "谱系节点", f"LN trace[{reg['LN']}] = {reg['lnName']!r}")
         check(reg["rvName"] == "Reasoning 档位", f"RV trace[{reg['RV']}] = {reg['rvName']!r}")
-        check(reg["HL"] == reg["n"] - 3 and reg["LL"] == reg["n"] - 2 and reg["RV"] == reg["n"] - 1,
-              "HL/LL/RV 为末尾三个 trace")
+        check(reg["llMode"] == "lines" and reg["lnMode"] == "markers" and reg["rvMode"] == "lines",
+              f"动态谱系使用纯线 + 独立节点 hover trace：LL={reg['llMode']} LN={reg['lnMode']} RV={reg['rvMode']}")
+        check(reg["HL"] == reg["n"] - 4 and reg["LL"] == reg["n"] - 3
+              and reg["LN"] == reg["n"] - 2 and reg["RV"] == reg["n"] - 1,
+              "HL/LL/LN/RV 为末尾四个 trace")
         check(reg["maxBtnTarget"] < reg["HL"], f"前沿按钮最大目标下标 {reg['maxBtnTarget']} < HL {reg['HL']}（不波及新 trace）")
 
         print("\n[7] 突出度：控件 + 视觉编码（光环大小）+ 排行 + 可调权重")

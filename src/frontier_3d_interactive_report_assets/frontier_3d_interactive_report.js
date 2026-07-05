@@ -20,7 +20,7 @@
   var sidePanel = null;
   var sidePanelExpanded = true;
 
-  var HL, LL, RV, FW, FM, AS, models, baseGroups, reasoningVariantGroups,
+  var HL, LL, LN, RV, FW, FM, AS, models, baseGroups, reasoningVariantGroups,
       lineages, nameToIndex, allBases;
 
   function loadMetricPayload(nextData) {
@@ -28,6 +28,7 @@
     window.LINEAGE_DATA = DATA;
     HL = DATA.pinned_highlight_trace_index;
     LL = DATA.lineage_line_trace_index;
+    LN = DATA.lineage_node_trace_index;
     RV = DATA.reasoning_variant_line_trace_index;
     FW = DATA.frontier_wireframe_trace_index;
     FM = DATA.frontier_mesh_trace_index;
@@ -48,29 +49,102 @@
   var hoverLineageKey = null;
   var hoverReasoningBase = null;
   var pendingHoverStateClearTimer = null;
-  var hoverStateClearDelayMilliseconds = 90;
+  var hoverStateClearDelayMilliseconds = 180;
   var frontierStyle = "wireframe";
   var achievableSurfaceVisible = false;
+  var pinnedCardVisibleFieldKeys = {};
 
   var elInput, elResults, elPinnedPanel, elCostMetricSelect, elSpeedMetricSelect,
       elCurrentViewPanel, elSidePanelToggleButton, elAchievableSurfaceToggle,
-      elFrontierStyleButtons;
+      elFrontierStyleButtons, elPinnedCardFieldControls;
 
   function fmt(n, d) {
     if (n === null || n === undefined || isNaN(n)) return "?";
     return Number(n).toFixed(d === undefined ? 1 : d);
   }
 
-  function axisCoord(v, isLog) {
-    return (isLog && v > 0) ? Math.log10(v) : v;
-  }
+  var PINNED_CARD_VISIBLE_FIELDS_STORAGE_KEY = "frontier3d.pinnedCardVisibleFieldKeys.v1";
+  var PINNED_CARD_FIELD_DEFINITIONS = [
+    {
+      key: "reasoning_level_label", label: "档位",
+      value: function (m) { return m.reasoning_level_label; }
+    },
+    {
+      key: "intelligence", label: "智能",
+      value: function (m) { return fmt(m.panel.intelligence, 1); }
+    },
+    {
+      key: "selected_speed_metric", label: "当前速度",
+      value: function (m) { return fmt(m.panel[DATA.speed_axis_field], 0) + " tok/s"; }
+    },
+    {
+      key: "selected_cost_metric", label: "当前成本",
+      value: function (m) { return "$" + fmt(m.panel[DATA.cost_axis_field], 2); }
+    },
+    {
+      key: "release_date", label: "发布日期",
+      value: function (m) { return m.panel.release_date; }
+    },
+    {
+      key: "effective_speed", label: "有效速度",
+      value: function (m) { return fmt(m.panel.eff_speed, 0) + " tok/s"; }
+    },
+    {
+      key: "output_speed", label: "原始速度",
+      value: function (m) { return fmt(m.panel.output_speed, 0) + " tok/s"; }
+    },
+    {
+      key: "effective_cost", label: "运行成本",
+      value: function (m) { return "$" + fmt(m.panel.cost_to_run, 2); }
+    },
+    {
+      key: "blended_price", label: "混合单价",
+      value: function (m) {
+        return "$" + fmt(m.panel.blended_price_cache_input_output_7_to_2_to_1, 2) + "/M";
+      }
+    },
+    {
+      key: "pareto_layer", label: "Pareto 层",
+      value: function (m) { return fmt(m.panel.layer, 0); }
+    }
+  ];
+  var DEFAULT_PINNED_CARD_VISIBLE_FIELD_KEYS = [
+    "reasoning_level_label",
+    "intelligence",
+    "selected_speed_metric",
+    "selected_cost_metric",
+    "release_date"
+  ];
 
-  function annText(m) {
-    var p = m.panel;
-    return "<b>" + m.name + "</b><br>智能 " + fmt(p.intelligence) +
-      " · " + DATA.speed_axis_label + " " + fmt(p[DATA.speed_axis_field], 0) +
-      " tok/s · " + DATA.cost_axis_label + " $" +
-      fmt(p[DATA.cost_axis_field], 2) + " " + DATA.cost_axis_unit;
+  function loadPinnedCardVisibleFieldKeys() {
+    var defaults = {};
+    DEFAULT_PINNED_CARD_VISIBLE_FIELD_KEYS.forEach(function (key) { defaults[key] = true; });
+    try {
+      var raw = window.localStorage && window.localStorage.getItem(PINNED_CARD_VISIBLE_FIELDS_STORAGE_KEY);
+      if (!raw) return defaults;
+      var parsed = JSON.parse(raw);
+      var next = {};
+      PINNED_CARD_FIELD_DEFINITIONS.forEach(function (field) {
+        next[field.key] = !!parsed[field.key];
+      });
+      return next;
+    } catch (err) {
+      return defaults;
+    }
+  }
+  pinnedCardVisibleFieldKeys = loadPinnedCardVisibleFieldKeys();
+
+  function savePinnedCardVisibleFieldKeys() {
+    try {
+      if (window.localStorage) {
+        window.localStorage.setItem(
+          PINNED_CARD_VISIBLE_FIELDS_STORAGE_KEY,
+          JSON.stringify(pinnedCardVisibleFieldKeys)
+        );
+      }
+    } catch (err) {
+      // localStorage can be unavailable in restricted browser contexts.
+    }
   }
 
   function baseLineageKey(base) {
@@ -117,12 +191,23 @@
     });
   }
 
+  function releasePlotlyInteractionState() {
+    clearPlotlyDragCovers();
+    if (!gd || !gd._fullLayout || !gd._fullLayout.scene || !gd._fullLayout.scene._scene) return;
+    var glplot = gd._fullLayout.scene._scene.glplot;
+    if (!glplot) return;
+    glplot._mouseRotating = false;
+    glplot._prevButtons = 0;
+    glplot._stopped = false;
+    if (glplot.mouseListener) glplot.mouseListener.buttons = 0;
+  }
+
   function schedulePlotlyDragCoverClear(delayMilliseconds) {
     window.setTimeout(clearPlotlyDragCovers, delayMilliseconds);
   }
 
   function releasePlotlyDragCoverSoon() {
-    clearPlotlyDragCovers();
+    releasePlotlyInteractionState();
     if (window.requestAnimationFrame) {
       window.requestAnimationFrame(function () {
         clearPlotlyDragCovers();
@@ -315,6 +400,30 @@
     section.appendChild(elInput);
     section.appendChild(elResults);
     elInput.addEventListener("input", renderResults);
+    return section;
+  }
+
+  function buildPinnedCardFieldsDom() {
+    var section = createSection("aa-pinned-card-field-controls", "固定卡片字段");
+    elPinnedCardFieldControls = document.createElement("div");
+    elPinnedCardFieldControls.className = "aa-pinned-card-field-grid";
+    PINNED_CARD_FIELD_DEFINITIONS.forEach(function (field) {
+      var label = document.createElement("label");
+      label.className = "aa-checkbox-chip";
+      var input = document.createElement("input");
+      input.type = "checkbox";
+      input.checked = !!pinnedCardVisibleFieldKeys[field.key];
+      input.setAttribute("data-pinned-card-field-key", field.key);
+      input.addEventListener("change", function () {
+        pinnedCardVisibleFieldKeys[field.key] = input.checked;
+        savePinnedCardVisibleFieldKeys();
+        renderSidePanel();
+      });
+      label.appendChild(input);
+      label.appendChild(document.createTextNode(field.label));
+      elPinnedCardFieldControls.appendChild(label);
+    });
+    section.appendChild(elPinnedCardFieldControls);
     return section;
   }
 
@@ -599,12 +708,13 @@
     var body = document.createElement("div");
     body.className = "aa-side-panel-body";
     elCurrentViewPanel = createSection("aa-current-view-panel");
+    body.appendChild(buildSearchDom());
+    body.appendChild(buildPinnedCardFieldsDom());
+    body.appendChild(buildPinnedPanelDom());
     body.appendChild(elCurrentViewPanel);
     body.appendChild(buildMetricControlsDom());
     body.appendChild(buildFrontierControlsDom());
-    body.appendChild(buildSearchDom());
     body.appendChild(buildStandoutControlsDom());
-    body.appendChild(buildPinnedPanelDom());
     sidePanel.appendChild(body);
     setSidePanelExpanded(true);
     renderCurrentView();
@@ -624,18 +734,68 @@
       var row = document.createElement("div");
       var pinned = !!pinnedBases[base];
       row.className = "aa-result-row" + (pinned ? " is-pinned" : "");
+      row.dataset.baseModelName = base;
       var left = document.createElement("span");
       left.className = "aa-truncate";
       left.textContent = base;
-      var right = document.createElement("span");
-      right.className = "aa-muted";
-      right.textContent = (pinned ? "已 pin · " : "") + n + " 档";
+      var actions = document.createElement("span");
+      actions.className = "aa-search-result-actions";
+      var count = document.createElement("span");
+      count.className = "aa-muted";
+      count.textContent = n + " 档";
+      var pinButton = document.createElement("button");
+      pinButton.type = "button";
+      pinButton.className = "aa-search-result-pin-button";
+      pinButton.textContent = pinned ? "取消" : "Pin";
+      pinButton.setAttribute("aria-label", (pinned ? "取消固定 " : "固定 ") + base);
+      pinButton.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        togglePin(base);
+      });
+      actions.appendChild(count);
+      actions.appendChild(pinButton);
       row.appendChild(left);
-      row.appendChild(right);
+      row.appendChild(actions);
       row.addEventListener("click", function () { togglePin(base); });
       elResults.appendChild(row);
     });
     elResults.style.display = "block";
+  }
+
+  function visiblePinnedCardFieldDefinitions() {
+    return PINNED_CARD_FIELD_DEFINITIONS.filter(function (field) {
+      return !!pinnedCardVisibleFieldKeys[field.key];
+    });
+  }
+
+  function createPinnedVariantCard(model) {
+    var card = document.createElement("article");
+    card.className = "aa-pinned-variant-card";
+
+    var title = document.createElement("div");
+    title.className = "aa-pinned-variant-title";
+    title.textContent = model.name;
+    card.appendChild(title);
+
+    var fields = visiblePinnedCardFieldDefinitions();
+    if (fields.length) {
+      var grid = document.createElement("dl");
+      grid.className = "aa-pinned-variant-field-grid";
+      fields.forEach(function (field) {
+        var item = document.createElement("div");
+        item.className = "aa-pinned-variant-field";
+        var label = document.createElement("dt");
+        label.textContent = field.label;
+        var value = document.createElement("dd");
+        value.textContent = field.value(model);
+        item.appendChild(label);
+        item.appendChild(value);
+        grid.appendChild(item);
+      });
+      card.appendChild(grid);
+    }
+
+    return card;
   }
 
   function renderSidePanel() {
@@ -690,17 +850,12 @@
       cardHeader.appendChild(name);
       cardHeader.appendChild(remove);
       card.appendChild(cardHeader);
+      var variantCards = document.createElement("div");
+      variantCards.className = "aa-pinned-variant-card-list";
       (baseGroups[base] || []).forEach(function (i) {
-        var m = models[i];
-        var p = m.panel;
-        var line = document.createElement("div");
-        line.className = "aa-pinned-variant-line";
-        line.textContent = m.reasoning_level_label + " · 智能 " + fmt(p.intelligence) +
-          " · " + DATA.speed_axis_label + " " + fmt(p[DATA.speed_axis_field], 0) +
-          " · " + DATA.cost_axis_label + " $" + fmt(p[DATA.cost_axis_field], 2) +
-          " · " + p.release_date;
-        card.appendChild(line);
+        variantCards.appendChild(createPinnedVariantCard(models[i]));
       });
+      card.appendChild(variantCards);
       var lineageKey = baseLineageKey(base);
       if (lineageKey && lineages[lineageKey] && lineages[lineageKey].length >= 2) {
         var lineageNote = document.createElement("div");
@@ -722,22 +877,37 @@
     });
     if (hoverLineageKey) keys[hoverLineageKey] = true;
 
-    var xs = [], ys = [], zs = [], text = [];
+    var lineXs = [], lineYs = [], lineZs = [];
+    var nodeXs = [], nodeYs = [], nodeZs = [], nodeCustomdata = [];
     Object.keys(keys).forEach(function (key) {
       var nodes = lineages[key];
       if (!nodes || nodes.length < 2) return;
       nodes.forEach(function (node) {
-        xs.push(node.x);
-        ys.push(node.y);
-        zs.push(node.z);
-        text.push(node.label);
+        lineXs.push(node.x);
+        lineYs.push(node.y);
+        lineZs.push(node.z);
+        nodeXs.push(node.x);
+        nodeYs.push(node.y);
+        nodeZs.push(node.z);
+        nodeCustomdata.push([
+          node.name,
+          node.base_model_name,
+          key.replace("||", " · "),
+          node.release_date,
+          node.intelligence,
+          node.x,
+          node.y,
+          node.kept ? "yes" : "no"
+        ]);
       });
-      xs.push(null);
-      ys.push(null);
-      zs.push(null);
-      text.push("");
+      lineXs.push(null);
+      lineYs.push(null);
+      lineZs.push(null);
     });
-    restyleTraceData(LL, { x: [xs], y: [ys], z: [zs], text: [text] });
+    restyleTraceData(LL, { x: [lineXs], y: [lineYs], z: [lineZs] });
+    restyleTraceData(LN, {
+      x: [nodeXs], y: [nodeYs], z: [nodeZs], customdata: [nodeCustomdata]
+    });
   }
 
   function reasoningIndicesForBase(base) {
@@ -749,7 +919,7 @@
     Object.keys(pinnedBases).forEach(function (base) { bases[base] = true; });
     if (hoverReasoningBase) bases[hoverReasoningBase] = true;
 
-    var xs = [], ys = [], zs = [], text = [];
+    var xs = [], ys = [], zs = [];
     Object.keys(bases).sort().forEach(function (base) {
       var indices = reasoningIndicesForBase(base);
       if (!indices || indices.length < 2) return;
@@ -758,14 +928,12 @@
         xs.push(m.x);
         ys.push(m.y);
         zs.push(m.z);
-        text.push(m.reasoning_level_label);
       });
       xs.push(null);
       ys.push(null);
       zs.push(null);
-      text.push("");
     });
-    restyleTraceData(RV, { x: [xs], y: [ys], z: [zs], text: [text] });
+    restyleTraceData(RV, { x: [xs], y: [ys], z: [zs] });
   }
 
   var pendingConnectionFrame = null;
@@ -781,36 +949,16 @@
 
   function rerenderPinned() {
     var idxs = pinnedVariantIndices();
-    var xs = [], ys = [], zs = [];
+    var xs = [], ys = [], zs = [], customdata = [];
     idxs.forEach(function (i) {
       var m = models[i];
       xs.push(m.x);
       ys.push(m.y);
       zs.push(m.z);
+      customdata.push([m.name]);
     });
-    var anns = idxs.map(function (i) {
-      var m = models[i];
-      return {
-        x: axisCoord(m.x, DATA.cost_axis_is_log),
-        y: axisCoord(m.y, DATA.speed_axis_is_log),
-        z: m.z,
-        text: annText(m),
-        showarrow: true,
-        arrowhead: 2,
-        arrowsize: 1,
-        arrowwidth: 1,
-        ax: 18,
-        ay: -28,
-        font: { size: 12, color: "#1f2933" },
-        align: "left",
-        bgcolor: "rgba(255,255,255,0.92)",
-        bordercolor: "#9aa5b1",
-        borderwidth: 1,
-        borderpad: 3
-      };
-    });
-    var pinnedTraceUpdate = restyleTraceData(HL, { x: [xs], y: [ys], z: [zs] }).then(function () {
-      return Plotly.relayout(gd, { "scene.annotations": anns });
+    var pinnedTraceUpdate = restyleTraceData(HL, {
+      x: [xs], y: [ys], z: [zs], customdata: [customdata]
     }).then(function () {
       releasePlotlyDragCoverSoon();
     });
@@ -831,8 +979,15 @@
   function modelFromPlotlyPoint(point) {
     if (!point || !point.customdata) return null;
     var modelIndex = nameToIndex[point.customdata[0]];
-    if (modelIndex === undefined) return null;
-    return models[modelIndex];
+    if (modelIndex !== undefined) return models[modelIndex];
+    if (point.customdata.length >= 3) {
+      return {
+        name: point.customdata[0],
+        base_model_name: point.customdata[1],
+        lineage_key: String(point.customdata[2]).replace(" · ", "||"),
+      };
+    }
+    return null;
   }
 
   function onHover(ev) {
@@ -881,9 +1036,15 @@
   function onClick(ev) {
     var model = modelFromPlotlyPoint(ev.points && ev.points[0]);
     if (!model) return;
-    var pinnedUpdate = togglePin(model.base_model_name);
+    if (!baseGroups[model.base_model_name]) return;
+    var baseModelName = model.base_model_name;
     releasePlotlyDragCoverSoon();
-    Promise.resolve(pinnedUpdate).then(releasePlotlyDragCoverSoon);
+    clearHoverStateImmediately();
+    window.setTimeout(function () {
+      releasePlotlyDragCoverSoon();
+      var pinnedUpdate = togglePin(baseModelName);
+      Promise.resolve(pinnedUpdate).then(releasePlotlyDragCoverSoon);
+    }, 0);
   }
 
   function activateSelectedMetricCombination() {
@@ -987,6 +1148,7 @@
         annCount: (gd._fullLayout && gd._fullLayout.scene && gd._fullLayout.scene.annotations || []).length,
         highlightLen: traceArrayLength(HL, "x"),
         lineageLen: traceArrayLength(LL, "x"),
+        lineageNodeLen: traceArrayLength(LN, "x"),
         reasoningVariantLineLen: traceArrayLength(RV, "x"),
         lineageKeys: Object.keys(lineages).length,
         standoutMetric: activeStandoutMetricKey,
@@ -995,6 +1157,9 @@
           cost: standoutAxisWeights.cost,
           speed: standoutAxisWeights.speed
         },
+        pinnedCardVisibleFields: Object.keys(pinnedCardVisibleFieldKeys).filter(function (key) {
+          return pinnedCardVisibleFieldKeys[key];
+        }),
         paretoMarkerSizeLen: traceMarkerSizeArrayLength(DATA.pareto_emphasis_trace_index),
         frontierCount: frontierModels().length,
         frontierStyle: frontierStyle,
