@@ -48,6 +48,24 @@ def main() -> None:
     assert organization_identity_metadata_for_creator_name("Alibaba")[
         "logo_asset_kind"
     ] == "curated_svg"
+    known_identity_metadata = [
+        organization_identity_metadata_for_creator_name(creator_name)
+        for creator_name in known_creator_names
+    ]
+    assert sum(
+        identity_metadata["logo_asset_kind"] == "curated_svg"
+        for identity_metadata in known_identity_metadata
+    ) == 54
+    assert sum(
+        identity_metadata["logo_asset_kind"] == "generated_wordmark_fallback"
+        for identity_metadata in known_identity_metadata
+    ) == 0
+    assert organization_identity_metadata_for_creator_name("Naver")[
+        "logo_asset_source"
+    ] == "simple-icons@16.26.0"
+    assert organization_identity_metadata_for_creator_name("China Mobile")[
+        "logo_asset_source"
+    ] == "official_organization_website_static_asset@2026-07-18"
 
     dataset = build_frontier_3d_visualization_dataset(
         _synthetic_models_with_chinese_united_states_and_other_creators(),
@@ -98,6 +116,11 @@ def main() -> None:
         assert "achievable_frontier_surface_triangle_mesh" in scene
         assert "base_groups" in relationships
         assert "lineages" in relationships
+        for displayed_model_marker in scene["displayed_model_markers"]:
+            assert "standout_metrics" in displayed_model_marker
+            assert "normalized_improvement_coordinates" in displayed_model_marker
+            assert "standout" not in displayed_model_marker
+            assert "g" not in displayed_model_marker
         assert "data" not in variant
         assert "layout" not in variant
         assert "payload" not in variant

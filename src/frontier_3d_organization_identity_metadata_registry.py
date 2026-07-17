@@ -2,77 +2,230 @@
 from __future__ import annotations
 
 import html
+from dataclasses import dataclass
+from enum import Enum
 from importlib import resources
 from urllib.parse import quote
 
 ORGANIZATION_IDENTITY_ASSET_PACKAGE = "src.frontier_3d_organization_identity_assets"
 
+
+class CountryRegionCategory(str, Enum):
+    """三类可视国别标记及无法安全分类的兜底状态。"""
+
+    CHINA = "china"
+    UNITED_STATES = "united_states"
+    OTHER = "other"
+    UNCLASSIFIED = "unclassified"
+
+
+@dataclass(frozen=True)
+class OrganizationIdentityRegistration:
+    """一个 creator 的总部地区与可选品牌资产注册。"""
+
+    country_region_category: CountryRegionCategory
+    headquarters_country_code_iso_3166_1_alpha_2: str
+    logo_asset_slug: str | None
+    logo_asset_source: str | None
+
+
+def _chinese_organization_identity(
+    *,
+    logo_asset_slug: str | None,
+    logo_asset_source: str = "lobehub-icons-static-svg@1.93.0",
+) -> OrganizationIdentityRegistration:
+    return OrganizationIdentityRegistration(
+        country_region_category=CountryRegionCategory.CHINA,
+        headquarters_country_code_iso_3166_1_alpha_2="CN",
+        logo_asset_slug=logo_asset_slug,
+        logo_asset_source=logo_asset_source if logo_asset_slug else None,
+    )
+
+
+def _united_states_organization_identity(
+    *,
+    logo_asset_slug: str | None,
+    logo_asset_source: str = "lobehub-icons-static-svg@1.93.0",
+) -> OrganizationIdentityRegistration:
+    return OrganizationIdentityRegistration(
+        country_region_category=CountryRegionCategory.UNITED_STATES,
+        headquarters_country_code_iso_3166_1_alpha_2="US",
+        logo_asset_slug=logo_asset_slug,
+        logo_asset_source=logo_asset_source if logo_asset_slug else None,
+    )
+
+
+def _other_country_organization_identity(
+    *,
+    headquarters_country_code_iso_3166_1_alpha_2: str,
+    logo_asset_slug: str | None,
+    logo_asset_source: str = "lobehub-icons-static-svg@1.93.0",
+) -> OrganizationIdentityRegistration:
+    return OrganizationIdentityRegistration(
+        country_region_category=CountryRegionCategory.OTHER,
+        headquarters_country_code_iso_3166_1_alpha_2=(
+            headquarters_country_code_iso_3166_1_alpha_2
+        ),
+        logo_asset_slug=logo_asset_slug,
+        logo_asset_source=logo_asset_source if logo_asset_slug else None,
+    )
+
 # 地区语义固定为厂商/实验室总部或主要组织归属，不描述训练数据、部署地点或成员国籍。
 # Logo slug 对应随仓库版本化的 LobeHub Icons SVG；暂无合适品牌资产的厂商使用完整名称
 # wordmark fallback。未来 AA 新增 creator 时走 unclassified，避免静默误归“其他”。
-_ORGANIZATION_COUNTRY_AND_LOGO_SLUG_BY_CREATOR_NAME: dict[
-    str, tuple[str, str, str | None]
+_ORGANIZATION_IDENTITY_REGISTRATION_BY_CREATOR_NAME: dict[
+    str, OrganizationIdentityRegistration
 ] = {
-    "AI21 Labs": ("other", "IL", "ai21-brand-color"),
-    "Alibaba": ("china", "CN", "alibaba-brand-color"),
-    "Allen Institute for AI": ("united_states", "US", "ai2-color"),
-    "Amazon": ("united_states", "US", "aws-brand-color"),
-    "Anthropic": ("united_states", "US", "anthropic"),
-    "Arcee AI": ("united_states", "US", "arcee-color"),
-    "Baidu": ("china", "CN", "baidu-brand-color"),
-    "ByteDance Seed": ("china", "CN", "bytedance-brand-color"),
-    "China Mobile": ("china", "CN", None),
-    "Cohere": ("other", "CA", "cohere-color"),
-    "Databricks": ("united_states", "US", "dbrx-brand-color"),
-    "Deep Cogito": ("united_states", "US", "deepcogito-color"),
-    "DeepSeek": ("china", "CN", "deepseek-color"),
-    "Google": ("united_states", "US", "google-brand-color"),
-    "IBM": ("united_states", "US", "ibm"),
-    "Inception": ("united_states", "US", "inception"),
-    "InclusionAI": ("china", "CN", None),
-    "Kimi": ("china", "CN", "kimi-color"),
-    "Korea Telecom": ("other", "KR", None),
-    "KwaiKAT": ("china", "CN", "kwaikat-text-color"),
-    "LG AI Research": ("other", "KR", "lg-color"),
-    "Liquid AI": ("united_states", "US", "liquid"),
-    "LongCat": ("china", "CN", "longcat-color"),
-    "MBZUAI Institute of Foundation Models": ("other", "AE", None),
-    "Meta": ("united_states", "US", "meta-brand-color"),
-    "Microsoft": ("united_states", "US", "microsoft-color"),
-    "MiniMax": ("china", "CN", "minimax-color"),
-    "Mistral": ("other", "FR", "mistral-color"),
-    "Motif Technologies": ("united_states", "US", None),
-    "Multiverse Computing": ("other", "ES", None),
-    "NVIDIA": ("united_states", "US", "nvidia-color"),
-    "Nanbeige": ("china", "CN", None),
-    "Naver": ("other", "KR", None),
-    "Nex AGI": ("other", "SG", None),
-    "Nous Research": ("united_states", "US", "nousresearch"),
-    "OpenAI": ("united_states", "US", "openai"),
-    "OpenBMB": ("china", "CN", None),
-    "OpenChat": ("other", "ZZ", "openchat-color"),
-    "Perplexity": ("united_states", "US", "perplexity-color"),
-    "Prime Intellect": ("united_states", "US", None),
-    "Reka AI": ("united_states", "US", None),
-    "Sarvam": ("other", "IN", None),
-    "ServiceNow": ("united_states", "US", None),
-    "Snowflake": ("united_states", "US", "snowflake-color"),
-    "SpaceXAI": ("united_states", "US", "xai"),
-    "StepFun": ("china", "CN", "stepfun-color"),
-    "Swiss AI Initiative": ("other", "CH", None),
-    "TII UAE": ("other", "AE", "tii-color"),
-    "Tencent": ("china", "CN", "tencent-brand-color"),
-    "Thinking Machines": ("united_states", "US", None),
-    "Trillion Labs": ("other", "KR", None),
-    "Upstage": ("other", "KR", "upstage-color"),
-    "Xiaomi": ("china", "CN", "xiaomimimo"),
-    "Z AI": ("china", "CN", "zai"),
+    "AI21 Labs": _other_country_organization_identity(
+        headquarters_country_code_iso_3166_1_alpha_2="IL",
+        logo_asset_slug="ai21-brand-color",
+    ),
+    "Alibaba": _chinese_organization_identity(logo_asset_slug="alibaba-brand-color"),
+    "Allen Institute for AI": _united_states_organization_identity(
+        logo_asset_slug="ai2-color"
+    ),
+    "Amazon": _united_states_organization_identity(logo_asset_slug="aws-brand-color"),
+    "Anthropic": _united_states_organization_identity(logo_asset_slug="anthropic"),
+    "Arcee AI": _united_states_organization_identity(logo_asset_slug="arcee-color"),
+    "Baidu": _chinese_organization_identity(logo_asset_slug="baidu-brand-color"),
+    "ByteDance Seed": _chinese_organization_identity(
+        logo_asset_slug="bytedance-brand-color"
+    ),
+    "China Mobile": _chinese_organization_identity(
+        logo_asset_slug="china-mobile",
+        logo_asset_source="official_organization_website_static_asset@2026-07-18",
+    ),
+    "Cohere": _other_country_organization_identity(
+        headquarters_country_code_iso_3166_1_alpha_2="CA",
+        logo_asset_slug="cohere-color",
+    ),
+    "Databricks": _united_states_organization_identity(
+        logo_asset_slug="dbrx-brand-color"
+    ),
+    "Deep Cogito": _united_states_organization_identity(
+        logo_asset_slug="deepcogito-color"
+    ),
+    "DeepSeek": _chinese_organization_identity(logo_asset_slug="deepseek-color"),
+    "Google": _united_states_organization_identity(logo_asset_slug="google-brand-color"),
+    "IBM": _united_states_organization_identity(logo_asset_slug="ibm"),
+    "Inception": _united_states_organization_identity(logo_asset_slug="inception"),
+    "InclusionAI": _chinese_organization_identity(
+        logo_asset_slug="inclusion-ai",
+        logo_asset_source="official_organization_website_static_asset@2026-07-18",
+    ),
+    "Kimi": _chinese_organization_identity(logo_asset_slug="kimi-color"),
+    "Korea Telecom": _other_country_organization_identity(
+        headquarters_country_code_iso_3166_1_alpha_2="KR",
+        logo_asset_slug="korea-telecom",
+        logo_asset_source="official_organization_website_static_asset@2026-07-18",
+    ),
+    "KwaiKAT": _chinese_organization_identity(logo_asset_slug="kwaikat-text-color"),
+    "LG AI Research": _other_country_organization_identity(
+        headquarters_country_code_iso_3166_1_alpha_2="KR", logo_asset_slug="lg-color"
+    ),
+    "Liquid AI": _united_states_organization_identity(logo_asset_slug="liquid"),
+    "LongCat": _chinese_organization_identity(logo_asset_slug="longcat-color"),
+    "MBZUAI Institute of Foundation Models": _other_country_organization_identity(
+        headquarters_country_code_iso_3166_1_alpha_2="AE",
+        logo_asset_slug="mbzuai-ifm",
+        logo_asset_source="official_organization_website_static_asset@2026-07-18",
+    ),
+    "Meta": _united_states_organization_identity(logo_asset_slug="meta-brand-color"),
+    "Microsoft": _united_states_organization_identity(logo_asset_slug="microsoft-color"),
+    "MiniMax": _chinese_organization_identity(logo_asset_slug="minimax-color"),
+    "Mistral": _other_country_organization_identity(
+        headquarters_country_code_iso_3166_1_alpha_2="FR",
+        logo_asset_slug="mistral-color",
+    ),
+    "Motif Technologies": _united_states_organization_identity(
+        logo_asset_slug="motif-technologies",
+        logo_asset_source="official_organization_website_static_asset@2026-07-18",
+    ),
+    "Multiverse Computing": _other_country_organization_identity(
+        headquarters_country_code_iso_3166_1_alpha_2="ES",
+        logo_asset_slug="multiverse-computing",
+        logo_asset_source="official_organization_website_static_asset@2026-07-18",
+    ),
+    "NVIDIA": _united_states_organization_identity(logo_asset_slug="nvidia-color"),
+    "Nanbeige": _chinese_organization_identity(
+        logo_asset_slug="nanbeige",
+        logo_asset_source="huggingface_organization_avatar@2026-07-18",
+    ),
+    "Naver": _other_country_organization_identity(
+        headquarters_country_code_iso_3166_1_alpha_2="KR",
+        logo_asset_slug="naver",
+        logo_asset_source="simple-icons@16.26.0",
+    ),
+    "Nex AGI": _other_country_organization_identity(
+        headquarters_country_code_iso_3166_1_alpha_2="SG",
+        logo_asset_slug="nex-agi",
+        logo_asset_source="official_organization_website_static_asset@2026-07-18",
+    ),
+    "Nous Research": _united_states_organization_identity(
+        logo_asset_slug="nousresearch"
+    ),
+    "OpenAI": _united_states_organization_identity(logo_asset_slug="openai"),
+    "OpenBMB": _chinese_organization_identity(
+        logo_asset_slug="openbmb",
+        logo_asset_source="github_organization_avatar@2026-07-18",
+    ),
+    "OpenChat": _other_country_organization_identity(
+        headquarters_country_code_iso_3166_1_alpha_2="ZZ",
+        logo_asset_slug="openchat-color",
+    ),
+    "Perplexity": _united_states_organization_identity(
+        logo_asset_slug="perplexity-color"
+    ),
+    "Prime Intellect": _united_states_organization_identity(
+        logo_asset_slug="prime-intellect",
+        logo_asset_source="official_organization_website_static_asset@2026-07-18",
+    ),
+    "Reka AI": _united_states_organization_identity(
+        logo_asset_slug="reka-ai",
+        logo_asset_source="official_organization_website_static_asset@2026-07-18",
+    ),
+    "Sarvam": _other_country_organization_identity(
+        headquarters_country_code_iso_3166_1_alpha_2="IN",
+        logo_asset_slug="sarvam",
+        logo_asset_source="official_organization_website_static_asset@2026-07-18",
+    ),
+    "ServiceNow": _united_states_organization_identity(
+        logo_asset_slug="servicenow",
+        logo_asset_source="wikimedia_commons_pd_textlogo@2026-07-18",
+    ),
+    "Snowflake": _united_states_organization_identity(logo_asset_slug="snowflake-color"),
+    "SpaceXAI": _united_states_organization_identity(logo_asset_slug="xai"),
+    "StepFun": _chinese_organization_identity(logo_asset_slug="stepfun-color"),
+    "Swiss AI Initiative": _other_country_organization_identity(
+        headquarters_country_code_iso_3166_1_alpha_2="CH",
+        logo_asset_slug="swiss-ai-initiative",
+        logo_asset_source="official_organization_website_static_asset@2026-07-18",
+    ),
+    "TII UAE": _other_country_organization_identity(
+        headquarters_country_code_iso_3166_1_alpha_2="AE", logo_asset_slug="tii-color"
+    ),
+    "Tencent": _chinese_organization_identity(logo_asset_slug="tencent-brand-color"),
+    "Thinking Machines": _united_states_organization_identity(
+        logo_asset_slug="thinking-machines",
+        logo_asset_source="official_organization_website_static_asset@2026-07-18",
+    ),
+    "Trillion Labs": _other_country_organization_identity(
+        headquarters_country_code_iso_3166_1_alpha_2="KR",
+        logo_asset_slug="trillion-labs",
+        logo_asset_source="official_organization_website_static_asset@2026-07-18",
+    ),
+    "Upstage": _other_country_organization_identity(
+        headquarters_country_code_iso_3166_1_alpha_2="KR",
+        logo_asset_slug="upstage-color",
+    ),
+    "Xiaomi": _chinese_organization_identity(logo_asset_slug="xiaomimimo"),
+    "Z AI": _chinese_organization_identity(logo_asset_slug="zai"),
 }
 
 
 def known_organization_creator_names() -> frozenset[str]:
     """返回显式维护的 AA creator 名称集合。"""
-    return frozenset(_ORGANIZATION_COUNTRY_AND_LOGO_SLUG_BY_CREATOR_NAME)
+    return frozenset(_ORGANIZATION_IDENTITY_REGISTRATION_BY_CREATOR_NAME)
 
 
 def _svg_data_url(svg_text: str) -> str:
@@ -111,16 +264,22 @@ def _versioned_logo_svg(logo_slug: str | None) -> str | None:
 
 def organization_identity_metadata_for_creator_name(creator_name: str) -> dict:
     """把 AA creator 转成前端可直接使用的稳定身份元数据。"""
-    known_metadata = _ORGANIZATION_COUNTRY_AND_LOGO_SLUG_BY_CREATOR_NAME.get(
+    known_metadata = _ORGANIZATION_IDENTITY_REGISTRATION_BY_CREATOR_NAME.get(
         creator_name
     )
     if known_metadata is None:
-        country_region_category = "unclassified"
+        country_region_category = CountryRegionCategory.UNCLASSIFIED
         headquarters_country_code = "ZZ"
         logo_slug = None
+        registered_logo_asset_source = None
         is_known_creator = False
     else:
-        country_region_category, headquarters_country_code, logo_slug = known_metadata
+        country_region_category = known_metadata.country_region_category
+        headquarters_country_code = (
+            known_metadata.headquarters_country_code_iso_3166_1_alpha_2
+        )
+        logo_slug = known_metadata.logo_asset_slug
+        registered_logo_asset_source = known_metadata.logo_asset_source
         is_known_creator = True
 
     versioned_logo_svg = _versioned_logo_svg(logo_slug)
@@ -142,13 +301,13 @@ def organization_identity_metadata_for_creator_name(creator_name: str) -> dict:
         "organization_identity_key": creator_name.casefold().replace(" ", "-"),
         "organization_display_name": creator_name,
         "headquarters_country_code_iso_3166_1_alpha_2": headquarters_country_code,
-        "country_region_category": country_region_category,
+        "country_region_category": country_region_category.value,
         "country_region_classification_basis": (
             "organization_headquarters_or_primary_institutional_origin"
         ),
         "logo_asset_kind": logo_asset_kind,
         "logo_asset_source": (
-            "lobehub-icons-static-svg@1.93.0"
+            registered_logo_asset_source
             if versioned_logo_svg is not None
             else "generated_local_fallback"
         ),

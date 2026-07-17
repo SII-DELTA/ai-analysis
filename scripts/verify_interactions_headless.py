@@ -7,6 +7,11 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
+from frontier_3d_playwright_verification_support import (
+    create_frontier_3d_test_page_with_runtime_observation,
+    launch_requested_frontier_3d_test_browser,
+)
+
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 HTML_PATH = (
     Path(sys.argv[1])
@@ -29,28 +34,30 @@ def main() -> int:
             failures.append(message)
 
     with sync_playwright() as playwright:
-        try:
-            browser = playwright.chromium.launch(headless=True, channel="chromium")
-        except Exception:
-            browser = playwright.chromium.launch(headless=True)
-        page = browser.new_page(viewport={"width": 1400, "height": 900})
-        runtime_errors: list[str] = []
-        external_network_requests: list[str] = []
-        page.on("pageerror", lambda error: runtime_errors.append(str(error)))
-        page.on(
-            "request",
-            lambda request: external_network_requests.append(request.url)
-            if request.url.startswith(("http://", "https://"))
-            else None,
+        browser = launch_requested_frontier_3d_test_browser(playwright)
+        page, browser_runtime_observation = (
+            create_frontier_3d_test_page_with_runtime_observation(browser)
         )
         page.goto(HTML_PATH.as_uri())
         page.wait_for_function(
-            "() => window.aaState && window.aaState().interactiveRenderer === 'threejs'",
+            "() => window.frontierThreeDimensionalVisualizationState && "
+            "window.frontierThreeDimensionalVisualizationState().interactiveRenderer === 'threejs'",
             timeout=30000,
         )
 
         print("\n[1] three.js 注入与模型身份层")
-        initial_state = page.evaluate("() => window.aaState()")
+        initial_state = page.evaluate(
+            "() => window.frontierThreeDimensionalVisualizationState()"
+        )
+        page.wait_for_function(
+            "() => { const state = "
+            "window.frontierThreeDimensionalVisualizationState(); "
+            "return state.loadedOrganizationLogoCanvasTextureCount === "
+            "state.organizationCount; }"
+        )
+        initial_state = page.evaluate(
+            "() => window.frontierThreeDimensionalVisualizationState()"
+        )
         check(initial_state["interactiveRenderer"] == "threejs", "交互渲染器 = three.js")
         check(initial_state["displayedModelMarkerCount"] > 0, "存在显示模型")
         check(
@@ -62,6 +69,25 @@ def main() -> int:
             initial_state["cameraFacingOrganizationLogoMarkerCount"]
             == initial_state["organizationLogoMarkerCount"],
             "全部厂商 Logo marker 均为 camera-facing Sprite",
+        )
+        check(
+            initial_state["depthTestedOrganizationLogoMarkerCount"]
+            == initial_state["organizationLogoMarkerCount"],
+            "全部厂商 Logo marker 均参与深度测试",
+        )
+        check(
+            initial_state["depthWritingOrganizationLogoBackplateCount"]
+            == initial_state["organizationLogoMarkerCount"],
+            "全部厂商 Logo 底板均写入深度缓冲",
+        )
+        check(
+            initial_state["paretoFrontierSurfaceWritesDepth"] is True
+            and initial_state["achievableFrontierSurfaceWritesDepth"] is True,
+            "前沿曲面均写入深度缓冲",
+        )
+        check(
+            initial_state["failedOrganizationLogoCanvasTextureCount"] == 0,
+            "当前视图全部厂商 Logo 已解码为 CanvasTexture",
         )
         check(page.locator("canvas[data-frontier-threejs-canvas]").count() == 1, "three.js canvas 唯一")
         check(page.evaluate("() => typeof window.Plotly") == "undefined", "交互 HTML 不加载 Plotly")
@@ -78,8 +104,13 @@ def main() -> int:
         check(initial_state["countryRegionMarkerVisible"] is False, "国别外框默认关闭")
         check(initial_state["countryRegionMarkerCount"] == 0, "默认不绘制国别外框")
         page.locator("#aa-country-region-marker-toggle").check()
-        page.wait_for_function("() => window.aaState().countryRegionMarkerVisible")
-        country_state = page.evaluate("() => window.aaState()")
+        page.wait_for_function(
+            "() => window.frontierThreeDimensionalVisualizationState()"
+            ".countryRegionMarkerVisible"
+        )
+        country_state = page.evaluate(
+            "() => window.frontierThreeDimensionalVisualizationState()"
+        )
         check(
             country_state["countryRegionMarkerCount"]
             == country_state["displayedModelMarkerCount"],
@@ -89,7 +120,13 @@ def main() -> int:
         legend_text = page.locator("#aa-country-region-legend").inner_text()
         check(all(label in legend_text for label in ("中国", "美国", "其他")), "图例覆盖三类地区")
         page.locator("#aa-country-region-marker-toggle").uncheck()
-        check(page.evaluate("() => !window.aaState().countryRegionMarkerVisible"), "国别外框可关闭")
+        check(
+            page.evaluate(
+                "() => !window.frontierThreeDimensionalVisualizationState()"
+                ".countryRegionMarkerVisible"
+            ),
+            "国别外框可关闭",
+        )
 
         print("\n[3] 四种坐标轴组合与相机保持")
         expected_variants = [
@@ -111,76 +148,177 @@ def main() -> int:
         camera_before_metric_switch = initial_state["cameraPosition"]
         for cost_metric, speed_metric, expected_cost_field, expected_speed_field in expected_variants:
             page.evaluate(
-                "([costMetric, speedMetric]) => window.aaSetMetricCombination(costMetric, speedMetric)",
+                "([costMetric, speedMetric]) => "
+                "window.setFrontierMetricCombination(costMetric, speedMetric)",
                 [cost_metric, speed_metric],
             )
             page.wait_for_function(
-                "expectedKey => window.aaState().activeMetricKey === expectedKey",
+                "expectedKey => window.frontierThreeDimensionalVisualizationState()"
+                ".activeMetricVariantKey === expectedKey",
                 arg=f"{cost_metric}__{speed_metric}",
             )
-            state = page.evaluate("() => window.aaState()")
-            check(state["costAxisField"] == expected_cost_field, f"{state['activeMetricKey']} 成本字段正确")
-            check(state["speedAxisField"] == expected_speed_field, f"{state['activeMetricKey']} 速度字段正确")
-            check(state["displayedModelMarkerCount"] > 0, f"{state['activeMetricKey']} 有模型")
+            state = page.evaluate(
+                "() => window.frontierThreeDimensionalVisualizationState()"
+            )
+            active_metric_variant_key = state["activeMetricVariantKey"]
+            check(state["costAxisField"] == expected_cost_field, f"{active_metric_variant_key} 成本字段正确")
+            check(state["speedAxisField"] == expected_speed_field, f"{active_metric_variant_key} 速度字段正确")
+            check(state["displayedModelMarkerCount"] > 0, f"{active_metric_variant_key} 有模型")
             check(
                 _camera_distance(camera_before_metric_switch, state["cameraPosition"]) < 1e-8,
-                f"{state['activeMetricKey']} 切换后保留相机",
+                f"{active_metric_variant_key} 切换后保留相机",
             )
-        page.evaluate("() => window.aaSetMetricCombination('effective', 'effective')")
-        page.wait_for_function("() => window.aaState().activeMetricKey === 'effective__effective'")
+        page.evaluate(
+            "() => window.setFrontierMetricCombination('effective', 'effective')"
+        )
+        page.wait_for_function(
+            "() => window.frontierThreeDimensionalVisualizationState()"
+            ".activeMetricVariantKey === 'effective__effective'"
+        )
 
         print("\n[4] 真实拖拽旋转后，hover / pin / 切指标不重置相机")
         canvas = page.locator("canvas[data-frontier-threejs-canvas]")
         canvas_box = canvas.bounding_box()
         assert canvas_box is not None
-        camera_before_drag = page.evaluate("() => window.aaState().cameraPosition")
+        camera_before_drag = page.evaluate(
+            "() => window.frontierThreeDimensionalVisualizationState().cameraPosition"
+        )
         drag_start_x = canvas_box["x"] + canvas_box["width"] * 0.55
         drag_start_y = canvas_box["y"] + canvas_box["height"] * 0.45
         page.mouse.move(drag_start_x, drag_start_y)
         page.mouse.down()
         page.mouse.move(drag_start_x + 150, drag_start_y + 75, steps=10)
         page.mouse.up()
-        camera_after_drag = page.evaluate("() => window.aaState().cameraPosition")
+        camera_after_drag = page.evaluate(
+            "() => window.frontierThreeDimensionalVisualizationState().cameraPosition"
+        )
         check(_camera_distance(camera_before_drag, camera_after_drag) > 0.05, "真实拖拽改变相机")
 
         lineage_pick = page.evaluate(
             """() => {
-              const relationships = window.LINEAGE_DATA;
-              for (const [base, indices] of Object.entries(relationships.base_groups)) {
-                const model = relationships.models[indices[0]];
-                const lineage = relationships.lineages[model.lineage_key];
-                if (lineage && lineage.length >= 2) return {base, name: model.name, variants: indices.length};
+              const relationships = window.FRONTIER_3D_INTERACTION_RELATIONSHIPS;
+              const diagnostics = window.frontierThreeDimensionalRendererDiagnostics;
+              for (const projectedModel of relationships.models) {
+                const frontmostInteraction =
+                  diagnostics.frontmostPointerInteractionAtProjectedModelPosition(
+                    projectedModel.name,
+                  );
+                if (!frontmostInteraction) continue;
+                const lineage =
+                  relationships.lineages[frontmostInteraction.frontmostLineageKey];
+                const prunedAncestor = lineage?.find((node) => !node.kept);
+                if (lineage && lineage.length >= 2 && prunedAncestor) {
+                  const baseModelName = frontmostInteraction.frontmostBaseModelName;
+                  return {
+                    base: baseModelName,
+                    name: frontmostInteraction.frontmostModelName,
+                    lineageKey: frontmostInteraction.frontmostLineageKey,
+                    variants: relationships.base_groups[baseModelName].length,
+                    prunedAncestorName: prunedAncestor.name,
+                    projectedModelPosition:
+                      frontmostInteraction.projectedCanvasPosition,
+                  };
+                }
               }
               return null;
             }"""
         )
         assert lineage_pick is not None
-        page.evaluate("name => window.aaShowLineageForName(name)", lineage_pick["name"])
-        page.wait_for_function("() => window.aaState().lineageLen > 0")
-        hover_state = page.evaluate("() => window.aaState()")
-        check(hover_state["hoverKey"] is not None, "hover 显示谱系")
+        projected_model_position = lineage_pick["projectedModelPosition"]
+        page.mouse.move(
+            projected_model_position["clientX"],
+            projected_model_position["clientY"],
+        )
+        page.wait_for_function(
+            "expectedLineageKey => "
+            "window.frontierThreeDimensionalVisualizationState()"
+            ".hoveredLineageKey === expectedLineageKey",
+            arg=lineage_pick["lineageKey"],
+        )
+        hover_state = page.evaluate(
+            "() => window.frontierThreeDimensionalVisualizationState()"
+        )
+        check(
+            hover_state["displayedLineageSegmentEndpointCount"] > 0,
+            "真实鼠标 hover 显示谱系",
+        )
+        check(
+            hover_state["displayedPrunedLineageAncestorMarkerCount"] > 0,
+            "谱系显示被裁剪的历代前身 marker",
+        )
         check(
             _camera_distance(camera_after_drag, hover_state["cameraPosition"]) < 1e-8,
             "hover 谱系不重置相机",
         )
-        page.evaluate("() => window.aaClearHover()")
-        check(page.evaluate("() => window.aaState().lineageLen === 0"), "清除 hover 后谱系消失")
-
-        page.evaluate("base => window.aaPinBase(base)", lineage_pick["base"])
-        pinned_state = page.evaluate("() => window.aaState()")
-        check(lineage_pick["base"] in pinned_state["pinned"], "pin 保存基模型")
+        page.mouse.click(
+            projected_model_position["clientX"],
+            projected_model_position["clientY"],
+        )
+        page.wait_for_function(
+            "expectedBaseModelName => "
+            "window.frontierThreeDimensionalVisualizationState()"
+            ".pinnedBaseModelNames.includes(expectedBaseModelName)",
+            arg=lineage_pick["base"],
+        )
+        pinned_state = page.evaluate(
+            "() => window.frontierThreeDimensionalVisualizationState()"
+        )
         check(
-            pinned_state["highlightLen"] == lineage_pick["variants"],
+            lineage_pick["base"] in pinned_state["pinnedBaseModelNames"],
+            "真实鼠标 click pin 保存基模型",
+        )
+        check(
+            pinned_state["pinnedModelMarkerCount"] == lineage_pick["variants"],
             "pin 高亮覆盖全部 reasoning 档位",
         )
-        check(pinned_state["lineageLen"] > 0, "pin 常显谱系")
+        check(
+            pinned_state["displayedLineageSegmentEndpointCount"] > 0,
+            "pin 常显谱系",
+        )
         check(
             _camera_distance(camera_after_drag, pinned_state["cameraPosition"]) < 1e-8,
             "pin 不重置相机",
         )
         check(page.locator("#aa-pinned-panel").is_visible(), "pin 详情卡在右栏可见")
-        page.evaluate("base => window.aaUnpinBase(base)", lineage_pick["base"])
-        check(page.evaluate("() => window.aaState().highlightLen === 0"), "unpin 清除高亮")
+        projected_pruned_ancestor_position = page.evaluate(
+            "name => window.frontierThreeDimensionalRendererDiagnostics"
+            ".projectedCanvasPositionForPrunedLineageAncestorName(name)",
+            lineage_pick["prunedAncestorName"],
+        )
+        assert projected_pruned_ancestor_position is not None
+        page.mouse.move(
+            projected_pruned_ancestor_position["clientX"],
+            projected_pruned_ancestor_position["clientY"],
+        )
+        page.wait_for_function(
+            "expectedAncestorName => "
+            "window.frontierThreeDimensionalVisualizationState()"
+            ".hoveredPrunedLineageAncestorName === expectedAncestorName",
+            arg=lineage_pick["prunedAncestorName"],
+        )
+        check(
+            page.locator("#aa-threejs-model-tooltip").is_visible(),
+            "真实鼠标 hover 被裁剪前身时显示详情",
+        )
+        page.evaluate("() => window.clearFrontierHoverState()")
+        page.evaluate(
+            "baseModelName => window.unpinFrontierBaseModel(baseModelName)",
+            lineage_pick["base"],
+        )
+        check(
+            page.evaluate(
+                "() => window.frontierThreeDimensionalVisualizationState()"
+                ".pinnedModelMarkerCount === 0"
+            ),
+            "unpin 清除高亮",
+        )
+        check(
+            page.evaluate(
+                "() => window.frontierThreeDimensionalVisualizationState()"
+                ".displayedLineageSegmentEndpointCount === 0"
+            ),
+            "清除 hover 与 pin 后谱系消失",
+        )
 
         print("\n[5] 搜索、厂商过滤、前沿外观")
         search_token = lineage_pick["base"].split()[0]
@@ -192,7 +330,9 @@ def main() -> int:
             ".aa-organization-filter-row input[type=checkbox]"
         ).first
         first_organization_checkbox.uncheck()
-        filtered_state = page.evaluate("() => window.aaState()")
+        filtered_state = page.evaluate(
+            "() => window.frontierThreeDimensionalVisualizationState()"
+        )
         check(
             filtered_state["visibleOrganizationCount"]
             == filtered_state["organizationCount"] - 1,
@@ -201,51 +341,121 @@ def main() -> int:
         first_organization_checkbox.check()
         check(
             page.evaluate(
-                "() => window.aaState().visibleOrganizationCount === window.aaState().organizationCount"
+                "() => window.frontierThreeDimensionalVisualizationState()"
+                ".visibleOrganizationCount === "
+                "window.frontierThreeDimensionalVisualizationState().organizationCount"
             ),
             "厂商 checkbox 可恢复",
         )
 
-        page.evaluate("() => window.aaSetFrontierStyle('solid')")
-        check(page.evaluate("() => window.aaState().frontierStyle === 'solid'"), "切换实心前沿")
-        page.evaluate("() => window.aaSetFrontierStyle('hidden')")
-        check(page.evaluate("() => window.aaState().frontierStyle === 'hidden'"), "隐藏前沿")
-        page.evaluate("() => window.aaSetAchievableSurfaceVisible(true)")
-        state_with_surface = page.evaluate("() => window.aaState()")
-        check(state_with_surface["achievableSurfaceVisible"] is True, "可达前沿曲面独立开启")
+        page.evaluate(
+            "() => window.setParetoFrontierVisualizationStyle('solid')"
+        )
+        check(
+            page.evaluate(
+                "() => window.frontierThreeDimensionalVisualizationState()"
+                ".frontierStyle === 'solid'"
+            ),
+            "切换实心前沿",
+        )
+        page.evaluate(
+            "() => window.setParetoFrontierVisualizationStyle('hidden')"
+        )
+        check(
+            page.evaluate(
+                "() => window.frontierThreeDimensionalVisualizationState()"
+                ".frontierStyle === 'hidden'"
+            ),
+            "隐藏前沿",
+        )
+        page.evaluate("() => window.setAchievableFrontierSurfaceVisibility(true)")
+        state_with_surface = page.evaluate(
+            "() => window.frontierThreeDimensionalVisualizationState()"
+        )
+        check(
+            state_with_surface["achievableFrontierSurfaceVisible"] is True,
+            "可达前沿曲面独立开启",
+        )
         check(state_with_surface["frontierStyle"] == "hidden", "可达曲面不改变主前沿状态")
-        page.evaluate("() => window.aaSetAchievableSurfaceVisible(false)")
-        page.evaluate("() => window.aaSetFrontierStyle('wireframe')")
+        page.evaluate("() => window.setAchievableFrontierSurfaceVisibility(false)")
+        page.evaluate(
+            "() => window.setParetoFrontierVisualizationStyle('wireframe')"
+        )
 
         print("\n[6] 突出度排名与权重")
-        default_ranking = page.evaluate("() => window.aaStandoutRanking()")
-        check(default_ranking["metric"] == "C", "默认突出度 = 趋势残差")
+        default_ranking = page.evaluate("() => window.frontierStandoutRanking()")
+        check(
+            default_ranking["selectedFrontierStandoutMetricName"]
+            == "trend_residual",
+            "默认突出度 = 趋势残差",
+        )
         check(page.locator("#aa-standout-weight-controls").is_hidden(), "非加权口径隐藏权重控件")
-        check(len(default_ranking["ranking"]) == initial_state["frontierCount"], "排行覆盖全部前沿模型")
-        page.evaluate("() => window.aaSelectStandoutMetric('A')")
+        check(
+            len(default_ranking["ranking"])
+            == initial_state["paretoFrontierModelCount"],
+            "排行覆盖全部前沿模型",
+        )
+        page.evaluate(
+            "() => window.selectFrontierStandoutMetric('weighted_exclusive_hypervolume')"
+        )
         check(page.locator("#aa-standout-weight-controls").is_visible(), "加权超体积显示权重控件")
-        weighted_ranking_before = page.evaluate("() => window.aaStandoutRanking()")
-        page.evaluate("() => window.aaSetWeights(4, 1, 1)")
-        weighted_ranking_after = page.evaluate("() => window.aaStandoutRanking()")
-        check(weighted_ranking_after["weights"]["intelligence"] == 4, "智能权重更新为 4")
+        weighted_ranking_before = page.evaluate(
+            "() => window.frontierStandoutRanking()"
+        )
+        page.evaluate("() => window.setFrontierStandoutAxisWeights(4, 1, 1)")
+        weighted_ranking_after = page.evaluate(
+            "() => window.frontierStandoutRanking()"
+        )
+        check(
+            weighted_ranking_after["frontierStandoutAxisWeights"][
+                "intelligence"
+            ]
+            == 4,
+            "智能权重更新为 4",
+        )
         check(
             [row["name"] for row in weighted_ranking_before["ranking"]]
             != [row["name"] for row in weighted_ranking_after["ranking"]],
             "权重变化会重排前沿模型",
         )
         check(
-            _camera_distance(camera_after_drag, page.evaluate("() => window.aaState().cameraPosition"))
+            _camera_distance(
+                camera_after_drag,
+                page.evaluate(
+                    "() => window.frontierThreeDimensionalVisualizationState()"
+                    ".cameraPosition"
+                ),
+            )
             < 1e-8,
             "突出度与权重操作不重置相机",
         )
 
         print("\n[7] 侧栏、自包含与运行时健康")
         page.locator("#aa-side-panel-toggle").click()
-        check(page.evaluate("() => !window.aaState().sidePanelExpanded"), "右栏可收起")
+        check(
+            page.evaluate(
+                "() => !window.frontierThreeDimensionalVisualizationState()"
+                ".sidePanelExpanded"
+            ),
+            "右栏可收起",
+        )
         page.locator("#aa-side-panel-toggle").click()
-        check(page.evaluate("() => window.aaState().sidePanelExpanded"), "右栏可展开")
-        check(external_network_requests == [], "自包含 HTML 无外部网络请求")
-        check(runtime_errors == [], f"无 JS 运行时错误（{runtime_errors}）")
+        check(
+            page.evaluate(
+                "() => window.frontierThreeDimensionalVisualizationState()"
+                ".sidePanelExpanded"
+            ),
+            "右栏可展开",
+        )
+        check(
+            browser_runtime_observation.external_network_request_urls == [],
+            "自包含 HTML 无外部网络请求",
+        )
+        check(
+            browser_runtime_observation.page_runtime_errors == [],
+            "无 JS 运行时错误"
+            f"（{browser_runtime_observation.page_runtime_errors}）",
+        )
         browser.close()
 
     if failures:

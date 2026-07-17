@@ -198,18 +198,22 @@ def _build_lineage_payload(
                 "layer": float(r["layer"]),
             },
             # 四个突出度值（加权超体积为 w=1 静态值；JS 端按滑杆权重实时重算）
-            "standout": {
+            "standout_metrics": {
                 "trend_residual": _field_or_none(r, "standout_trend_residual"),
-                "trend_residual_sigma": _field_or_none(r, "standout_trend_residual_sigma"),
+                "trend_residual_standard_deviation_units": _field_or_none(
+                    r, "standout_trend_residual_sigma"
+                ),
                 "intelligence_uplift": _field_or_none(r, "standout_intelligence_uplift"),
-                "weighted_hypervolume": _field_or_none(r, "standout_weighted_hypervolume"),
+                "weighted_exclusive_hypervolume": _field_or_none(
+                    r, "standout_weighted_hypervolume"
+                ),
                 "frontier_distance": _field_or_none(r, "standout_frontier_distance"),
             },
-            # 归一改进坐标（JS 实时重算加权超体积只需 g + 权重，无需回传轴范围）
-            "g": {
-                "c": _field_or_none(r, "g_cost"),
-                "s": _field_or_none(r, "g_speed"),
-                "i": _field_or_none(r, "g_intel"),
+            # 归一改进坐标（JS 实时重算加权超体积只需该坐标与权重，无需回传轴范围）
+            "normalized_improvement_coordinates": {
+                "cost_efficiency": _field_or_none(r, "g_cost"),
+                "speed": _field_or_none(r, "g_speed"),
+                "intelligence": _field_or_none(r, "g_intel"),
             },
         })
 

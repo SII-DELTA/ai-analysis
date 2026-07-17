@@ -1,5 +1,10 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import {
+  FRONTIER_STANDOUT_METRIC_DEFINITIONS_BY_NAME,
+  FRONTIER_STANDOUT_METRIC_NAMES,
+  calculateFrontierStandoutMetricValues,
+} from "./frontier_3d_threejs_standout_metric_calculator.js";
 
 (function initializeFrontierThreeDimensionalInteractiveReport() {
   "use strict";
@@ -64,7 +69,6 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
   const raycaster = new THREE.Raycaster();
   const normalizedPointerCoordinates = new THREE.Vector2();
-  const textureLoader = new THREE.TextureLoader();
 
   const staticAxesAndGridGroup = new THREE.Group();
   const frontierGeometryGroup = new THREE.Group();
@@ -88,7 +92,9 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
   let allBaseModelNames = [];
   let modelVisualObjectsByModelIndex = [];
   let clickableOrganizationLogoSprites = [];
+  let clickablePrunedLineageAncestorSprites = [];
   const organizationLogoMaterialsByCreatorName = {};
+  const organizationLogoTextureLoadStateByCreatorName = {};
   let frontierWireframeObject = null;
   let frontierSurfaceObject = null;
   let achievableFrontierSurfaceObject = null;
@@ -100,11 +106,13 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
   let achievableFrontierSurfaceVisible = false;
   let sidePanelExpanded = true;
   let hoveredModelIndex = null;
+  let hoveredPrunedLineageAncestorName = null;
   let hoveredLineageKey = null;
   let hoveredReasoningBaseModelName = null;
   let pinnedBaseModelNames = new Set();
   let hiddenOrganizationCreatorNames = new Set();
-  let activeStandoutMetricKey = "C";
+  let selectedFrontierStandoutMetricName =
+    FRONTIER_STANDOUT_METRIC_NAMES.TREND_RESIDUAL;
   let standoutAxisWeights = { intelligence: 1, cost: 1, speed: 1 };
   let latestStandoutValuesByModelName = {};
   let renderFrameRequested = false;
@@ -313,13 +321,13 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
     frontierSurfaceObject = triangleMeshObject(
       activeThreeDimensionalScene.pareto_frontier_surface_triangle_mesh,
-      { color: 0x3182bd, opacity: 0.25, depthWrite: false },
+      { color: 0x3182bd, opacity: 0.25 },
     );
     if (frontierSurfaceObject) frontierGeometryGroup.add(frontierSurfaceObject);
 
     achievableFrontierSurfaceObject = triangleMeshObject(
       activeThreeDimensionalScene.achievable_frontier_surface_triangle_mesh,
-      { color: 0x31a354, opacity: 0.2, depthWrite: false },
+      { color: 0x31a354, opacity: 0.2 },
     );
     if (achievableFrontierSurfaceObject) {
       frontierGeometryGroup.add(achievableFrontierSurfaceObject);
@@ -367,6 +375,15 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
     context.strokeStyle = "rgba(234,179,8,0.98)";
     context.stroke();
   });
+  const prunedLineageAncestorTexture = canvasTextureFromDrawing((context) => {
+    context.beginPath();
+    context.arc(64, 64, 42, 0, Math.PI * 2);
+    context.fillStyle = "rgba(100,116,139,0.96)";
+    context.fill();
+    context.lineWidth = 8;
+    context.strokeStyle = "rgba(255,255,255,0.98)";
+    context.stroke();
+  });
   const countryRegionTextures = {
     china: canvasTextureFromDrawing((context) => {
       context.beginPath();
@@ -407,20 +424,25 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
     }),
   };
 
-  function spriteMaterial(texture) {
+  function spriteMaterial(texture, { depthWrite = false } = {}) {
     const material = new THREE.SpriteMaterial({
       map: texture,
       transparent: true,
       depthTest: true,
-      depthWrite: false,
+      depthWrite,
       alphaTest: 0.02,
     });
     return material;
   }
 
-  const whiteLogoBackplateMaterial = spriteMaterial(whiteLogoBackplateTexture);
+  const whiteLogoBackplateMaterial = spriteMaterial(whiteLogoBackplateTexture, {
+    depthWrite: true,
+  });
   const paretoRingMaterial = spriteMaterial(paretoRingTexture);
   const pinnedRingMaterial = spriteMaterial(pinnedRingTexture);
+  const prunedLineageAncestorMaterial = spriteMaterial(
+    prunedLineageAncestorTexture,
+  );
   const countryRegionMaterials = Object.fromEntries(
     Object.entries(countryRegionTextures).map(([key, texture]) => [key, spriteMaterial(texture)]),
   );
@@ -428,6 +450,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
     whiteLogoBackplateMaterial,
     paretoRingMaterial,
     pinnedRingMaterial,
+    prunedLineageAncestorMaterial,
     ...Object.values(countryRegionMaterials),
   ].forEach((material) => {
     material.userData = { sharedMaterial: true };
@@ -445,6 +468,44 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
   function currentOrganizationVisibility(creatorName) {
     return !hiddenOrganizationCreatorNames.has(creatorName);
+  }
+
+  function organizationLogoMaterialForCreatorName(creatorName, identity) {
+    const logoCanvas = document.createElement("canvas");
+    logoCanvas.width = 256;
+    logoCanvas.height = 256;
+    const logoCanvasContext = logoCanvas.getContext("2d");
+    const logoTexture = new THREE.CanvasTexture(logoCanvas);
+    logoTexture.colorSpace = THREE.SRGBColorSpace;
+    const logoMaterial = spriteMaterial(logoTexture);
+    logoMaterial.userData = { sharedMaterial: true };
+    organizationLogoTextureLoadStateByCreatorName[creatorName] = "loading";
+
+    const brandImage = new Image();
+    brandImage.onload = () => {
+      const imageWidth = Math.max(1, brandImage.naturalWidth);
+      const imageHeight = Math.max(1, brandImage.naturalHeight);
+      const scale = Math.min(224 / imageWidth, 224 / imageHeight);
+      const displayedWidth = imageWidth * scale;
+      const displayedHeight = imageHeight * scale;
+      logoCanvasContext.clearRect(0, 0, logoCanvas.width, logoCanvas.height);
+      logoCanvasContext.drawImage(
+        brandImage,
+        (logoCanvas.width - displayedWidth) / 2,
+        (logoCanvas.height - displayedHeight) / 2,
+        displayedWidth,
+        displayedHeight,
+      );
+      logoTexture.needsUpdate = true;
+      organizationLogoTextureLoadStateByCreatorName[creatorName] = "loaded";
+      requestThreeDimensionalSceneRender();
+    };
+    brandImage.onerror = () => {
+      organizationLogoTextureLoadStateByCreatorName[creatorName] = "failed";
+      console.error(`Unable to decode organization brand asset: ${creatorName}`);
+    };
+    brandImage.src = identity.logo_visualization_data_url;
+    return logoMaterial;
   }
 
   function buildModelMarkers() {
@@ -471,20 +532,15 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
       let logoMaterial = organizationLogoMaterialsByCreatorName[model.creator];
       if (!logoMaterial) {
-        const logoTexture = textureLoader.load(
-          identity.logo_visualization_data_url,
-          (loadedTexture) => {
-            loadedTexture.colorSpace = THREE.SRGBColorSpace;
-            requestThreeDimensionalSceneRender();
-          },
+        logoMaterial = organizationLogoMaterialForCreatorName(
+          model.creator,
+          identity,
         );
-        logoTexture.colorSpace = THREE.SRGBColorSpace;
-        logoMaterial = spriteMaterial(logoTexture);
-        logoMaterial.userData = { sharedMaterial: true };
         organizationLogoMaterialsByCreatorName[model.creator] = logoMaterial;
       }
       const logoSprite = addSharedMaterialSprite(logoMaterial, position, 0.11, 40);
       logoSprite.userData.modelIndex = modelIndex;
+      logoSprite.userData.interactionTargetKind = "displayed_model";
       clickableOrganizationLogoSprites.push(logoSprite);
 
       const paretoRingSprite = addSharedMaterialSprite(
@@ -592,6 +648,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
   function redrawHoveredAndPinnedRelationships() {
     clearThreeObjectGroup(transientRelationshipGroup);
+    clickablePrunedLineageAncestorSprites = [];
     transientLineageLineObject = null;
     transientReasoningVariantLineObject = null;
     const lineageKeys = new Set();
@@ -601,8 +658,33 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
     });
     if (hoveredLineageKey) lineageKeys.add(hoveredLineageKey);
     const lineagePositionPairs = [];
+    const displayedPrunedAncestorNames = new Set();
     lineageKeys.forEach((lineageKey) => {
       const nodes = lineagesByOrganizationAndTier[lineageKey] || [];
+      nodes.forEach((lineageNode) => {
+        if (lineageNode.kept || displayedPrunedAncestorNames.has(lineageNode.name)) {
+          return;
+        }
+        displayedPrunedAncestorNames.add(lineageNode.name);
+        const ancestorSprite = new THREE.Sprite(prunedLineageAncestorMaterial);
+        ancestorSprite.position.copy(
+          normalizedThreeDimensionalPosition(
+            lineageNode.x,
+            lineageNode.y,
+            lineageNode.z,
+          ),
+        );
+        ancestorSprite.scale.set(0.09, 0.09, 1);
+        ancestorSprite.renderOrder = 35;
+        ancestorSprite.userData = {
+          sharedMaterial: true,
+          interactionTargetKind: "pruned_lineage_ancestor",
+          lineageKey,
+          prunedLineageAncestorNode: lineageNode,
+        };
+        transientRelationshipGroup.add(ancestorSprite);
+        clickablePrunedLineageAncestorSprites.push(ancestorSprite);
+      });
       for (let index = 1; index < nodes.length; index += 1) {
         const previousNode = nodes[index - 1];
         const currentNode = nodes[index];
@@ -671,6 +753,17 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
     ].join("<br>");
   }
 
+  function prunedLineageAncestorTooltipHtml(lineageNode) {
+    return [
+      `<strong>${escapeHtml(lineageNode.name)}</strong>`,
+      "谱系前身 · 已从主散点裁剪",
+      `发布：${escapeHtml(lineageNode.release_date)}`,
+      `智能：${formatNumber(lineageNode.intelligence, 1)}`,
+      `${escapeHtml(activeInteractionRelationships.speed_axis_label)}：${formatNumber(lineageNode.y, 0)} tok/s`,
+      `${escapeHtml(activeInteractionRelationships.cost_axis_label)}：$${formatNumber(lineageNode.x, 2)}`,
+    ].join("<br>");
+  }
+
   function escapeHtml(value) {
     const element = document.createElement("span");
     element.textContent = String(value);
@@ -683,11 +776,15 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
   }
 
   function setHoveredModelIndex(nextModelIndex, pointerEvent) {
-    if (nextModelIndex === hoveredModelIndex) {
+    if (
+      nextModelIndex === hoveredModelIndex &&
+      hoveredPrunedLineageAncestorName === null
+    ) {
       if (pointerEvent && !tooltip.hidden) positionTooltip(pointerEvent);
       return;
     }
     hoveredModelIndex = nextModelIndex;
+    hoveredPrunedLineageAncestorName = null;
     if (nextModelIndex === null) {
       hoveredLineageKey = null;
       hoveredReasoningBaseModelName = null;
@@ -699,6 +796,30 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
     hoveredLineageKey = model.lineage_key;
     hoveredReasoningBaseModelName = model.base_model_name;
     tooltip.innerHTML = modelTooltipHtml(model);
+    tooltip.hidden = false;
+    if (pointerEvent) positionTooltip(pointerEvent);
+    redrawHoveredAndPinnedRelationships();
+  }
+
+  function setHoveredPrunedLineageAncestor(
+    lineageKey,
+    prunedLineageAncestorNode,
+    pointerEvent,
+  ) {
+    if (
+      hoveredPrunedLineageAncestorName === prunedLineageAncestorNode.name &&
+      hoveredLineageKey === lineageKey
+    ) {
+      if (pointerEvent && !tooltip.hidden) positionTooltip(pointerEvent);
+      return;
+    }
+    hoveredModelIndex = null;
+    hoveredPrunedLineageAncestorName = prunedLineageAncestorNode.name;
+    hoveredLineageKey = lineageKey;
+    hoveredReasoningBaseModelName = null;
+    tooltip.innerHTML = prunedLineageAncestorTooltipHtml(
+      prunedLineageAncestorNode,
+    );
     tooltip.hidden = false;
     if (pointerEvent) positionTooltip(pointerEvent);
     redrawHoveredAndPinnedRelationships();
@@ -718,19 +839,48 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
     tooltip.style.top = `${Math.max(8, tooltipTop)}px`;
   }
 
-  function visibleClickableLogoSprites() {
-    return clickableOrganizationLogoSprites.filter((sprite) => sprite.visible);
+  function visiblePointerInteractionSprites() {
+    return [
+      ...clickableOrganizationLogoSprites,
+      ...clickablePrunedLineageAncestorSprites,
+    ].filter((sprite) => sprite.visible);
   }
 
-  function modelIndexAtPointerEvent(pointerEvent) {
+  function interactionTargetAtCanvasClientCoordinates(clientX, clientY) {
     const canvasBounds = webglRenderer.domElement.getBoundingClientRect();
     normalizedPointerCoordinates.x =
-      ((pointerEvent.clientX - canvasBounds.left) / canvasBounds.width) * 2 - 1;
+      ((clientX - canvasBounds.left) / canvasBounds.width) * 2 - 1;
     normalizedPointerCoordinates.y =
-      -((pointerEvent.clientY - canvasBounds.top) / canvasBounds.height) * 2 + 1;
+      -((clientY - canvasBounds.top) / canvasBounds.height) * 2 + 1;
     raycaster.setFromCamera(normalizedPointerCoordinates, perspectiveCamera);
-    const intersections = raycaster.intersectObjects(visibleClickableLogoSprites(), false);
-    return intersections.length ? intersections[0].object.userData.modelIndex : null;
+    const intersections = raycaster.intersectObjects(
+      visiblePointerInteractionSprites(),
+      false,
+    );
+    return intersections.length ? intersections[0].object.userData : null;
+  }
+
+  function interactionTargetAtPointerEvent(pointerEvent) {
+    return interactionTargetAtCanvasClientCoordinates(
+      pointerEvent.clientX,
+      pointerEvent.clientY,
+    );
+  }
+
+  function applyHoveredInteractionTarget(interactionTarget, pointerEvent) {
+    if (!interactionTarget) {
+      setHoveredModelIndex(null, pointerEvent);
+      return;
+    }
+    if (interactionTarget.interactionTargetKind === "displayed_model") {
+      setHoveredModelIndex(interactionTarget.modelIndex, pointerEvent);
+      return;
+    }
+    setHoveredPrunedLineageAncestor(
+      interactionTarget.lineageKey,
+      interactionTarget.prunedLineageAncestorNode,
+      pointerEvent,
+    );
   }
 
   let pendingPointerMoveFrame = null;
@@ -738,16 +888,21 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
     if (pendingPointerMoveFrame !== null) return;
     pendingPointerMoveFrame = window.requestAnimationFrame(() => {
       pendingPointerMoveFrame = null;
-      setHoveredModelIndex(modelIndexAtPointerEvent(pointerEvent), pointerEvent);
+      applyHoveredInteractionTarget(
+        interactionTargetAtPointerEvent(pointerEvent),
+        pointerEvent,
+      );
     });
   });
   webglRenderer.domElement.addEventListener("pointerleave", () => {
     setHoveredModelIndex(null);
   });
   webglRenderer.domElement.addEventListener("click", (pointerEvent) => {
-    const modelIndex = modelIndexAtPointerEvent(pointerEvent);
-    if (modelIndex === null) return;
-    togglePinnedBaseModelName(displayedModelMarkers[modelIndex].base_model_name);
+    const interactionTarget = interactionTargetAtPointerEvent(pointerEvent);
+    if (interactionTarget?.interactionTargetKind !== "displayed_model") return;
+    togglePinnedBaseModelName(
+      displayedModelMarkers[interactionTarget.modelIndex].base_model_name,
+    );
   });
 
   function applyPinnedModelVisualEncoding() {
@@ -773,90 +928,17 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
     return Promise.resolve(true);
   }
 
-  const standoutMetricRegistry = {
-    C: {
-      label: "趋势残差",
-      digits: 1,
-      weighted: false,
-      value: (model) => model.standout?.trend_residual,
-    },
-    B: {
-      label: "智能抬升",
-      digits: 1,
-      weighted: false,
-      value: (model) => model.standout?.intelligence_uplift,
-    },
-    A: { label: "加权超体积", digits: 3, weighted: true },
-    D: {
-      label: "到前沿垂距",
-      digits: 3,
-      weighted: false,
-      value: (model) => model.standout?.frontier_distance,
-    },
-  };
-
   function frontierModels() {
     return displayedModelMarkers.filter((model) => model.panel?.layer === 1);
   }
 
-  function originAnchoredUnionArea(rectangles) {
-    const sortedRectangles = rectangles
-      .slice()
-      .sort((left, right) => right[0] - left[0] || right[1] - left[1]);
-    let area = 0;
-    let maximumY = 0;
-    sortedRectangles.forEach(([x, y]) => {
-      if (y > maximumY) {
-        area += x * (y - maximumY);
-        maximumY = y;
-      }
-    });
-    return area;
-  }
-
-  function hypervolumeThreeDimensional(points) {
-    if (!points.length) return 0;
-    const sortedPoints = points.slice().sort((left, right) => right[2] - left[2]);
-    let volume = 0;
-    let previousZ = null;
-    const rectangles = [];
-    sortedPoints.forEach(([x, y, z]) => {
-      if (previousZ !== null) {
-        volume += originAnchoredUnionArea(rectangles) * (previousZ - z);
-      }
-      rectangles.push([x, y]);
-      previousZ = z;
-    });
-    return volume + originAnchoredUnionArea(rectangles) * previousZ;
-  }
-
-  function weightedExclusiveHypervolumeValues(models) {
-    const points = models.map((model) => [
-      Math.pow(model.g.c, standoutAxisWeights.cost),
-      Math.pow(model.g.s, standoutAxisWeights.speed),
-      Math.pow(model.g.i, standoutAxisWeights.intelligence),
-    ]);
-    const fullVolume = hypervolumeThreeDimensional(points);
-    return points.map((unusedPoint, pointIndex) =>
-      fullVolume -
-      hypervolumeThreeDimensional(
-        points.filter((unusedOtherPoint, otherIndex) => pointIndex !== otherIndex),
-      ),
-    );
-  }
-
-  function standoutValuesForFrontierModels(models) {
-    const metricDefinition = standoutMetricRegistry[activeStandoutMetricKey];
-    if (metricDefinition.weighted) return weightedExclusiveHypervolumeValues(models);
-    return models.map((model) => {
-      const value = metricDefinition.value(model);
-      return value === null || value === undefined || !isFinite(value) ? NaN : value;
-    });
-  }
-
   function applyStandoutVisualEncoding() {
     const models = frontierModels();
-    const values = standoutValuesForFrontierModels(models);
+    const values = calculateFrontierStandoutMetricValues(
+      models,
+      selectedFrontierStandoutMetricName,
+      standoutAxisWeights,
+    );
     const finiteValues = values.filter((value) => isFinite(value));
     const minimumValue = finiteValues.length ? Math.min(...finiteValues) : 0;
     const maximumValue = finiteValues.length ? Math.max(...finiteValues) : 1;
@@ -881,7 +963,10 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
   function renderStandoutRanking(models, values) {
     if (!standoutRankingList) return;
-    const metricDefinition = standoutMetricRegistry[activeStandoutMetricKey];
+    const metricDefinition =
+      FRONTIER_STANDOUT_METRIC_DEFINITIONS_BY_NAME[
+        selectedFrontierStandoutMetricName
+      ];
     const rankedRows = models
       .map((model, index) => ({ model, value: values[index] }))
       .sort((left, right) => {
@@ -900,7 +985,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
         const value = document.createElement("b");
         value.className = "aa-ranking-value";
         value.textContent = isFinite(row.value)
-          ? Number(row.value).toFixed(metricDefinition.digits)
+          ? Number(row.value).toFixed(metricDefinition.displayedDecimalPlaces)
           : "-";
         rankingRow.append(modelName, value);
         return rankingRow;
@@ -908,10 +993,16 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
     );
   }
 
-  function selectStandoutMetric(metricKey) {
-    if (!standoutMetricRegistry[metricKey]) return Promise.resolve(false);
-    activeStandoutMetricKey = metricKey;
-    if (standoutMetricSelect) standoutMetricSelect.value = metricKey;
+  function selectFrontierStandoutMetric(frontierStandoutMetricName) {
+    if (
+      !FRONTIER_STANDOUT_METRIC_DEFINITIONS_BY_NAME[frontierStandoutMetricName]
+    ) {
+      return Promise.resolve(false);
+    }
+    selectedFrontierStandoutMetricName = frontierStandoutMetricName;
+    if (standoutMetricSelect) {
+      standoutMetricSelect.value = frontierStandoutMetricName;
+    }
     renderStandoutWeightControlsVisibility();
     applyStandoutVisualEncoding();
     return Promise.resolve(true);
@@ -956,7 +1047,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
     allBaseModelNames = Object.keys(baseGroupsByBaseModelName).sort((left, right) =>
       left.localeCompare(right),
     );
-    window.LINEAGE_DATA = {
+    window.FRONTIER_3D_INTERACTION_RELATIONSHIPS = {
       models: displayedModelMarkers,
       base_groups: baseGroupsByBaseModelName,
       reasoning_variant_group_model_indices_by_base_model_name:
@@ -1119,15 +1210,17 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
     const group = createToolbarGroup("突出度口径");
     standoutMetricSelect = document.createElement("select");
     standoutMetricSelect.id = "aa-standout-metric-select";
-    Object.entries(standoutMetricRegistry).forEach(([metricKey, definition]) => {
-      const option = document.createElement("option");
-      option.value = metricKey;
-      option.textContent = definition.label;
-      standoutMetricSelect.appendChild(option);
-    });
-    standoutMetricSelect.value = activeStandoutMetricKey;
+    Object.entries(FRONTIER_STANDOUT_METRIC_DEFINITIONS_BY_NAME).forEach(
+      ([frontierStandoutMetricName, definition]) => {
+        const option = document.createElement("option");
+        option.value = frontierStandoutMetricName;
+        option.textContent = definition.label;
+        standoutMetricSelect.appendChild(option);
+      },
+    );
+    standoutMetricSelect.value = selectedFrontierStandoutMetricName;
     standoutMetricSelect.addEventListener("change", () =>
-      selectStandoutMetric(standoutMetricSelect.value),
+      selectFrontierStandoutMetric(standoutMetricSelect.value),
     );
     group.appendChild(standoutMetricSelect);
     return group;
@@ -1375,7 +1468,9 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
   function renderStandoutWeightControlsVisibility() {
     const weightBlock = document.getElementById("aa-standout-weight-controls");
     if (!weightBlock) return;
-    weightBlock.hidden = !standoutMetricRegistry[activeStandoutMetricKey].weighted;
+    weightBlock.hidden = !FRONTIER_STANDOUT_METRIC_DEFINITIONS_BY_NAME[
+      selectedFrontierStandoutMetricName
+    ].usesAdjustableAxisWeights;
   }
 
   function buildCurrentViewPanel() {
@@ -1466,7 +1561,60 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
   const resizeObserver = new ResizeObserver(resizeThreeDimensionalRenderer);
   resizeObserver.observe(graphContainer);
 
-  function publicState() {
+  function projectedCanvasCoordinatesForThreeDimensionalPosition(position) {
+    const projectedPosition = position.clone().project(perspectiveCamera);
+    const canvasBounds = webglRenderer.domElement.getBoundingClientRect();
+    return {
+      clientX:
+        canvasBounds.left + ((projectedPosition.x + 1) / 2) * canvasBounds.width,
+      clientY:
+        canvasBounds.top + ((1 - projectedPosition.y) / 2) * canvasBounds.height,
+      normalizedDeviceDepth: projectedPosition.z,
+    };
+  }
+
+  function projectedCanvasPositionForModelName(modelName) {
+    const modelIndex = modelIndexByModelName[modelName];
+    if (modelIndex === undefined) return null;
+    return projectedCanvasCoordinatesForThreeDimensionalPosition(
+      modelVisualObjectsByModelIndex[modelIndex].logoSprite.position,
+    );
+  }
+
+  function projectedCanvasPositionForPrunedLineageAncestorName(
+    prunedLineageAncestorName,
+  ) {
+    const ancestorSprite = clickablePrunedLineageAncestorSprites.find(
+      (sprite) =>
+        sprite.userData.prunedLineageAncestorNode.name ===
+        prunedLineageAncestorName,
+    );
+    if (!ancestorSprite) return null;
+    return projectedCanvasCoordinatesForThreeDimensionalPosition(
+      ancestorSprite.position,
+    );
+  }
+
+  function frontmostPointerInteractionAtProjectedModelPosition(modelName) {
+    const projectedCanvasPosition = projectedCanvasPositionForModelName(modelName);
+    if (!projectedCanvasPosition) return null;
+    const interactionTarget = interactionTargetAtCanvasClientCoordinates(
+      projectedCanvasPosition.clientX,
+      projectedCanvasPosition.clientY,
+    );
+    if (interactionTarget?.interactionTargetKind !== "displayed_model") {
+      return null;
+    }
+    const frontmostModel = displayedModelMarkers[interactionTarget.modelIndex];
+    return {
+      projectedCanvasPosition,
+      frontmostModelName: frontmostModel.name,
+      frontmostBaseModelName: frontmostModel.base_model_name,
+      frontmostLineageKey: frontmostModel.lineage_key,
+    };
+  }
+
+  function frontierThreeDimensionalVisualizationState() {
     const visibleModelCount = displayedModelMarkers.filter((model) =>
       currentOrganizationVisibility(model.creator),
     ).length;
@@ -1482,7 +1630,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
       : 0;
     return {
       interactiveRenderer: "threejs",
-      activeMetricKey: activeMetricVariantKey,
+      activeMetricVariantKey,
       costAxisField: activeInteractionRelationships.cost_axis_field,
       speedAxisField: activeInteractionRelationships.speed_axis_field,
       displayedModelMarkerCount: displayedModelMarkers.length,
@@ -1490,33 +1638,56 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
       cameraFacingOrganizationLogoMarkerCount: clickableOrganizationLogoSprites.filter(
         (sprite) => sprite.isSprite,
       ).length,
+      depthTestedOrganizationLogoMarkerCount:
+        clickableOrganizationLogoSprites.filter(
+          (sprite) => sprite.material.depthTest,
+        ).length,
+      depthWritingOrganizationLogoBackplateCount:
+        modelVisualObjectsByModelIndex.filter(
+          (visualObjects) => visualObjects.backplateSprite.material.depthWrite,
+        ).length,
+      loadedOrganizationLogoCanvasTextureCount: [...organizationNames].filter(
+        (creatorName) =>
+          organizationLogoTextureLoadStateByCreatorName[creatorName] === "loaded",
+      ).length,
+      failedOrganizationLogoCanvasTextureCount: [...organizationNames].filter(
+        (creatorName) =>
+          organizationLogoTextureLoadStateByCreatorName[creatorName] === "failed",
+      ).length,
       countryRegionMarkerVisible,
       countryRegionMarkerCount: countryRegionMarkerVisible ? visibleModelCount : 0,
       organizationCount: organizationNames.size,
       visibleOrganizationCount,
-      pinned: [...pinnedBaseModelNames],
-      hoverKey: hoveredLineageKey,
-      hoverReasoningBase: hoveredReasoningBaseModelName,
-      highlightLen: displayedModelMarkers.filter((model) =>
+      pinnedBaseModelNames: [...pinnedBaseModelNames],
+      hoveredLineageKey,
+      hoveredReasoningBaseModelName,
+      hoveredPrunedLineageAncestorName,
+      pinnedModelMarkerCount: displayedModelMarkers.filter((model) =>
         pinnedBaseModelNames.has(model.base_model_name),
       ).length,
-      lineageLen: lineagePositionCount,
-      reasoningVariantLineLen: reasoningPositionCount,
-      lineageKeys: Object.keys(lineagesByOrganizationAndTier).length,
-      standoutMetric: activeStandoutMetricKey,
-      standoutWeights: { ...standoutAxisWeights },
-      frontierCount: frontierModels().length,
+      displayedLineageSegmentEndpointCount: lineagePositionCount,
+      displayedReasoningVariantSegmentEndpointCount: reasoningPositionCount,
+      displayedPrunedLineageAncestorMarkerCount:
+        clickablePrunedLineageAncestorSprites.length,
+      availableLineageCount: Object.keys(lineagesByOrganizationAndTier).length,
+      selectedFrontierStandoutMetricName,
+      frontierStandoutAxisWeights: { ...standoutAxisWeights },
+      paretoFrontierModelCount: frontierModels().length,
       frontierStyle,
-      achievableSurfaceVisible: achievableFrontierSurfaceVisible,
+      achievableFrontierSurfaceVisible,
+      paretoFrontierSurfaceWritesDepth:
+        frontierSurfaceObject?.material.depthWrite ?? null,
+      achievableFrontierSurfaceWritesDepth:
+        achievableFrontierSurfaceObject?.material.depthWrite ?? null,
       sidePanelExpanded,
       cameraPosition: perspectiveCamera.position.toArray(),
     };
   }
 
-  function publicStandoutRanking() {
+  function frontierStandoutRanking() {
     return {
-      metric: activeStandoutMetricKey,
-      weights: { ...standoutAxisWeights },
+      selectedFrontierStandoutMetricName,
+      frontierStandoutAxisWeights: { ...standoutAxisWeights },
       ranking: frontierModels()
         .map((model) => ({
           name: model.name,
@@ -1534,36 +1705,41 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
   loadActiveMetricVariant(activeMetricVariantKey, false);
   resizeThreeDimensionalRenderer();
 
-  window.aaState = publicState;
-  window.aaPinBase = (baseModelName) => {
+  window.frontierThreeDimensionalVisualizationState =
+    frontierThreeDimensionalVisualizationState;
+  window.pinFrontierBaseModel = (baseModelName) => {
     pinnedBaseModelNames.add(baseModelName);
     applyPinnedModelVisualEncoding();
   };
-  window.aaUnpinBase = (baseModelName) => {
+  window.unpinFrontierBaseModel = (baseModelName) => {
     pinnedBaseModelNames.delete(baseModelName);
     applyPinnedModelVisualEncoding();
   };
-  window.aaTogglePin = togglePinnedBaseModelName;
-  window.aaShowLineageForName = (modelName) => {
+  window.togglePinnedFrontierBaseModel = togglePinnedBaseModelName;
+  window.showFrontierLineageForModelName = (modelName) => {
     const modelIndex = modelIndexByModelName[modelName];
     if (modelIndex === undefined) return false;
     setHoveredModelIndex(modelIndex);
     return true;
   };
-  window.aaClearHover = () => setHoveredModelIndex(null);
-  window.aaMatchBases = matchingBaseModelNames;
-  window.aaSetMetricCombination = activateMetricCombination;
-  window.aaSetFrontierStyle = setFrontierStyle;
-  window.aaSetAchievableSurfaceVisible = setAchievableFrontierSurfaceVisible;
-  window.aaSetCountryRegionMarkerVisible = setCountryRegionMarkerVisible;
-  window.aaSetSidePanelExpanded = setSidePanelExpanded;
-  window.aaSelectStandoutMetric = selectStandoutMetric;
-  window.aaSetWeights = setStandoutAxisWeights;
-  window.aaStandoutRanking = publicStandoutRanking;
-  window.aaThreeDimensionalRenderer = {
+  window.clearFrontierHoverState = () => setHoveredModelIndex(null);
+  window.matchingFrontierBaseModelNames = matchingBaseModelNames;
+  window.setFrontierMetricCombination = activateMetricCombination;
+  window.setParetoFrontierVisualizationStyle = setFrontierStyle;
+  window.setAchievableFrontierSurfaceVisibility =
+    setAchievableFrontierSurfaceVisible;
+  window.setCountryRegionMarkerVisibility = setCountryRegionMarkerVisible;
+  window.setFrontierSidePanelExpanded = setSidePanelExpanded;
+  window.selectFrontierStandoutMetric = selectFrontierStandoutMetric;
+  window.setFrontierStandoutAxisWeights = setStandoutAxisWeights;
+  window.frontierStandoutRanking = frontierStandoutRanking;
+  window.frontierThreeDimensionalRendererDiagnostics = {
     camera: perspectiveCamera,
     controls: orbitControls,
     renderer: webglRenderer,
     requestRender: requestThreeDimensionalSceneRender,
+    projectedCanvasPositionForModelName,
+    projectedCanvasPositionForPrunedLineageAncestorName,
+    frontmostPointerInteractionAtProjectedModelPosition,
   };
 })();
