@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
   <title>{{REPORT_TITLE}}</title>
   <style>
 {{REPORT_CSS}}
@@ -18,12 +19,9 @@
       <aside id="frontier-3d-side-panel" class="frontier-3d-side-panel" aria-label="图表控制栏"></aside>
     </div>
   </div>
-  <script>
-{{PLOTLY_JAVASCRIPT}}
-  </script>
   <script id="frontier-3d-visualization-dataset-json" type="application/json">{{VISUALIZATION_DATASET_JSON}}</script>
   <script>
-{{REPORT_JAVASCRIPT}}
+{{THREEJS_INTERACTIVE_RENDERER_JAVASCRIPT}}
   </script>
 </body>
 </html>

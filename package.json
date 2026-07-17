@@ -1,0 +1,11 @@
+{
+  "name": "ai-analysis-frontier-3d-interactive-renderer",
+  "private": true,
+  "scripts": {
+    "build:frontier-3d-threejs": "node scripts/build_frontier_3d_threejs_interactive_renderer.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.1",
+    "three": "0.185.1"
+  }
+}

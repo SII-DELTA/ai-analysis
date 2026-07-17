@@ -7,7 +7,6 @@ from importlib import resources
 from pathlib import Path
 from typing import Any
 
-from plotly.offline import get_plotlyjs
 from plotly.utils import PlotlyJSONEncoder
 
 from .frontier_3d_visualization_dataset_builder import (
@@ -37,15 +36,18 @@ def render_frontier_3d_self_contained_html_report(dataset: dict[str, Any]) -> st
     validate_frontier_3d_visualization_dataset(dataset)
     template = _read_asset_text("frontier_3d_self_contained_report_document.html")
     css = _read_asset_text("frontier_3d_interactive_report.css")
-    javascript = _read_asset_text("frontier_3d_interactive_report.js")
+    threejs_interactive_renderer_javascript = _read_asset_text(
+        "frontier_3d_threejs_interactive_renderer_bundle.js"
+    )
     title = "AI 模型三维前沿"
     replacements = {
         "{{REPORT_TITLE}}": html.escape(title),
         "{{GRAPH_DIV_ID}}": html.escape(dataset.get("graph_div_id", "frontier3d")),
         "{{REPORT_CSS}}": css,
-        "{{PLOTLY_JAVASCRIPT}}": get_plotlyjs(),
         "{{VISUALIZATION_DATASET_JSON}}": _json_for_script_tag(dataset),
-        "{{REPORT_JAVASCRIPT}}": javascript,
+        "{{THREEJS_INTERACTIVE_RENDERER_JAVASCRIPT}}": (
+            threejs_interactive_renderer_javascript
+        ),
     }
     rendered_html = template
     for placeholder, value in replacements.items():

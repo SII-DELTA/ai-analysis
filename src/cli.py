@@ -54,7 +54,10 @@ COST_METRICS = {
 
 def _figure_from_dataset_variant(dataset: dict, variant_key: str) -> go.Figure:
     variant = dataset["metric_variants"][variant_key]
-    return go.Figure(data=variant["data"], layout=variant["layout"])
+    return go.Figure(
+        data=variant["plotly_static_export_trace_data"],
+        layout=variant["plotly_static_export_layout"],
+    )
 
 
 def _initial_variant_key_after_cli_metric_overrides(

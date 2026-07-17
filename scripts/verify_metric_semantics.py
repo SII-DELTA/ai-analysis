@@ -3,12 +3,10 @@ from __future__ import annotations
 
 import math
 import sys
-import tempfile
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import plotly.graph_objects as go
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPOSITORY_ROOT))
@@ -169,7 +167,7 @@ def main() -> None:
     assert cli.DEFAULT_OUTPUT_HTML_PATH.name == "frontier_3d.html"
     assert (
         dataset_builder.FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION
-        == "frontier_3d_visualization_dataset/v1"
+        == "frontier_3d_visualization_dataset/v2"
     )
     assert (
         dataset_builder.DEFAULT_FRONTIER_3D_VISUALIZATION_DATASET_FILENAME
@@ -177,16 +175,24 @@ def main() -> None:
     )
     assert set(cli.COST_METRICS) == {"effective", "blended"}
     assert set(cli.SPEED_METRICS) == {"effective", "raw"}
+    empty_variant = {
+        "three_dimensional_scene": {},
+        "interaction_relationships": {},
+        "plotly_static_export_trace_data": [],
+        "plotly_static_export_layout": {},
+    }
     empty_variant_template = {
-        "effective__effective": {"data": [], "layout": {}, "payload": {}},
-        "effective__raw": {"data": [], "layout": {}, "payload": {}},
-        "blended__effective": {"data": [], "layout": {}, "payload": {}},
-        "blended__raw": {"data": [], "layout": {}, "payload": {}},
+        "effective__effective": dict(empty_variant),
+        "effective__raw": dict(empty_variant),
+        "blended__effective": dict(empty_variant),
+        "blended__raw": dict(empty_variant),
     }
     dataset_builder.validate_frontier_3d_visualization_dataset(
         {
             "schema_version": dataset_builder.FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION,
+            "interactive_renderer": "threejs",
             "initial_variant_key": "effective__effective",
+            "organization_identity_metadata_by_creator_name": {},
             "metric_variants": empty_variant_template,
         }
     )
@@ -212,40 +218,6 @@ def main() -> None:
         )
         == "blended__effective"
     )
-
-    compatibility_figure = go.Figure(
-        data=[go.Scatter3d(x=[1.0], y=[2.0], z=[3.0])]
-    )
-    compatibility_payload = {"models": [], "base_groups": {}, "lineages": {}}
-    with tempfile.TemporaryDirectory() as temporary_directory_name:
-        payload_only_html_path = Path(temporary_directory_name) / "payload_only.html"
-        visualize.write_html(
-            compatibility_figure,
-            payload_only_html_path,
-            payload=compatibility_payload,
-        )
-        payload_only_html = payload_only_html_path.read_text(encoding="utf-8")
-        assert "frontier-3d-visualization-dataset-json" in payload_only_html
-        assert "aaState" in payload_only_html
-
-        single_variant_html_path = (
-            Path(temporary_directory_name) / "single_variant.html"
-        )
-        visualize.write_html(
-            compatibility_figure,
-            single_variant_html_path,
-            payload=compatibility_payload,
-            metric_variants={
-                "effective__effective": (
-                    compatibility_figure,
-                    compatibility_payload,
-                )
-            },
-            initial_variant_key="effective__effective",
-        )
-        single_variant_html = single_variant_html_path.read_text(encoding="utf-8")
-        assert "frontier-3d-visualization-dataset-json" in single_variant_html
-        assert "aaState" in single_variant_html
 
     original_processed_dir = fetch_data.PROCESSED
     try:

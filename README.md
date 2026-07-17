@@ -86,7 +86,7 @@ Pro API 原生字段为 `pricing.price_1m_blended_7_to_2_to_1`；Free API 不返
   抬升 z=智能，织成“在每个成本/速度处由最智能模型编织的流形”。**默认以线框呈现**，可一键切换半透明实心面
   （见下「交互」说明其取舍）。
 - **可达前沿曲面（可选副视图）**：`F(成本预算 c, 速度下限 s) = max{智能 | cost≤c 且 speed≥s}`，
-  单调阶梯面，按钮/图例里可开。
+  单调阶梯面，可从顶部工具栏独立开启。
 - **剪枝（均衡档，默认）**：剔除**过旧**与**离前沿太远**的模型：
   `保留 = Pareto最优点 ∪ (近 since-months 月 ∧ 处于前 layers 层)`，
   再减去早于 `hard-age-cutoff-months` 的“远古”模型（即便 Pareto 最优）。
@@ -164,7 +164,7 @@ export ARTIFICIAL_ANALYSIS_API_KEY="aa_xxx"   # 设备级（已写入 ~/.zshenv 
 
 ### 打开与本地托管
 
-`output/frontier_3d.html` 是自包含单文件 HTML，Plotly、数据契约与前端交互资源都已内联，
+`output/frontier_3d.html` 是自包含单文件 HTML，three.js bundle、厂商 Logo、数据契约与前端交互资源都已内联，
 因此可以直接打开：
 
 ```bash
@@ -193,13 +193,29 @@ open output/frontier_3d.html
 - 其下的「**突出度**」面板：指标选择器决定哪个口径驱动 **Pareto 圈的大小（越突出越大）** 与
   **前沿排行榜**；选「加权超体积」时 3 个轴权重滑杆(智能/成本/速度，各带输入框)可用，拖动即时重排
   （见上「突出度指标」节的权重语义）。
-- 右侧图例按**厂商**着色，可点选过滤；**Pareto 最优** 点用黑色空心圈强调。
+- 每个模型点使用始终面向相机的**厂商 Logo Sprite**；右栏「厂商筛选」以
+  `Logo + 完整厂商名 + 模型数` 逐家显示并可独立过滤，不再靠颜色区分厂商。
+- 顶部「模型标识」可选开启**国别外框**：中国=红色双圆环、美国=蓝色圆角方环、
+  其他/未分类=灰色菱形环。该能力默认关闭，且与厂商 Logo、Pareto 突出度和 pin 高亮互不替代。
+- **Pareto 最优** 点使用深色外环，环大小继续由当前突出度口径驱动。
 - 顶部按钮分两组：左组切前沿样式 `前沿线框` / `前沿实心面` / `隐藏前沿` / `仅散点`，
   右组独立开关 `+可达前沿曲面` / `−可达前沿曲面`（两组互不干扰）。
-- **为什么默认线框**：Plotly 3D 有一处已知痼疾——半透明 `Mesh3d`/`Surface` 会赢得深度拾取缓冲，
-  且 `hoverinfo=skip` 会把**其下方/后方节点**的悬浮面板与三维定位线一并吞掉（曲面上方的点不受影响）。
-  线框只占极细像素、几乎不参与拾取，故默认用线框 → **所有节点都能正常悬浮**；需要实心观感时切「前沿实心面」
-  （此时被它盖住的节点悬浮会暂时失效，属该模式的已知取舍）。
+- **为什么默认线框**：线框能在密集 Logo 点云中保留更好的层次与可读性。three.js 的模型拾取与
+  前沿曲面不再共享 Plotly 的 trace picking，因此切换到实心面后仍可悬浮和点击模型。
+
+### 修改 three.js 前端资源
+
+生成 HTML 不要求安装 Node.js，因为版本化 bundle 已随仓库提交。修改 three.js renderer 源码后运行：
+
+```bash
+npm install
+npm run build:frontier-3d-threejs
+python3 -m src.cli \
+  --frontier-3d-visualization-dataset-in output/frontier_3d_visualization_dataset.json
+```
+
+`--export png/svg` 继续使用 Plotly/Kaleido 静态导出适配器；当前静态图不包含交互 HTML 的
+Logo 与国别外框。
 
 ## 结构
 
@@ -207,10 +223,12 @@ open output/frontier_3d.html
 data/reference/  # 版本化 fallback snapshot：AA 页面退化时补齐历史成本/冗长度
 src/fetch_data.py   # 拉新版分页 API + 网页补齐，派生有效速度与 7:2:1 混合单价
 src/frontier.py     # 按所选成本/速度口径做 3D Pareto 分层、可达前沿、剪枝与四个突出度指标
-src/visualize.py    # 生成 Plotly traces/layout 与谱系 payload（不再负责主路径 HTML 拼装）
-src/frontier_3d_visualization_dataset_builder.py     # 取 Plotly 图与交互 payload，写成稳定 JSON 数据契约
+src/visualize.py    # 生成前沿几何/谱系数据，并保留 Plotly 静态导出 figure
+src/frontier_3d_visualization_dataset_builder.py     # 写 renderer-neutral v2 场景数据与静态导出适配数据
 src/frontier_3d_self_contained_html_renderer.py      # 把数据契约 + 前端资源内联成单文件 HTML
-src/frontier_3d_interactive_report_assets/           # HTML/CSS/JS 前端资源
+src/frontier_3d_interactive_report_assets/           # HTML/CSS/three.js renderer 源码与版本化 bundle
+src/frontier_3d_organization_identity_metadata_registry.py  # 54 家厂商地区分类与 Logo 注册表
+src/frontier_3d_organization_identity_assets/        # 版本化品牌 SVG 与来源说明
 src/cli.py          # 串联：取数 → 数据契约 → 单文件 HTML
 ```
 

@@ -10,9 +10,12 @@ from plotly.utils import PlotlyJSONEncoder
 import json
 
 from . import frontier, visualize
+from .frontier_3d_organization_identity_metadata_registry import (
+    organization_identity_metadata_by_creator_name,
+)
 
 FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION = (
-    "frontier_3d_visualization_dataset/v1"
+    "frontier_3d_visualization_dataset/v2"
 )
 DEFAULT_SPEED_METRIC_NAME = "effective"
 DEFAULT_COST_METRIC_NAME = "effective"
@@ -45,6 +48,118 @@ COST_METRIC_DEFINITIONS = {
 }
 
 
+def _trace_by_index(figure_data: list[dict], trace_index: int | None) -> dict:
+    if trace_index is None or trace_index < 0 or trace_index >= len(figure_data):
+        return {}
+    return figure_data[trace_index]
+
+
+def _line_segments_from_plotly_trace(trace: dict) -> dict:
+    return {
+        "x_coordinates": list(trace.get("x", [])),
+        "y_coordinates": list(trace.get("y", [])),
+        "z_coordinates": list(trace.get("z", [])),
+    }
+
+
+def _triangle_mesh_from_plotly_trace(trace: dict) -> dict:
+    return {
+        "x_coordinates": list(trace.get("x", [])),
+        "y_coordinates": list(trace.get("y", [])),
+        "z_coordinates": list(trace.get("z", [])),
+        "triangle_vertex_index_a": list(trace.get("i", [])),
+        "triangle_vertex_index_b": list(trace.get("j", [])),
+        "triangle_vertex_index_c": list(trace.get("k", [])),
+    }
+
+
+def _axis_configuration(plotly_axis_configuration: dict) -> dict:
+    axis_title = plotly_axis_configuration.get("title", {})
+    if isinstance(axis_title, str):
+        axis_title_text = axis_title
+    else:
+        axis_title_text = axis_title.get("text", "")
+    return {
+        "title_text": axis_title_text,
+        "scale_type": plotly_axis_configuration.get("type", "linear"),
+        "fixed_range": list(plotly_axis_configuration.get("range", [])),
+    }
+
+
+def _three_dimensional_scene_from_plotly_figure_and_interaction_payload(
+    figure_data: list[dict],
+    figure_layout: dict,
+    interaction_payload: dict,
+    organization_identity_metadata: dict[str, dict],
+) -> dict:
+    scene_layout = figure_layout.get("scene", {})
+    displayed_model_markers: list[dict] = []
+    for model in interaction_payload["models"]:
+        creator_name = model["creator"]
+        enriched_model = dict(model)
+        enriched_model["organization_identity_key"] = (
+            organization_identity_metadata[creator_name]["organization_identity_key"]
+        )
+        enriched_model["country_region_category"] = organization_identity_metadata[
+            creator_name
+        ]["country_region_category"]
+        displayed_model_markers.append(enriched_model)
+
+    frontier_wireframe_trace = _trace_by_index(
+        figure_data,
+        interaction_payload.get("frontier_wireframe_trace_index"),
+    )
+    frontier_surface_trace = _trace_by_index(
+        figure_data,
+        interaction_payload.get("frontier_mesh_trace_index"),
+    )
+    achievable_surface_trace = _trace_by_index(
+        figure_data,
+        interaction_payload.get("achievable_surface_trace_index"),
+    )
+    camera = scene_layout.get("camera", {})
+    return {
+        "displayed_model_markers": displayed_model_markers,
+        "pareto_frontier_wireframe_line_segments": _line_segments_from_plotly_trace(
+            frontier_wireframe_trace
+        ),
+        "pareto_frontier_surface_triangle_mesh": _triangle_mesh_from_plotly_trace(
+            frontier_surface_trace
+        ),
+        "achievable_frontier_surface_triangle_mesh": _triangle_mesh_from_plotly_trace(
+            achievable_surface_trace
+        ),
+        "three_dimensional_axis_configuration": {
+            "x_axis": _axis_configuration(scene_layout.get("xaxis", {})),
+            "y_axis": _axis_configuration(scene_layout.get("yaxis", {})),
+            "z_axis": _axis_configuration(scene_layout.get("zaxis", {})),
+        },
+        "initial_camera_configuration": {
+            "eye": dict(camera.get("eye", {"x": -1.7, "y": 1.7, "z": 1.1})),
+            "center": dict(camera.get("center", {"x": 0.0, "y": 0.0, "z": 0.0})),
+            "up": dict(camera.get("up", {"x": 0.0, "y": 0.0, "z": 1.0})),
+        },
+        "current_view": interaction_payload.get("current_view", {}),
+    }
+
+
+def _interaction_relationships(interaction_payload: dict) -> dict:
+    return {
+        "base_groups": interaction_payload.get("base_groups", {}),
+        "reasoning_variant_group_model_indices_by_base_model_name": (
+            interaction_payload.get(
+                "reasoning_variant_group_model_indices_by_base_model_name", {}
+            )
+        ),
+        "lineages": interaction_payload.get("lineages", {}),
+        "cost_axis_field": interaction_payload.get("cost_axis_field"),
+        "cost_axis_label": interaction_payload.get("cost_axis_label"),
+        "cost_axis_unit": interaction_payload.get("cost_axis_unit"),
+        "speed_axis_field": interaction_payload.get("speed_axis_field"),
+        "speed_axis_label": interaction_payload.get("speed_axis_label"),
+    }
+
+
 def build_frontier_3d_visualization_dataset(
     df: pd.DataFrame,
     *,
@@ -59,6 +174,9 @@ def build_frontier_3d_visualization_dataset(
     """把已合并的 AA DataFrame 转成前端可直接渲染的数据契约。"""
     data_date = data_date or datetime.now().strftime("%Y-%m-%d")
     metric_variants: dict[str, dict[str, Any]] = {}
+    organization_identity_metadata = organization_identity_metadata_by_creator_name(
+        df["creator"].dropna().astype(str)
+    )
 
     for cost_metric_name, cost_metric_definition in COST_METRIC_DEFINITIONS.items():
         for speed_metric_name, speed_metric_definition in SPEED_METRIC_DEFINITIONS.items():
@@ -90,13 +208,21 @@ def build_frontier_3d_visualization_dataset(
                 speed_metric_label=speed_metric_definition["label"],
             )
             figure_json = figure.to_plotly_json()
+            three_dimensional_scene = (
+                _three_dimensional_scene_from_plotly_figure_and_interaction_payload(
+                    figure_json["data"],
+                    figure_json["layout"],
+                    interaction_payload,
+                    organization_identity_metadata,
+                )
+            )
             metric_variants[variant_key] = {
-                "plotly_data": figure_json["data"],
-                "plotly_layout": figure_json["layout"],
-                "data": figure_json["data"],
-                "layout": figure_json["layout"],
-                "interaction_payload": interaction_payload,
-                "payload": interaction_payload,
+                "three_dimensional_scene": three_dimensional_scene,
+                "interaction_relationships": _interaction_relationships(
+                    interaction_payload
+                ),
+                "plotly_static_export_trace_data": figure_json["data"],
+                "plotly_static_export_layout": figure_json["layout"],
                 "kept_model_count": len(interaction_payload["models"]),
                 "pareto_model_count": sum(
                     1
@@ -111,6 +237,7 @@ def build_frontier_3d_visualization_dataset(
 
     return {
         "schema_version": FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION,
+        "interactive_renderer": "threejs",
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "data_date": data_date,
         "graph_div_id": visualize.GRAPH_DIV_ID,
@@ -118,6 +245,9 @@ def build_frontier_3d_visualization_dataset(
         "speed_scale": speed_scale,
         "cost_metric_definitions": COST_METRIC_DEFINITIONS,
         "speed_metric_definitions": SPEED_METRIC_DEFINITIONS,
+        "organization_identity_metadata_by_creator_name": (
+            organization_identity_metadata
+        ),
         "metric_variants": metric_variants,
     }
 
@@ -126,6 +256,8 @@ def validate_frontier_3d_visualization_dataset(dataset: dict[str, Any]) -> None:
     """验证 renderer 依赖的最小契约，避免生成半坏 HTML。"""
     if dataset.get("schema_version") != FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION:
         raise ValueError("Frontier 3D visualization dataset schema_version 不匹配")
+    if dataset.get("interactive_renderer") != "threejs":
+        raise ValueError("Frontier 3D visualization dataset interactive_renderer 不匹配")
     initial_variant_key = dataset.get("initial_variant_key")
     metric_variants = dataset.get("metric_variants")
     if not isinstance(metric_variants, dict) or not metric_variants:
@@ -144,9 +276,19 @@ def validate_frontier_3d_visualization_dataset(dataset: dict[str, Any]) -> None:
             + ", ".join(sorted(missing_variant_keys))
         )
     for variant_key, variant in metric_variants.items():
-        for required_key in ("data", "layout", "payload"):
+        for required_key in (
+            "three_dimensional_scene",
+            "interaction_relationships",
+            "plotly_static_export_trace_data",
+            "plotly_static_export_layout",
+        ):
             if required_key not in variant:
                 raise ValueError(f"{variant_key} 缺少 {required_key}")
+    organization_identity_metadata = dataset.get(
+        "organization_identity_metadata_by_creator_name"
+    )
+    if not isinstance(organization_identity_metadata, dict):
+        raise ValueError("Frontier 3D visualization dataset 缺少厂商身份元数据")
 
 
 def write_frontier_3d_visualization_dataset(
