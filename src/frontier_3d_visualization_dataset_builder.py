@@ -175,7 +175,7 @@ def build_frontier_3d_visualization_dataset(
     data_date = data_date or datetime.now().strftime("%Y-%m-%d")
     metric_variants: dict[str, dict[str, Any]] = {}
     organization_identity_metadata = organization_identity_metadata_by_creator_name(
-        df["creator"].dropna().astype(str)
+        df["creator"].fillna("?").astype(str)
     )
 
     for cost_metric_name, cost_metric_definition in COST_METRIC_DEFINITIONS.items():

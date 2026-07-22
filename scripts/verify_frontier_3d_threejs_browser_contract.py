@@ -92,6 +92,186 @@ def main() -> None:
             "#aa-organization-filter-panel .aa-organization-logo-preview"
         ).count() == organization_filter_row_count
 
+        selected_marker = page.evaluate(
+            """() => {
+              const diagnostics =
+                window.frontierThreeDimensionalRendererDiagnostics;
+              const models =
+                window.FRONTIER_3D_INTERACTION_RELATIONSHIPS.models;
+              const projectedModels = models.map((model) => ({
+                ...model,
+                projectedPosition:
+                  diagnostics.projectedCanvasPositionForModelName(model.name),
+              }));
+              const cardinalDirections = [
+                { x: 1, y: 0 },
+                { x: 0, y: 1 },
+                { x: -1, y: 0 },
+                { x: 0, y: -1 },
+              ];
+              let bestCandidate = null;
+              for (const projectedModel of projectedModels) {
+                const frontmostInteraction =
+                  diagnostics.frontmostPointerInteractionAtProjectedModelPosition(
+                    projectedModel.name,
+                  );
+                if (
+                  !frontmostInteraction ||
+                  frontmostInteraction.frontmostModelName !== projectedModel.name
+                ) continue;
+                const markerRadii =
+                  diagnostics.projectedCanvasMarkerRadiiForModelName(
+                    projectedModel.name,
+                  );
+                for (const direction of cardinalDirections) {
+                  const countryRegionTestRadius =
+                    markerRadii.whiteBackplateRadius +
+                    (markerRadii.countryRegionRadius -
+                      markerRadii.whiteBackplateRadius) * 0.25;
+                  const testPoint = {
+                    clientX:
+                      projectedModel.projectedPosition.clientX +
+                      direction.x * countryRegionTestRadius,
+                    clientY:
+                      projectedModel.projectedPosition.clientY +
+                      direction.y * countryRegionTestRadius,
+                  };
+                  const nearestOtherModelDistance = Math.min(
+                    ...projectedModels
+                      .filter(
+                        (otherModel) =>
+                          otherModel.name !== projectedModel.name,
+                      )
+                      .map((otherModel) => Math.hypot(
+                        otherModel.projectedPosition.clientX -
+                          testPoint.clientX,
+                        otherModel.projectedPosition.clientY -
+                          testPoint.clientY,
+                      )),
+                  );
+                  if (
+                    !bestCandidate ||
+                    nearestOtherModelDistance >
+                      bestCandidate.nearestOtherModelDistance
+                  ) {
+                    bestCandidate = {
+                      baseModelName:
+                        frontmostInteraction.frontmostBaseModelName,
+                      lineageKey: frontmostInteraction.frontmostLineageKey,
+                      projectedPosition: projectedModel.projectedPosition,
+                      markerRadii,
+                      direction,
+                      nearestOtherModelDistance,
+                    };
+                  }
+                }
+              }
+              return bestCandidate;
+            }"""
+        )
+        assert selected_marker is not None
+        marker_center = selected_marker["projectedPosition"]
+        base_model_name = selected_marker["baseModelName"]
+
+        page.mouse.move(marker_center["clientX"], marker_center["clientY"])
+        page.mouse.down()
+        page.mouse.move(marker_center["clientX"] + 12, marker_center["clientY"])
+        page.mouse.move(marker_center["clientX"], marker_center["clientY"])
+        page.mouse.up()
+        page.wait_for_timeout(50)
+        assert base_model_name not in page.evaluate(
+            "() => window.frontierThreeDimensionalVisualizationState()"
+            ".pinnedBaseModelNames"
+        )
+
+        canvas_box = page.locator(
+            "canvas[data-frontier-threejs-canvas]"
+        ).bounding_box()
+        assert canvas_box is not None
+        empty_canvas_position = {
+            "clientX": canvas_box["x"] + 2,
+            "clientY": canvas_box["y"] + 2,
+        }
+
+        def dispatch_pointer_moves_in_one_browser_task(
+            pointer_positions: list[dict],
+        ) -> None:
+            page.evaluate(
+                """pointerPositions => {
+                  const canvas = document.querySelector(
+                    'canvas[data-frontier-threejs-canvas]',
+                  );
+                  for (const pointerPosition of pointerPositions) {
+                    canvas.dispatchEvent(new PointerEvent('pointermove', {
+                      bubbles: true,
+                      clientX: pointerPosition.clientX,
+                      clientY: pointerPosition.clientY,
+                      pointerId: 73,
+                      pointerType: 'mouse',
+                    }));
+                  }
+                }""",
+                pointer_positions,
+            )
+            page.evaluate("() => new Promise(requestAnimationFrame)")
+            page.evaluate("() => new Promise(requestAnimationFrame)")
+
+        dispatch_pointer_moves_in_one_browser_task(
+            [marker_center, empty_canvas_position]
+        )
+        assert page.evaluate(
+            "() => window.frontierThreeDimensionalVisualizationState()"
+            ".hoveredLineageKey"
+        ) is None
+        dispatch_pointer_moves_in_one_browser_task(
+            [empty_canvas_position, marker_center]
+        )
+        assert page.evaluate(
+            "() => window.frontierThreeDimensionalVisualizationState()"
+            ".hoveredLineageKey"
+        ) == selected_marker["lineageKey"]
+
+        marker_direction = selected_marker["direction"]
+        marker_radii = selected_marker["markerRadii"]
+        white_backplate_test_radius = (
+            marker_radii["logoRadius"] + marker_radii["whiteBackplateRadius"]
+        ) / 2
+        page.mouse.click(
+            marker_center["clientX"]
+            + marker_direction["x"] * white_backplate_test_radius,
+            marker_center["clientY"]
+            + marker_direction["y"] * white_backplate_test_radius,
+        )
+        assert base_model_name in page.evaluate(
+            "() => window.frontierThreeDimensionalVisualizationState()"
+            ".pinnedBaseModelNames"
+        )
+        page.evaluate(
+            "baseModelName => window.unpinFrontierBaseModel(baseModelName)",
+            base_model_name,
+        )
+
+        page.evaluate("() => window.setCountryRegionMarkerVisibility(true)")
+        country_region_test_radius = marker_radii["whiteBackplateRadius"] + (
+            marker_radii["countryRegionRadius"]
+            - marker_radii["whiteBackplateRadius"]
+        ) * 0.25
+        page.mouse.click(
+            marker_center["clientX"]
+            + marker_direction["x"] * country_region_test_radius,
+            marker_center["clientY"]
+            + marker_direction["y"] * country_region_test_radius,
+        )
+        assert base_model_name in page.evaluate(
+            "() => window.frontierThreeDimensionalVisualizationState()"
+            ".pinnedBaseModelNames"
+        )
+        page.evaluate(
+            "baseModelName => window.unpinFrontierBaseModel(baseModelName)",
+            base_model_name,
+        )
+        page.evaluate("() => window.setCountryRegionMarkerVisibility(false)")
+
         page.locator("#aa-country-region-marker-toggle").check()
         page.wait_for_function(
             "() => window.frontierThreeDimensionalVisualizationState()"

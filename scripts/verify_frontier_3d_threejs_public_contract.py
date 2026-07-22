@@ -27,6 +27,7 @@ def _synthetic_models_with_chinese_united_states_and_other_creators() -> pd.Data
         ("GPT Contract Model", "OpenAI", 94.0, 12.0, 105.0),
         ("Mistral Contract Model", "Mistral", 88.0, 5.0, 150.0),
         ("Unknown Contract Model", "Future Unmapped Laboratory", 82.0, 3.0, 90.0),
+        ("Unattributed Contract Model", None, 80.0, 2.0, 85.0),
     ]
     dataframe = pd.DataFrame(
         rows,
@@ -92,6 +93,8 @@ def main() -> None:
     assert identities["Future Unmapped Laboratory"]["logo_asset_kind"] == (
         "generated_monogram_fallback"
     )
+    assert identities["?"]["country_region_category"] == "unclassified"
+    assert identities["?"]["logo_asset_kind"] == "generated_monogram_fallback"
 
     for identity in identities.values():
         assert identity["organization_display_name"]
@@ -124,6 +127,10 @@ def main() -> None:
         assert "data" not in variant
         assert "layout" not in variant
         assert "payload" not in variant
+        assert all(
+            displayed_model_marker["creator"] in identities
+            for displayed_model_marker in scene["displayed_model_markers"]
+        )
 
     static_export_figure = _figure_from_dataset_variant(
         dataset, dataset["initial_variant_key"]

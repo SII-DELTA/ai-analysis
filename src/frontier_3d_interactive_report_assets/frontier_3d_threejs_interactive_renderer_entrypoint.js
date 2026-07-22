@@ -92,6 +92,7 @@ import {
   let allBaseModelNames = [];
   let modelVisualObjectsByModelIndex = [];
   let clickableOrganizationLogoSprites = [];
+  let pointerInteractiveModelMarkerSprites = [];
   let clickablePrunedLineageAncestorSprites = [];
   const organizationLogoMaterialsByCreatorName = {};
   const organizationLogoTextureLoadStateByCreatorName = {};
@@ -512,6 +513,7 @@ import {
     clearThreeObjectGroup(modelMarkerGroup);
     modelVisualObjectsByModelIndex = [];
     clickableOrganizationLogoSprites = [];
+    pointerInteractiveModelMarkerSprites = [];
     displayedModelMarkers.forEach((model, modelIndex) => {
       const position = normalizedThreeDimensionalPosition(model.x, model.y, model.z);
       const identity = organizationIdentityMetadataByCreatorName[model.creator];
@@ -539,9 +541,16 @@ import {
         organizationLogoMaterialsByCreatorName[model.creator] = logoMaterial;
       }
       const logoSprite = addSharedMaterialSprite(logoMaterial, position, 0.11, 40);
-      logoSprite.userData.modelIndex = modelIndex;
-      logoSprite.userData.interactionTargetKind = "displayed_model";
+      [backplateSprite, countryRegionSprite, logoSprite].forEach((markerSprite) => {
+        markerSprite.userData.modelIndex = modelIndex;
+        markerSprite.userData.interactionTargetKind = "displayed_model";
+      });
       clickableOrganizationLogoSprites.push(logoSprite);
+      pointerInteractiveModelMarkerSprites.push(
+        backplateSprite,
+        countryRegionSprite,
+        logoSprite,
+      );
 
       const paretoRingSprite = addSharedMaterialSprite(
         paretoRingMaterial,
@@ -841,7 +850,7 @@ import {
 
   function visiblePointerInteractionSprites() {
     return [
-      ...clickableOrganizationLogoSprites,
+      ...pointerInteractiveModelMarkerSprites,
       ...clickablePrunedLineageAncestorSprites,
     ].filter((sprite) => sprite.visible);
   }
@@ -883,21 +892,70 @@ import {
     );
   }
 
+  const POINTER_DRAG_CLICK_SUPPRESSION_DISTANCE_IN_CSS_PIXELS = 5;
+  const POINTER_DRAG_CLICK_SUPPRESSION_DISTANCE_SQUARED =
+    POINTER_DRAG_CLICK_SUPPRESSION_DISTANCE_IN_CSS_PIXELS ** 2;
+  let activePrimaryPointerPress = null;
+  let suppressNextCanvasClickAfterPointerDrag = false;
+  let latestPointerMoveEvent = null;
   let pendingPointerMoveFrame = null;
+  webglRenderer.domElement.addEventListener("pointerdown", (pointerEvent) => {
+    if (pointerEvent.button !== 0) return;
+    activePrimaryPointerPress = {
+      pointerId: pointerEvent.pointerId,
+      clientX: pointerEvent.clientX,
+      clientY: pointerEvent.clientY,
+    };
+    suppressNextCanvasClickAfterPointerDrag = false;
+  });
   webglRenderer.domElement.addEventListener("pointermove", (pointerEvent) => {
+    if (
+      activePrimaryPointerPress?.pointerId === pointerEvent.pointerId &&
+      (pointerEvent.clientX - activePrimaryPointerPress.clientX) ** 2 +
+        (pointerEvent.clientY - activePrimaryPointerPress.clientY) ** 2 >=
+        POINTER_DRAG_CLICK_SUPPRESSION_DISTANCE_SQUARED
+    ) {
+      suppressNextCanvasClickAfterPointerDrag = true;
+    }
+    latestPointerMoveEvent = pointerEvent;
     if (pendingPointerMoveFrame !== null) return;
     pendingPointerMoveFrame = window.requestAnimationFrame(() => {
       pendingPointerMoveFrame = null;
+      const pointerEventToProcess = latestPointerMoveEvent;
+      latestPointerMoveEvent = null;
+      if (!pointerEventToProcess) return;
       applyHoveredInteractionTarget(
-        interactionTargetAtPointerEvent(pointerEvent),
-        pointerEvent,
+        interactionTargetAtPointerEvent(pointerEventToProcess),
+        pointerEventToProcess,
       );
     });
   });
+  function clearActivePrimaryPointerPress(pointerEvent) {
+    if (activePrimaryPointerPress?.pointerId === pointerEvent.pointerId) {
+      activePrimaryPointerPress = null;
+    }
+  }
+  webglRenderer.domElement.addEventListener(
+    "pointerup",
+    clearActivePrimaryPointerPress,
+  );
+  webglRenderer.domElement.addEventListener(
+    "pointercancel",
+    clearActivePrimaryPointerPress,
+  );
   webglRenderer.domElement.addEventListener("pointerleave", () => {
+    if (pendingPointerMoveFrame !== null) {
+      window.cancelAnimationFrame(pendingPointerMoveFrame);
+      pendingPointerMoveFrame = null;
+    }
+    latestPointerMoveEvent = null;
     setHoveredModelIndex(null);
   });
   webglRenderer.domElement.addEventListener("click", (pointerEvent) => {
+    if (suppressNextCanvasClickAfterPointerDrag) {
+      suppressNextCanvasClickAfterPointerDrag = false;
+      return;
+    }
     const interactionTarget = interactionTargetAtPointerEvent(pointerEvent);
     if (interactionTarget?.interactionTargetKind !== "displayed_model") return;
     togglePinnedBaseModelName(
@@ -1581,6 +1639,42 @@ import {
     );
   }
 
+  function projectedCanvasMarkerRadiiForModelName(modelName) {
+    const modelIndex = modelIndexByModelName[modelName];
+    if (modelIndex === undefined) return null;
+    const visualObjects = modelVisualObjectsByModelIndex[modelIndex];
+    const cameraRightDirection = new THREE.Vector3().setFromMatrixColumn(
+      perspectiveCamera.matrixWorld,
+      0,
+    );
+    const projectedCenter = projectedCanvasCoordinatesForThreeDimensionalPosition(
+      visualObjects.logoSprite.position,
+    );
+
+    function projectedRadiusForSprite(sprite) {
+      const projectedRightEdge =
+        projectedCanvasCoordinatesForThreeDimensionalPosition(
+          sprite.position
+            .clone()
+            .addScaledVector(cameraRightDirection, sprite.scale.x / 2),
+        );
+      return Math.hypot(
+        projectedRightEdge.clientX - projectedCenter.clientX,
+        projectedRightEdge.clientY - projectedCenter.clientY,
+      );
+    }
+
+    return {
+      logoRadius: projectedRadiusForSprite(visualObjects.logoSprite),
+      whiteBackplateRadius: projectedRadiusForSprite(
+        visualObjects.backplateSprite,
+      ),
+      countryRegionRadius: projectedRadiusForSprite(
+        visualObjects.countryRegionSprite,
+      ),
+    };
+  }
+
   function projectedCanvasPositionForPrunedLineageAncestorName(
     prunedLineageAncestorName,
   ) {
@@ -1739,6 +1833,7 @@ import {
     renderer: webglRenderer,
     requestRender: requestThreeDimensionalSceneRender,
     projectedCanvasPositionForModelName,
+    projectedCanvasMarkerRadiiForModelName,
     projectedCanvasPositionForPrunedLineageAncestorName,
     frontmostPointerInteractionAtProjectedModelPosition,
   };
