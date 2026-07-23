@@ -37,6 +37,9 @@ API_LANGUAGE_MODELS_PRO_URL = "https://artificialanalysis.ai/api/v2/language/mod
 API_LANGUAGE_MODELS_FREE_URL = "https://artificialanalysis.ai/api/v2/language/models/free"
 API_LANGUAGE_MODELS_CACHE = RAW / "api_language_models.json"
 PAGE_URL = "https://artificialanalysis.ai/models"
+ARTIFICIAL_ANALYSIS_MODEL_DETAIL_PAGE_HTML_CACHE_DIRECTORY = (
+    RAW / "artificial_analysis_model_detail_page_html"
+)
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 
 # 合并正确性锚点：模型名子串 -> 期望的 total_cost（与官网模型页一致）
@@ -99,15 +102,30 @@ def fetch_api(refresh: bool = False) -> list[dict]:
     return rows
 
 
-def fetch_page(refresh: bool = False) -> str:
-    cache = RAW / "models_page.html"
-    if cache.exists() and not refresh:
-        return cache.read_text(encoding="utf-8", errors="ignore")
-    resp = requests.get(PAGE_URL, headers={"User-Agent": UA}, timeout=120)
-    resp.raise_for_status()
-    RAW.mkdir(parents=True, exist_ok=True)
-    cache.write_text(resp.text, encoding="utf-8")
-    return resp.text
+def _fetch_and_cache_web_page_html(
+    page_url: str,
+    page_html_cache_path: Path,
+    refresh_requested: bool,
+) -> str:
+    if page_html_cache_path.exists() and not refresh_requested:
+        return page_html_cache_path.read_text(encoding="utf-8", errors="ignore")
+    page_response = requests.get(
+        page_url,
+        headers={"User-Agent": UA},
+        timeout=120,
+    )
+    page_response.raise_for_status()
+    page_html_cache_path.parent.mkdir(parents=True, exist_ok=True)
+    page_html_cache_path.write_text(page_response.text, encoding="utf-8")
+    return page_response.text
+
+
+def fetch_artificial_analysis_models_page_html(refresh: bool = False) -> str:
+    return _fetch_and_cache_web_page_html(
+        page_url=PAGE_URL,
+        page_html_cache_path=RAW / "models_page.html",
+        refresh_requested=refresh,
+    )
 
 
 # ----------------------------------------------------------------------------- 解析网页成本
@@ -162,6 +180,96 @@ def parse_intel_per_m_by_model_id(page_html: str) -> dict[str, float]:
         if val > 0:
             out.setdefault(mids[-1], val)
     return out
+
+
+# /models 列表页退化后，新模型的冗长度只在详情页
+# `canonicalIntelligenceIndexTokenCount.output` 里；反推
+# intel_per_m_output = intelligence / (output_tokens / 1e6)。
+_ARTIFICIAL_ANALYSIS_MODEL_DETAIL_PAGE_CANONICAL_OUTPUT_TOKEN_COUNT_PATTERN = re.compile(
+    r'"canonicalIntelligenceIndexTokenCount"\s*:\s*\{[^}]*?"output"\s*:\s*(\d+)'
+)
+
+
+def fetch_artificial_analysis_model_detail_page_html(
+    model_slug: str,
+    refresh: bool = False,
+) -> str:
+    return _fetch_and_cache_web_page_html(
+        page_url=f"{PAGE_URL}/{model_slug}",
+        page_html_cache_path=(
+            ARTIFICIAL_ANALYSIS_MODEL_DETAIL_PAGE_HTML_CACHE_DIRECTORY
+            / f"{model_slug}.html"
+        ),
+        refresh_requested=refresh,
+    )
+
+
+def parse_canonical_output_token_count_from_artificial_analysis_model_detail_page_html(
+    page_html: str,
+) -> float | None:
+    unescaped_page_html = page_html.replace('\\"', '"')
+    output_token_count_match = (
+        _ARTIFICIAL_ANALYSIS_MODEL_DETAIL_PAGE_CANONICAL_OUTPUT_TOKEN_COUNT_PATTERN.search(
+            unescaped_page_html
+        )
+    )
+    if not output_token_count_match:
+        return None
+    canonical_output_token_count = float(output_token_count_match.group(1))
+    return canonical_output_token_count if canonical_output_token_count > 0 else None
+
+
+def fill_missing_intelligence_per_million_output_tokens_from_artificial_analysis_model_detail_pages(
+    model_dataframe: pd.DataFrame,
+    refresh: bool = False,
+) -> int:
+    """对「三维其余字段已齐、仅缺冗长度」的行，从模型详情页补齐。返回补齐条数。
+
+    ponytail: 只补能解锁默认有效速度三维图的缺口，避免对上百个旧模型逐页抓取。
+    """
+    rows_requiring_model_detail_page_output_token_count = (
+        model_dataframe["intel_per_m_output"].isna()
+        & model_dataframe["intelligence"].notna()
+        & (model_dataframe["intelligence"] > 0)
+        & model_dataframe["output_speed"].notna()
+        & model_dataframe["cost_to_run"].notna()
+        & model_dataframe["slug"].notna()
+    )
+    filled_row_count = 0
+    for model_row_index in model_dataframe.index[
+        rows_requiring_model_detail_page_output_token_count
+    ]:
+        model_slug = str(model_dataframe.at[model_row_index, "slug"])
+        try:
+            model_detail_page_html = fetch_artificial_analysis_model_detail_page_html(
+                model_slug,
+                refresh=refresh,
+            )
+            canonical_output_token_count = (
+                parse_canonical_output_token_count_from_artificial_analysis_model_detail_page_html(
+                    model_detail_page_html
+                )
+            )
+        except requests.RequestException as request_error:
+            print(f"[warn] 详情页拉取失败 {model_slug}: {request_error}")
+            continue
+        if canonical_output_token_count is None:
+            print(f"[warn] 详情页无 output token 计数: {model_slug}")
+            continue
+        intelligence_index = float(
+            model_dataframe.at[model_row_index, "intelligence"]
+        )
+        model_dataframe.at[model_row_index, "intel_per_m_output"] = (
+            intelligence_index / (canonical_output_token_count / 1e6)
+        )
+        filled_row_count += 1
+        print(
+            f"[info] 详情页补齐冗长度 {model_slug}: "
+            f"output_tokens={canonical_output_token_count:.0f} → "
+            f"intel_per_m_output="
+            f"{model_dataframe.at[model_row_index, 'intel_per_m_output']:.6g}"
+        )
+    return filled_row_count
 
 
 # ----------------------------------------------------------------------------- 合并成表
@@ -225,7 +333,7 @@ def load_cost_and_output_token_fallbacks() -> tuple[dict[str, float], dict[str, 
 
 def build_dataframe(refresh: bool = False) -> pd.DataFrame:
     api = fetch_api(refresh)
-    page = fetch_page(refresh)
+    page = fetch_artificial_analysis_models_page_html(refresh)
     cost_by_id = parse_cost_by_model_id(page)
     perm_by_id = parse_intel_per_m_by_model_id(page)
 
@@ -277,6 +385,11 @@ def build_dataframe(refresh: bool = False) -> pd.DataFrame:
     import numpy as np
     for c in ("cost_to_run", "output_speed"):
         df.loc[df[c].fillna(-1) <= 0, c] = np.nan
+    # 列表页 / fallback 仍缺冗长度时，按需拉模型详情页（新模型如 Grok 4.5）。
+    fill_missing_intelligence_per_million_output_tokens_from_artificial_analysis_model_detail_pages(
+        df,
+        refresh=refresh,
+    )
     _add_effective_speed(df)
     _validate(df, cost_by_id)
     return df

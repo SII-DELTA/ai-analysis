@@ -133,6 +133,92 @@ class _FakeApiResponse:
         return self._payload
 
 
+def _verify_artificial_analysis_model_detail_page_output_token_fallback() -> None:
+    escaped_model_detail_page_html = (
+        r'{\"canonicalIntelligenceIndexTokenCount\":'
+        r'{\"input\":1000000,\"output\":30000000}}'
+    )
+    assert (
+        fetch_data.parse_canonical_output_token_count_from_artificial_analysis_model_detail_page_html(
+            escaped_model_detail_page_html
+        )
+        == 30_000_000
+    )
+    assert (
+        fetch_data.parse_canonical_output_token_count_from_artificial_analysis_model_detail_page_html(
+            '{"canonicalIntelligenceIndexTokenCount":{"output":0}}'
+        )
+        is None
+    )
+    assert (
+        fetch_data.parse_canonical_output_token_count_from_artificial_analysis_model_detail_page_html(
+            "<html>无相关字段</html>"
+        )
+        is None
+    )
+
+    model_dataframe = pd.DataFrame(
+        [
+            {
+                "slug": "model-requiring-detail-page-fallback",
+                "intelligence": 60.0,
+                "output_speed": 100.0,
+                "cost_to_run": 20.0,
+                "intel_per_m_output": math.nan,
+            },
+            {
+                "slug": "model-already-containing-output-token-metric",
+                "intelligence": 50.0,
+                "output_speed": 90.0,
+                "cost_to_run": 15.0,
+                "intel_per_m_output": 4.0,
+            },
+            {
+                "slug": "model-missing-required-cost-dimension",
+                "intelligence": 40.0,
+                "output_speed": 80.0,
+                "cost_to_run": math.nan,
+                "intel_per_m_output": math.nan,
+            },
+        ]
+    )
+    requested_model_detail_pages: list[tuple[str, bool]] = []
+    original_fetch_model_detail_page_html = (
+        fetch_data.fetch_artificial_analysis_model_detail_page_html
+    )
+
+    def fake_fetch_model_detail_page_html(
+        model_slug: str,
+        refresh: bool = False,
+    ) -> str:
+        requested_model_detail_pages.append((model_slug, refresh))
+        return escaped_model_detail_page_html
+
+    try:
+        fetch_data.fetch_artificial_analysis_model_detail_page_html = (
+            fake_fetch_model_detail_page_html
+        )
+        filled_row_count = (
+            fetch_data.fill_missing_intelligence_per_million_output_tokens_from_artificial_analysis_model_detail_pages(
+                model_dataframe,
+                refresh=True,
+            )
+        )
+    finally:
+        fetch_data.fetch_artificial_analysis_model_detail_page_html = (
+            original_fetch_model_detail_page_html
+        )
+
+    assert filled_row_count == 1
+    assert requested_model_detail_pages == [
+        ("model-requiring-detail-page-fallback", True)
+    ]
+    assert model_dataframe.loc[0, "intel_per_m_output"] == 2.0
+    assert model_dataframe.loc[1, "intel_per_m_output"] == 4.0
+    assert math.isnan(model_dataframe.loc[2, "intel_per_m_output"])
+    print("✅ Artificial Analysis 模型详情页输出 token 回退验证通过")
+
+
 def main() -> None:
     native_pricing = {
         "price_1m_blended_7_to_2_to_1": 9.99,
@@ -261,6 +347,7 @@ def main() -> None:
     assert selected_api_url == fetch_data.API_LANGUAGE_MODELS_FREE_URL
     print("✅ 指标口径验证通过")
 
+    _verify_artificial_analysis_model_detail_page_output_token_fallback()
     _verify_standout_metrics()
     _verify_achievable_frontier_step_mesh()
 
