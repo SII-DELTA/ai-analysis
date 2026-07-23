@@ -1,0 +1,527 @@
+release_date,aa_intelligence_index_v4,model,creator,blended_price_usd_per_1m_tokens
+2022-11-30,9,GPT-3.5 Turbo,OpenAI,0.75
+2023-02-24,7.4,Llama 65B,Meta,0
+2023-03-14,7.4,Claude Instant,Anthropic,0
+2023-03-14,12.8,GPT-4,OpenAI,37.5
+2023-05-10,8.6,PALM-2,Google,0
+2023-07-11,9.1,Claude 2.0,Anthropic,0
+2023-07-18,8.4,Llama 2 Chat 13B,Meta,0
+2023-07-18,8.4,Llama 2 Chat 70B,Meta,0
+2023-07-18,9.7,Llama 2 Chat 7B,Meta,0.1
+2023-09-25,7.4,Qwen Chat 14B,Alibaba,0
+2023-09-27,7.4,Mistral 7B Instruct,Mistral,0.206
+2023-11-06,13.7,GPT-4 Turbo,OpenAI,15
+2023-11-21,9.3,Claude 2.1,Anthropic,0
+2023-11-29,8.4,DeepSeek LLM 67B Chat (V1),DeepSeek,0
+2023-11-30,8.8,Qwen Chat 72B,Alibaba,0
+2023-12-06,8.5,Gemini 1.0 Pro,Google,0
+2023-12-06,10.1,Gemini 1.0 Ultra,Google,0
+2023-12-11,7.7,Mixtral 8x7B Instruct,Mistral,0.512
+2023-12-11,9,Mistral Medium,Mistral,4.088
+2023-12-18,8.3,OpenChat 3.5 (1210),OpenChat,0
+2024-01-25,11.9,Solar Mini,Upstage,0.15
+2024-02-26,8.4,Phi-4 Mini Instruct,Microsoft,0
+2024-02-26,9,Mistral Small (Feb '24),Mistral,1.5
+2024-02-26,9.9,Mistral Large (Feb '24),Mistral,6
+2024-03-04,10.3,Claude 3 Sonnet,Anthropic,6
+2024-03-04,12.3,Claude 3 Haiku,Anthropic,0.5
+2024-03-04,18,Claude 3 Opus,Anthropic,32.813
+2024-03-12,7.4,Command-R (Mar '24),Cohere,0.75
+2024-03-17,11.7,Grok-1,xAI,0
+2024-03-27,8.3,DBRX Instruct,Databricks,0
+2024-04-04,8.3,Command-R+ (Apr '24),Cohere,6
+2024-04-17,9.8,Mixtral 8x22B Instruct,Mistral,0
+2024-04-18,6.4,Llama 3 Instruct 8B,Meta,0.07
+2024-04-18,8.9,Llama 3 Instruct 70B,Meta,1.175
+2024-04-23,10.1,Phi-3 Mini Instruct 3.8B,Microsoft,0
+2024-04-24,8.8,Arctic Instruct,Snowflake,0
+2024-04-25,9.5,Qwen1.5 Chat 110B,Alibaba,0
+2024-05-06,9.1,DeepSeek-V2-Chat,DeepSeek,0
+2024-05-13,14.5,GPT-4o (May '24),OpenAI,7.5
+2024-05-14,10.5,Gemini 1.5 Flash (May '24),Google,0
+2024-05-15,12,Gemini 1.5 Pro (May '24),Google,0
+2024-06-07,11.7,Qwen2 Instruct 72B,Alibaba,0
+2024-06-17,8.5,DeepSeek Coder V2 Lite Instruct,DeepSeek,0
+2024-06-17,10.6,DeepSeek-Coder-V2,DeepSeek,0
+2024-06-21,14.2,Claude 3.5 Sonnet (June '24),Anthropic,6.563
+2024-07-18,12.6,GPT-4o mini,OpenAI,0.262
+2024-07-23,11.8,Llama 3.1 Instruct 8B,Meta,0.1
+2024-07-23,12.5,Llama 3.1 Instruct 70B,Meta,0.56
+2024-07-23,17.4,Llama 3.1 Instruct 405B,Meta,3.688
+2024-07-24,13,Mistral Large 2 (Jul '24),Mistral,3
+2024-08-06,18.6,GPT-4o (Aug '24),OpenAI,4.375
+2024-08-13,13.3,Grok Beta,xAI,0
+2024-08-15,10.6,Hermes 3 - Llama-3.1 70B,Nous Research,0.3
+2024-08-22,8,Jamba 1.5 Mini,AI21 Labs,0.25
+2024-08-22,10.7,Jamba 1.5 Large,AI21 Labs,3.5
+2024-09-06,12.3,DeepSeek-V2.5,DeepSeek,0
+2024-09-12,20.4,o1-mini,OpenAI,0
+2024-09-12,23.7,o1-preview,OpenAI,28.875
+2024-09-17,10.2,Mistral Small (Sep '24),Mistral,0.3
+2024-09-19,10,Qwen2.5 Coder Instruct 7B ,Alibaba,0
+2024-09-19,13.2,Qwen2.5 Instruct 32B,Alibaba,0
+2024-09-19,15.6,Qwen2.5 Instruct 72B,Alibaba,0.37
+2024-09-24,13.8,Gemini 1.5 Flash (Sep '24),Google,0
+2024-09-24,16,Gemini 1.5 Pro (Sep '24),Google,0
+2024-09-25,6.3,Llama 3.2 Instruct 1B,Meta,0.05
+2024-09-25,8.7,Llama 3.2 Instruct 11B (Vision),Meta,0.245
+2024-09-25,9.2,Molmo 7B-D,Allen Institute for AI,0
+2024-09-25,9.7,Llama 3.2 Instruct 3B,Meta,0.15
+2024-09-25,11.9,Llama 3.2 Instruct 90B (Vision),Meta,1.38
+2024-09-30,8.8,LFM 40B,Liquid AI,0
+2024-10-03,11.1,Gemini 1.5 Flash-8B,Google,0
+2024-10-04,12,Reka Flash (Sep '24),Reka AI,0.35
+2024-10-15,13.4,Llama 3.1 Nemotron Instruct 70B,NVIDIA,1.2
+2024-10-22,15.9,Claude 3.5 Sonnet (Oct '24),Anthropic,6.563
+2024-10-22,18.7,Claude 3.5 Haiku,Anthropic,1.75
+2024-11-11,12.9,Qwen2.5 Coder Instruct 32B,Alibaba,0
+2024-11-18,12,Qwen2.5 Turbo,Alibaba,0.088
+2024-11-18,14,Pixtral Large,Mistral,3
+2024-11-18,15.1,Mistral Large 2 (Nov '24),Mistral,3
+2024-11-20,17.3,GPT-4o (Nov '24),OpenAI,4.375
+2024-11-26,9.3,OLMo 2 7B,Allen Institute for AI,0
+2024-11-27,15.2,QwQ 32B-Preview,Alibaba,0
+2024-12-03,10.3,Nova Micro,Amazon,0.061
+2024-12-03,12.7,Nova Lite,Amazon,0.105
+2024-12-03,13.5,Nova Pro,Amazon,1.4
+2024-12-05,30.7,o1,OpenAI,26.25
+2024-12-06,14.5,Llama 3.3 Instruct 70B,Meta,0.612
+2024-12-10,12.5,DeepSeek-V2.5 (Dec '24),DeepSeek,0
+2024-12-11,16.8,Gemini 2.0 Flash (experimental),Google,0
+2024-12-12,10.4,Phi-4,Microsoft,0.219
+2024-12-12,13.9,Grok 2 (Dec '24),xAI,0
+2024-12-19,12.3,Gemini 2.0 Flash Thinking Experimental (Dec '24),Google,0
+2024-12-26,16.5,DeepSeek V3 (Dec '24),DeepSeek,0.523
+2025-01-20,9.1,DeepSeek R1 Distill Qwen 1.5B,DeepSeek,0
+2025-01-20,12.1,DeepSeek R1 Distill Llama 8B,DeepSeek,0
+2025-01-20,15.8,DeepSeek R1 Distill Qwen 14B,DeepSeek,0
+2025-01-20,16,DeepSeek R1 Distill Llama 70B,DeepSeek,0.787
+2025-01-20,17.2,DeepSeek R1 Distill Qwen 32B,DeepSeek,0
+2025-01-20,18.8,DeepSeek R1 (Jan '25),DeepSeek,2.431
+2025-01-21,15.2,Sonar Pro,Perplexity,0
+2025-01-21,15.5,Sonar,Perplexity,0
+2025-01-21,19.6,Gemini 2.0 Flash Thinking Experimental (Jan '25),Google,0
+2025-01-28,16.3,Qwen2.5 Max,Alibaba,2.8
+2025-01-28,17.9,Sonar Reasoning,Perplexity,0
+2025-01-28,24.6,Sonar Reasoning Pro,Perplexity,0
+2025-01-30,12.7,Mistral Small 3,Mistral,0.104
+2025-01-30,14.1,Llama 3.1 Tulu3 405B,Allen Institute for AI,0
+2025-01-31,25.2,o3-mini (high),OpenAI,1.925
+2025-01-31,25.9,o3-mini,OpenAI,1.925
+2025-02-05,14.5,Gemini 2.0 Flash-Lite (Preview),Google,0
+2025-02-05,18.1,Gemini 2.0 Pro Experimental (Feb '25),Google,0
+2025-02-05,18.5,Gemini 2.0 Flash (Feb '25),Google,0.262
+2025-02-13,7.6,DeepHermes 3 - Llama-3.1 8B Preview (Non-reasoning),Nous Research,0
+2025-02-15,14.1,GPT-4o (ChatGPT),OpenAI,0
+2025-02-17,12.1,Mistral Saba,Mistral,0
+2025-02-18,12,R1 1776,Perplexity,0
+2025-02-19,21.6,Grok 3 Reasoning Beta,xAI,0
+2025-02-19,25.2,Grok 3,xAI,8
+2025-02-19,32.1,Grok 3 mini Reasoning (high),xAI,0.35
+2025-02-24,30.8,Claude 3.7 Sonnet (Non-reasoning),Anthropic,6.563
+2025-02-24,34.7,Claude 3.7 Sonnet (Reasoning),Anthropic,0
+2025-02-25,14.7,Gemini 2.0 Flash-Lite (Feb '25),Google,0
+2025-02-26,10,Phi-4 Multimodal Instruct,Microsoft,0
+2025-02-27,20,GPT-4.5 (Preview),OpenAI,0
+2025-03-05,19.7,QwQ 32B,Alibaba,0.745
+2025-03-06,7.9,Jamba 1.6 Mini,AI21 Labs,0.25
+2025-03-06,10.6,Jamba 1.6 Large,AI21 Labs,3.5
+2025-03-10,9.5,Reka Flash 3,Reka AI,0.35
+2025-03-12,6.3,Gemma 3 4B Instruct,Google,0.05
+2025-03-12,8.8,Gemma 3 12B Instruct,Google,0.14
+2025-03-12,10.3,Gemma 3 27B Instruct,Google,0.145
+2025-03-13,5.6,Gemma 3 1B Instruct,Google,0
+2025-03-13,10.6,OLMo 2 32B,Allen Institute for AI,0
+2025-03-13,10.9,DeepHermes 3 - Mistral 24B Preview (Non-reasoning),Nous Research,0
+2025-03-13,13.5,Command A,Cohere,4.375
+2025-03-17,14.5,Mistral Small 3.1,Mistral,0.138
+2025-03-18,14.3,Llama 3.3 Nemotron Super 49B v1 (Non-reasoning),NVIDIA,0
+2025-03-18,18.5,Llama 3.3 Nemotron Super 49B v1 (Reasoning),NVIDIA,0
+2025-03-19,25.8,o1-pro,OpenAI,262.5
+2025-03-25,22.3,DeepSeek V3 0324,DeepSeek,1.209
+2025-03-25,30.3,Gemini 2.5 Pro Preview (Mar' 25),Google,0
+2025-03-27,18.6,"GPT-4o (March 2025, chatgpt-4o-latest)",OpenAI,0
+2025-04-05,13.5,Llama 4 Scout,Meta,0.292
+2025-04-05,18.4,Llama 4 Maverick,Meta,0.475
+2025-04-07,15,Llama 3.1 Nemotron Ultra 253B v1 (Reasoning),NVIDIA,0.9
+2025-04-14,13,GPT-4.1 nano,OpenAI,0.175
+2025-04-14,22.9,GPT-4.1 mini,OpenAI,0.7
+2025-04-14,26.3,GPT-4.1,OpenAI,3.5
+2025-04-16,7,Granite 3.3 8B (Non-reasoning),IBM,0.085
+2025-04-16,33.1,o4-mini (high),OpenAI,1.925
+2025-04-16,38.4,o3,OpenAI,3.5
+2025-04-17,17.8,Gemini 2.5 Flash Preview (Non-reasoning),Google,0
+2025-04-17,24.3,Gemini 2.5 Flash Preview (Reasoning),Google,0
+2025-04-28,5.7,Qwen3 0.6B (Non-reasoning),Alibaba,0.188
+2025-04-28,6.5,Qwen3 0.6B (Reasoning),Alibaba,0.398
+2025-04-28,6.8,Qwen3 1.7B (Non-reasoning),Alibaba,0.188
+2025-04-28,8,Qwen3 1.7B (Reasoning),Alibaba,0.398
+2025-04-28,10.6,Qwen3 8B (Non-reasoning),Alibaba,0.185
+2025-04-28,12.5,Qwen3 30B A3B (Non-reasoning),Alibaba,0.133
+2025-04-28,12.5,Qwen3 4B (Non-reasoning),Alibaba,0.188
+2025-04-28,12.8,Qwen3 14B (Non-reasoning),Alibaba,0.381
+2025-04-28,13.2,Qwen3 8B (Reasoning),Alibaba,0.37
+2025-04-28,14.2,Qwen3 4B (Reasoning),Alibaba,0.398
+2025-04-28,14.5,Qwen3 32B (Non-reasoning),Alibaba,0.26
+2025-04-28,15.3,Qwen3 30B A3B (Reasoning),Alibaba,0.18
+2025-04-28,16.2,Qwen3 14B (Reasoning),Alibaba,0.731
+2025-04-28,16.5,Qwen3 32B (Reasoning),Alibaba,0.276
+2025-04-28,17,Qwen3 235B A22B (Non-reasoning),Alibaba,0.787
+2025-04-28,19.8,Qwen3 235B A22B (Reasoning),Alibaba,2.625
+2025-04-30,19,Nova Premier,Amazon,5
+2025-05-06,29.5,Gemini 2.5 Pro Preview (May' 25),Google,3.438
+2025-05-07,18.8,Mistral Medium 3,Mistral,0.8
+2025-05-20,10.1,Gemma 3n E4B Instruct Preview (May '25),Google,0
+2025-05-20,14.4,Llama 3.1 Nemotron Nano 4B v1.1 (Reasoning),NVIDIA,0
+2025-05-20,16,Solar Pro 2 (Preview) (Non-reasoning),Upstage,0
+2025-05-20,18.8,Solar Pro 2 (Preview) (Reasoning),Upstage,0
+2025-05-20,20.6,Gemini 2.5 Flash (Non-reasoning),Google,0.85
+2025-05-20,27,Gemini 2.5 Flash (Reasoning),Google,0.85
+2025-05-21,18,Devstral Small (May '25),Mistral,0
+2025-05-22,33,Claude 4 Opus (Non-reasoning),Anthropic,32.813
+2025-05-22,33,Claude 4 Sonnet (Non-reasoning),Anthropic,6.563
+2025-05-22,38.7,Claude 4 Sonnet (Reasoning),Anthropic,6.563
+2025-05-22,39,Claude 4 Opus (Reasoning),Anthropic,32.813
+2025-05-23,8.4,Sarvam M (Reasoning),Sarvam,0
+2025-05-28,27.1,DeepSeek R1 0528 (May '25),DeepSeek,2.063
+2025-05-29,16.4,DeepSeek R1 0528 Qwen3 8B,DeepSeek,0
+2025-06-05,34.6,Gemini 2.5 Pro,Google,3.438
+2025-06-10,16.8,Magistral Small 1,Mistral,0
+2025-06-10,18.8,Magistral Medium 1,Mistral,0
+2025-06-10,40.7,o3-pro,OpenAI,35
+2025-06-17,12.7,Gemini 2.5 Flash-Lite (Non-reasoning),Google,0.175
+2025-06-17,17.6,Gemini 2.5 Flash-Lite (Reasoning),Google,0.175
+2025-06-17,20.9,MiniMax M1 40k,MiniMax,0
+2025-06-17,24.4,MiniMax M1 80k,MiniMax,0.963
+2025-06-20,15.1,Mistral Small 3.2,Mistral,0.128
+2025-06-26,4.8,Gemma 3n E2B Instruct,Google,0
+2025-06-26,6.4,Gemma 3n E4B Instruct,Google,0.025
+2025-06-30,15,ERNIE 4.5 300B A47B,Baidu,0.485
+2025-07-07,8.1,Jamba 1.7 Mini,AI21 Labs,0
+2025-07-07,10.9,Jamba 1.7 Large,AI21 Labs,3.5
+2025-07-09,13.6,Solar Pro 2 (Non-reasoning),Upstage,0
+2025-07-09,14.9,Solar Pro 2 (Reasoning),Upstage,0
+2025-07-10,6.3,LFM2 1.2B,Liquid AI,0
+2025-07-10,15.2,Devstral Small (Jul '25),Mistral,0.15
+2025-07-10,18.7,Devstral Medium,Mistral,0.8
+2025-07-10,41.5,Grok 4,xAI,11
+2025-07-11,26.3,Kimi K2,Kimi,1.039
+2025-07-15,8.1,Exaone 4.0 1.2B (Non-reasoning),LG AI Research,0
+2025-07-15,8.3,Exaone 4.0 1.2B (Reasoning),LG AI Research,0
+2025-07-15,11.7,EXAONE 4.0 32B (Non-reasoning),LG AI Research,0
+2025-07-15,16.7,EXAONE 4.0 32B (Reasoning),LG AI Research,0
+2025-07-21,25,Qwen3 235B A22B 2507 Instruct,Alibaba,0.356
+2025-07-22,24.8,Qwen3 Coder 480B A35B Instruct,Alibaba,0.675
+2025-07-25,14.6,Llama Nemotron Super 49B v1.5 (Non-reasoning),NVIDIA,0.175
+2025-07-25,18.7,Llama Nemotron Super 49B v1.5 (Reasoning),NVIDIA,0.175
+2025-07-25,29.5,Qwen3 235B A22B 2507 (Reasoning),Alibaba,0.838
+2025-07-28,23.2,GLM-4.5-Air,Z AI,0.372
+2025-07-28,26.4,GLM-4.5 (Reasoning),Z AI,1
+2025-07-29,15,Qwen3 30B A3B 2507 Instruct,Alibaba,0.213
+2025-07-30,22.4,Qwen3 30B A3B 2507 (Reasoning),Alibaba,0.673
+2025-07-31,20,Qwen3 Coder 30B A3B Instruct,Alibaba,0.352
+2025-08-05,20.8,gpt-oss-20B (low),OpenAI,0.095
+2025-08-05,24.5,gpt-oss-120b (low),OpenAI,0.262
+2025-08-05,24.5,gpt-oss-20B (high),OpenAI,0.088
+2025-08-05,33.3,gpt-oss-120b (high),OpenAI,0.262
+2025-08-05,36,Claude 4.1 Opus (Non-reasoning),Anthropic,32.813
+2025-08-05,42,Claude 4.1 Opus (Reasoning),Anthropic,32.813
+2025-08-06,12.9,Qwen3 4B 2507 Instruct,Alibaba,0
+2025-08-06,18.2,Qwen3 4B 2507 (Reasoning),Alibaba,0
+2025-08-07,13.8,GPT-5 nano (minimal),OpenAI,0.138
+2025-08-07,20.7,GPT-5 mini (minimal),OpenAI,0.688
+2025-08-07,21.8,GPT-5 (ChatGPT),OpenAI,3.438
+2025-08-07,23.9,GPT-5 (minimal),OpenAI,3.438
+2025-08-07,25.9,GPT-5 nano (medium),OpenAI,0.138
+2025-08-07,26.8,GPT-5 nano (high),OpenAI,0.138
+2025-08-07,38.9,GPT-5 mini (medium),OpenAI,0.688
+2025-08-07,39.2,GPT-5 (low),OpenAI,3.438
+2025-08-07,41.2,GPT-5 mini (high),OpenAI,0.688
+2025-08-07,42,GPT-5 (medium),OpenAI,3.438
+2025-08-07,44.6,GPT-5 (high),OpenAI,3.438
+2025-08-11,12.7,GLM-4.5V (Non-reasoning),Z AI,0.9
+2025-08-11,15.1,GLM-4.5V (Reasoning),Z AI,0.9
+2025-08-12,21.3,Mistral Medium 3.1,Mistral,0.8
+2025-08-14,7.7,Gemma 3 270M,Google,0
+2025-08-18,13.2,NVIDIA Nemotron Nano 9B V2 (Non-reasoning),NVIDIA,0.086
+2025-08-18,14.8,NVIDIA Nemotron Nano 9B V2 (Reasoning),NVIDIA,0.07
+2025-08-20,25.2,Seed-OSS-36B-Instruct,ByteDance Seed,0.3
+2025-08-21,27.7,DeepSeek V3.1 (Reasoning),DeepSeek,0.865
+2025-08-21,28.1,DeepSeek V3.1 (Non-reasoning),DeepSeek,0.834
+2025-08-27,12.6,Hermes 4 - Llama-3.1 70B (Non-reasoning),Nous Research,0.198
+2025-08-27,16,Hermes 4 - Llama-3.1 70B (Reasoning),Nous Research,0.198
+2025-08-27,17.6,Hermes 4 - Llama-3.1 405B (Non-reasoning),Nous Research,1.5
+2025-08-27,18.6,Hermes 4 - Llama-3.1 405B (Reasoning),Nous Research,1.5
+2025-08-28,28.7,Grok Code Fast 1,xAI,0
+2025-09-02,5.9,Apertus 8B Instruct,Swiss AI Initiative,0.125
+2025-09-02,7.7,Apertus 70B Instruct,Swiss AI Initiative,1.345
+2025-09-05,26.1,Qwen3 Max (Preview),Alibaba,2.4
+2025-09-05,30.9,Kimi K2 0905,Kimi,1.075
+2025-09-08,21.6,Gemini 2.5 Flash-Lite Preview (Sep '25) (Reasoning),Google,0.175
+2025-09-09,9.2,Ling-mini-2.0,InclusionAI,0
+2025-09-11,20.1,Qwen3 Next 80B A3B Instruct,Alibaba,0.875
+2025-09-11,26.7,Qwen3 Next 80B A3B (Reasoning),Alibaba,1.875
+2025-09-17,15.7,Ling-flash-2.0,InclusionAI,0.247
+2025-09-17,18.2,Magistral Small 1.2,Mistral,0.75
+2025-09-18,27.1,Magistral Medium 1.2,Mistral,2.75
+2025-09-19,14,Ring-flash-2.0,InclusionAI,0.247
+2025-09-19,23.1,Grok 4 Fast (Non-reasoning),xAI,0.275
+2025-09-19,35.1,Grok 4 Fast (Reasoning),xAI,0.275
+2025-09-22,7.7,Granite 4.0 Micro,IBM,0
+2025-09-22,10.7,Qwen3 Omni 30B A3B Instruct,Alibaba,0.43
+2025-09-22,10.8,Granite 4.0 H Small,IBM,0.107
+2025-09-22,15.6,Qwen3 Omni 30B A3B (Reasoning),Alibaba,0.43
+2025-09-22,28.5,DeepSeek V3.1 Terminus (Non-reasoning),DeepSeek,0.453
+2025-09-22,33.9,DeepSeek V3.1 Terminus (Reasoning),DeepSeek,1.914
+2025-09-23,8,LFM2 2.6B,Liquid AI,0
+2025-09-23,20.8,Qwen3 VL 235B A22B Instruct,Alibaba,0.7
+2025-09-23,27.6,Qwen3 VL 235B A22B (Reasoning),Alibaba,2.174
+2025-09-23,31.4,Qwen3 Max,Alibaba,3.047
+2025-09-23,44.6,GPT-5 Codex (high),OpenAI,3.438
+2025-09-25,19.4,Gemini 2.5 Flash-Lite Preview (Sep '25) (Non-reasoning),Google,0.175
+2025-09-25,25.7,Gemini 2.5 Flash Preview (Sep '25) (Non-reasoning),Google,0
+2025-09-25,31.1,Gemini 2.5 Flash Preview (Sep '25) (Reasoning),Google,0
+2025-09-29,28.4,DeepSeek V3.2 Exp (Non-reasoning),DeepSeek,0.31
+2025-09-29,32.9,DeepSeek V3.2 Exp (Reasoning),DeepSeek,0.31
+2025-09-29,37.1,Claude 4.5 Sonnet (Non-reasoning),Anthropic,6.563
+2025-09-29,43,Claude 4.5 Sonnet (Reasoning),Anthropic,6.563
+2025-09-30,28.3,Apriel-v1.5-15B-Thinker,ServiceNow,0
+2025-09-30,30.2,GLM-4.6 (Non-reasoning),Z AI,1
+2025-09-30,32.5,GLM-4.6 (Reasoning),Z AI,0.963
+2025-10-03,16,Qwen3 VL 30B A3B Instruct,Alibaba,0.3
+2025-10-03,19.7,Qwen3 VL 30B A3B (Reasoning),Alibaba,0.338
+2025-10-07,7,LFM2 8B A1B,Liquid AI,0
+2025-10-08,9.6,Jamba Reasoning 3B,AI21 Labs,0
+2025-10-08,19,Ling-1T,InclusionAI,0
+2025-10-13,22.8,Ring-1T,InclusionAI,0
+2025-10-14,9.6,Qwen3 VL 4B Instruct,Alibaba,0
+2025-10-14,13.7,Qwen3 VL 4B (Reasoning),Alibaba,0
+2025-10-14,14.3,Qwen3 VL 8B Instruct,Alibaba,0.31
+2025-10-14,16.7,Qwen3 VL 8B (Reasoning),Alibaba,0.66
+2025-10-15,31,Claude 4.5 Haiku (Non-reasoning),Anthropic,2.188
+2025-10-15,37.1,Claude 4.5 Haiku (Reasoning),Anthropic,2.188
+2025-10-21,17.2,Qwen3 VL 32B Instruct,Alibaba,1.225
+2025-10-21,24.7,Qwen3 VL 32B (Reasoning),Alibaba,2.625
+2025-10-26,36.1,MiniMax-M2,MiniMax,0.525
+2025-10-28,5.4,Granite 4.0 H 350M,IBM,0
+2025-10-28,6.1,Granite 4.0 350M,IBM,0
+2025-10-28,7.3,Granite 4.0 1B,IBM,0
+2025-10-28,8,Granite 4.0 H 1B,IBM,0
+2025-10-28,10.1,NVIDIA Nemotron Nano 12B v2 VL (Non-reasoning),NVIDIA,0.3
+2025-10-28,14.9,NVIDIA Nemotron Nano 12B v2 VL (Reasoning),NVIDIA,0.3
+2025-10-29,18,Nova 2.0 Lite (Non-reasoning),Amazon,0.85
+2025-10-29,24.6,Nova 2.0 Lite (low),Amazon,0.85
+2025-10-29,29.7,Nova 2.0 Lite (medium),Amazon,0.85
+2025-10-29,34.5,Nova 2.0 Lite (high),Amazon,0.85
+2025-10-30,14.4,Kimi Linear 48B A3B Instruct,Kimi,0
+2025-11-03,32.5,Qwen3 Max Thinking (Preview),Alibaba,2.4
+2025-11-06,40.9,Kimi K2 Thinking,Kimi,1.075
+2025-11-11,33.5,Doubao Seed Code,ByteDance Seed,0
+2025-11-11,36,KAT-Coder-Pro V1,KwaiKAT,0.525
+2025-11-13,27.4,GPT-5.1 (Non-reasoning),OpenAI,3.438
+2025-11-13,29.1,ERNIE 5.0 Thinking Preview,Baidu,0
+2025-11-13,38.6,GPT-5.1 Codex mini (high),OpenAI,0.688
+2025-11-13,43.1,GPT-5.1 Codex (high),OpenAI,3.438
+2025-11-13,47.7,GPT-5.1 (high),OpenAI,3.438
+2025-11-18,41.3,Gemini 3 Pro Preview (low),Google,4.5
+2025-11-18,48.4,Gemini 3 Pro Preview (high),Google,4.5
+2025-11-19,23.6,Grok 4.1 Fast (Non-reasoning),xAI,0
+2025-11-19,38.6,Grok 4.1 Fast (Reasoning),xAI,0
+2025-11-20,8.1,Olmo 3 7B Instruct,Allen Institute for AI,0.125
+2025-11-20,9.4,Olmo 3 7B Think,Allen Institute for AI,0
+2025-11-20,12.1,Olmo 3 32B Think,Allen Institute for AI,0
+2025-11-24,43.1,Claude Opus 4.5 (Non-reasoning),Anthropic,10.938
+2025-11-24,49.7,Claude Opus 4.5 (Reasoning),Anthropic,10.938
+2025-11-25,27.6,Apriel-v1.6-15B-Thinker,ServiceNow,0
+2025-11-26,16.6,Nova 2.0 Omni (Non-reasoning),Amazon,0.85
+2025-11-26,23.2,Nova 2.0 Omni (low),Amazon,0.85
+2025-11-26,28,Nova 2.0 Omni (medium),Amazon,0.85
+2025-11-27,22.2,INTELLECT-3,Prime Intellect,0
+2025-11-27,23.1,Nova 2.0 Pro Preview (Non-reasoning),Amazon,3.438
+2025-11-27,31.9,Nova 2.0 Pro Preview (low),Amazon,3.438
+2025-11-27,35.7,Nova 2.0 Pro Preview (medium),Amazon,3.438
+2025-12-01,29.4,DeepSeek V3.2 Speciale,DeepSeek,0
+2025-12-01,32.1,DeepSeek V3.2 (Non-reasoning),DeepSeek,0.775
+2025-12-01,41.7,DeepSeek V3.2 (Reasoning),DeepSeek,0.337
+2025-12-02,11.2,Ministral 3 3B,Mistral,0.1
+2025-12-02,14.8,Ministral 3 8B,Mistral,0.15
+2025-12-02,16,Ministral 3 14B,Mistral,0.2
+2025-12-02,22.8,Mistral Large 3,Mistral,0.75
+2025-12-04,19.1,Motif-2-12.7B-Reasoning,Motif Technologies,0
+2025-12-05,14.4,K2-V2 (low),MBZUAI Institute of Foundation Models,0
+2025-12-05,18.7,K2-V2 (medium),MBZUAI Institute of Foundation Models,0
+2025-12-05,20.6,K2-V2 (high),MBZUAI Institute of Foundation Models,0
+2025-12-08,17.1,GLM-4.6V (Non-reasoning),Z AI,0.45
+2025-12-08,23.4,GLM-4.6V (Reasoning),Z AI,0.45
+2025-12-09,19.5,Devstral Small 2,Mistral,0
+2025-12-09,22,Devstral 2,Mistral,0
+2025-12-11,7.3,Molmo2-8B,Allen Institute for AI,0
+2025-12-11,23.1,Mi:dm K 2.5 Pro,Korea Telecom,0
+2025-12-11,33.6,GPT-5.2 (Non-reasoning),OpenAI,4.813
+2025-12-11,46.6,GPT-5.2 (medium),OpenAI,4.813
+2025-12-11,49,GPT-5.2 Codex (xhigh),OpenAI,4.813
+2025-12-11,51.3,GPT-5.2 (xhigh),OpenAI,4.813
+2025-12-12,13.9,Olmo 3.1 32B Think,Allen Institute for AI,0
+2025-12-15,13.2,NVIDIA Nemotron 3 Nano 30B A3B (Non-reasoning),NVIDIA,0.088
+2025-12-15,24.1,K2 Think V2,MBZUAI Institute of Foundation Models,0
+2025-12-15,24.3,NVIDIA Nemotron 3 Nano 30B A3B (Reasoning),NVIDIA,0.096
+2025-12-16,30.3,MiMo-V2-Flash (Non-reasoning),Xiaomi,0.15
+2025-12-16,39.2,MiMo-V2-Flash (Reasoning),Xiaomi,0.15
+2025-12-16,41.5,MiMo-V2-Flash (Feb 2026),Xiaomi,0.15
+2025-12-17,21.7,Solar Open 100B (Reasoning),Upstage,0
+2025-12-17,35,Gemini 3 Flash Preview (Non-reasoning),Google,1.125
+2025-12-17,46.4,Gemini 3 Flash Preview (Reasoning),Google,1.125
+2025-12-22,34.2,GLM-4.7 (Non-reasoning),Z AI,1
+2025-12-22,42.1,GLM-4.7 (Reasoning),Z AI,1
+2025-12-23,39.4,MiniMax-M2.1,MiniMax,0.525
+2025-12-26,23.7,HyperCLOVA X SEED Think (32B),Naver,0
+2025-12-31,23.4,K-EXAONE (Non-reasoning),LG AI Research,0
+2025-12-31,32.1,K-EXAONE (Reasoning),LG AI Research,0
+2026-01-04,15.8,Falcon-H1R-7B,TII UAE,0
+2026-01-05,6.2,LFM2.5-VL-1.6B,Liquid AI,0
+2026-01-05,8,LFM2.5-1.2B-Instruct,Liquid AI,0
+2026-01-13,12.2,Olmo 3.1 32B Instruct,Allen Institute for AI,0
+2026-01-19,22.1,GLM-4.7-Flash (Non-reasoning),Z AI,0.153
+2026-01-19,30.1,GLM-4.7-Flash (Reasoning),Z AI,0.153
+2026-01-20,8.1,LFM2.5-1.2B-Thinking,Liquid AI,0
+2026-01-20,15.5,Step3 VL 10B,StepFun,0
+2026-01-26,39.8,Qwen3 Max Thinking,Alibaba,2.4
+2026-01-27,37.3,Kimi K2.5 (Non-reasoning),Kimi,1.2
+2026-01-27,46.8,Kimi K2.5 (Reasoning),Kimi,1.185
+2026-01-28,23.9,LongCat Flash Lite,LongCat,0
+2026-02-02,37.8,Step 3.5 Flash,StepFun,0.15
+2026-02-03,28.3,Qwen3 Coder Next,Alibaba,0.563
+2026-02-05,46.5,"Claude Opus 4.6 (Non-reasoning, High Effort)",Anthropic,10.938
+2026-02-05,52.9,"Claude Opus 4.6 (Adaptive Reasoning, Max Effort)",Anthropic,10.938
+2026-02-05,53.6,GPT-5.3 Codex (xhigh),OpenAI,4.813
+2026-02-10,18.6,Tri-21B-Think,Trillion Labs,0
+2026-02-10,20,Tri-21B-think Preview,Trillion Labs,0
+2026-02-11,16.1,Nanbeige4.1-3B,Nanbeige,0
+2026-02-11,40.6,GLM-5 (Non-reasoning),Z AI,1.55
+2026-02-11,49.8,GLM-5 (Reasoning),Z AI,1.55
+2026-02-12,41.9,MiniMax-M2.5,MiniMax,0.525
+2026-02-16,40.1,Qwen3.5 397B A17B (Non-reasoning),Alibaba,1.35
+2026-02-16,45,Qwen3.5 397B A17B (Reasoning),Alibaba,1.35
+2026-02-17,4.7,Tiny Aya Global,Cohere,0
+2026-02-17,42.6,"Claude Sonnet 4.6 (Non-reasoning, Low Effort)",Anthropic,6.563
+2026-02-17,44.4,"Claude Sonnet 4.6 (Non-reasoning, High Effort)",Anthropic,6.563
+2026-02-17,51.7,"Claude Sonnet 4.6 (Adaptive Reasoning, Max Effort)",Anthropic,6.563
+2026-02-19,57.2,Gemini 3.1 Pro Preview,Google,4.5
+2026-02-20,32.8,Mercury 2,Inception,0.375
+2026-02-24,30.7,Qwen3.5 35B A3B (Non-reasoning),Alibaba,0.688
+2026-02-24,35.9,Qwen3.5 122B A10B (Non-reasoning),Alibaba,1.1
+2026-02-24,37.1,Qwen3.5 35B A3B (Reasoning),Alibaba,0.688
+2026-02-24,37.2,Qwen3.5 27B (Non-reasoning),Alibaba,0.875
+2026-02-24,41.6,Qwen3.5 122B A10B (Reasoning),Alibaba,1.1
+2026-02-24,42.1,Qwen3.5 27B (Reasoning),Alibaba,0.825
+2026-02-25,10.5,LFM2 24B A2B,Liquid AI,0.052
+2026-03-02,9.9,Qwen3.5 0.8B (Non-reasoning),Alibaba,0.02
+2026-03-02,10.5,Qwen3.5 0.8B (Reasoning),Alibaba,0.02
+2026-03-02,14.7,Qwen3.5 2B (Non-reasoning),Alibaba,0.04
+2026-03-02,16.3,Qwen3.5 2B (Reasoning),Alibaba,0.04
+2026-03-02,22.6,Qwen3.5 4B (Non-reasoning),Alibaba,0.06
+2026-03-02,27.1,Qwen3.5 4B (Reasoning),Alibaba,0.06
+2026-03-02,27.3,Qwen3.5 9B (Non-reasoning),Alibaba,0
+2026-03-02,32.4,Qwen3.5 9B (Reasoning),Alibaba,0.113
+2026-03-03,33.5,Gemini 3.1 Flash-Lite,Google,0.563
+2026-03-05,35.4,GPT-5.4 (Non-reasoning),OpenAI,5.625
+2026-03-05,47.9,GPT-5.4 (low),OpenAI,5.625
+2026-03-05,56.8,GPT-5.4 (xhigh),OpenAI,5.625
+2026-03-06,12.3,Sarvam 30B (high),Sarvam,0.047
+2026-03-06,18.2,Sarvam 105B (high),Sarvam,0.074
+2026-03-10,29.7,Grok 4.20 0309 (Non-reasoning),xAI,3
+2026-03-10,48.5,Grok 4.20 0309 (Reasoning),xAI,3
+2026-03-11,36,NVIDIA Nemotron 3 Super 120B A12B (Reasoning),NVIDIA,0.412
+2026-03-15,46.8,GLM-5-Turbo,Z AI,0
+2026-03-16,14.7,NVIDIA Nemotron 3 Nano 4B,NVIDIA,0
+2026-03-16,18.6,Mistral Small 4 (Non-reasoning),Mistral,0.262
+2026-03-16,27.8,Mistral Small 4 (Reasoning),Mistral,0.262
+2026-03-17,23.3,GPT-5.4 mini (Non-Reasoning),OpenAI,1.688
+2026-03-17,24.4,GPT-5.4 nano (Non-Reasoning),OpenAI,0.463
+2026-03-17,37.7,GPT-5.4 mini (medium),OpenAI,1.688
+2026-03-17,38.1,GPT-5.4 nano (medium),OpenAI,0.463
+2026-03-17,44,GPT-5.4 nano (xhigh),OpenAI,0.463
+2026-03-17,48.9,GPT-5.4 mini (xhigh),OpenAI,1.688
+2026-03-18,49.2,MiMo-V2-Pro,Xiaomi,1.5
+2026-03-18,49.6,MiniMax-M2.7,MiniMax,0.525
+2026-03-19,28.4,Nemotron Cascade 2 30B A3B,NVIDIA,0
+2026-03-19,43.4,MiMo-V2-Omni,Xiaomi,0
+2026-03-27,43.8,KAT Coder Pro V2,KwaiKAT,0.525
+2026-03-27,44.9,MiMo-V2-Omni-0327,Xiaomi,0.8
+2026-03-30,25.9,Qwen3.5 Omni Flash,Alibaba,0.275
+2026-03-30,38.6,Qwen3.5 Omni Plus,Alibaba,1.5
+2026-04-01,31.9,Trinity Large Thinking,Arcee AI,0.395
+2026-04-01,42.9,GLM 5V Turbo (Reasoning),Z AI,0
+2026-04-02,12.1,Gemma 4 E2B (Non-reasoning),Google,0
+2026-04-02,15.2,Gemma 4 E2B (Reasoning),Google,0
+2026-04-02,27.1,Gemma 4 26B A4B (Non-reasoning),Google,0.198
+2026-04-02,31.2,Gemma 4 26B A4B (Reasoning),Google,0.198
+2026-04-02,32.3,Gemma 4 31B (Non-reasoning),Google,0.205
+2026-04-02,38.5,Step 3.5 Flash 2603,StepFun,0.15
+2026-04-02,39.2,Gemma 4 31B (Reasoning),Google,0
+2026-04-02,50,Qwen3.6 Plus,Alibaba,1.125
+2026-04-03,14.8,Gemma 4 E4B (Non-reasoning),Google,0
+2026-04-03,18.8,Gemma 4 E4B (Reasoning),Google,0
+2026-04-06,25.9,Solar Pro 3,Upstage,0
+2026-04-07,29,Grok 4.20 0309 v2 (Non-reasoning),xAI,3
+2026-04-07,43.8,GLM-5.1 (Non-reasoning),Z AI,2.15
+2026-04-07,49.3,Grok 4.20 0309 v2 (Reasoning),xAI,3
+2026-04-07,51.4,GLM-5.1 (Reasoning),Z AI,2.15
+2026-04-08,52.2,Muse Spark,Meta,0
+2026-04-09,30.2,EXAONE 4.5 33B,LG AI Research,0
+2026-04-15,25.4,JT-MINI,China Mobile,0
+2026-04-16,31.5,Qwen3.6 35B A3B (Non-reasoning),Alibaba,0.844
+2026-04-16,43.5,Qwen3.6 35B A3B (Reasoning),Alibaba,0.557
+2026-04-16,51.8,"Claude Opus 4.7 (Non-reasoning, High Effort)",Anthropic,10.938
+2026-04-16,57.3,"Claude Opus 4.7 (Adaptive Reasoning, Max Effort)",Anthropic,10.938
+2026-04-20,42.9,Kimi K2.6 (Non-reasoning),Kimi,1.712
+2026-04-20,51.8,Qwen3.6 Max Preview,Alibaba,2.925
+2026-04-20,53.9,Kimi K2.6,Kimi,1.712
+2026-04-21,26.2,Ling 2.6 Flash,InclusionAI,0.15
+2026-04-22,35.6,MiMo-V2.5-Pro (Non-reasoning),Xiaomi,1.35
+2026-04-22,37.1,Qwen3.6 27B (Non-reasoning),Alibaba,1.35
+2026-04-22,45.8,Qwen3.6 27B (Reasoning),Alibaba,1.35
+2026-04-22,49,MiMo-V2.5,Xiaomi,0.175
+2026-04-22,53.8,MiMo-V2.5-Pro,Xiaomi,0.544
+2026-04-23,33.6,Ling-2.6-1T,InclusionAI,0.85
+2026-04-23,33.7,Hy3-preview (Non-reasoning),Tencent,0.2
+2026-04-23,40.9,GPT-5.5 (Non-reasoning),OpenAI,11.25
+2026-04-23,41.9,Hy3-preview (Reasoning),Tencent,0.2
+2026-04-23,50.8,GPT-5.5 (low),OpenAI,11.25
+2026-04-23,56.7,GPT-5.5 (medium),OpenAI,11.25
+2026-04-23,58.9,GPT-5.5 (high),OpenAI,11.25
+2026-04-23,60.2,GPT-5.5 (xhigh),OpenAI,11.25
+2026-04-24,36.5,DeepSeek V4 Flash (Non-reasoning),DeepSeek,0.175
+2026-04-24,39.3,DeepSeek V4 Pro (Non-reasoning),DeepSeek,0.544
+2026-04-24,46,"DeepSeek V4 Flash (Reasoning, High Effort)",DeepSeek,0.175
+2026-04-24,46.5,"DeepSeek V4 Flash (Reasoning, Max Effort)",DeepSeek,0.175
+2026-04-24,49.8,"DeepSeek V4 Pro (Reasoning, High Effort)",DeepSeek,0.544
+2026-04-24,51.5,"DeepSeek V4 Pro (Reasoning, Max Effort)",DeepSeek,0.544
+2026-04-29,8.5,Granite 4.1 3B,IBM,0
+2026-04-29,12.4,Granite 4.1 8B,IBM,0.063
+2026-04-29,14.7,Granite 4.1 30B,IBM,0
+2026-04-29,21.4,Nemotron 3 Nano Omni 30B A3B Reasoning,NVIDIA,0.131
+2026-04-29,39.2,Mistral Medium 3.5,Mistral,3
+2026-04-30,31,Grok 4.3 (Non-reasoning),xAI,1.563
+2026-04-30,43.9,Grok 4.3 (low),xAI,1.563
+2026-04-30,48.8,Grok 4.3 (medium),xAI,1.563
+2026-04-30,53.2,Grok 4.3 (high),xAI,1.563
+2026-05-05,41.8,GPT-5.5 Instant (May 2026),OpenAI,11.25
+2026-05-08,38.5,Ring-2.6-1T,InclusionAI,0.85
+2026-05-11,12.7,MiniCPM-V 4.6 1.3B,OpenBMB,0
+2026-05-14,36.1,JT-35B-Flash,China Mobile,0
+2026-05-19,43.3,Gemini 3.5 Flash (minimal),Google,3.375
+2026-05-19,54.8,Gemini 3.5 Flash (medium),Google,3.375
+2026-05-19,55.3,Gemini 3.5 Flash (high),Google,3.375
+2026-05-19,56.6,Qwen3.7 Max,Alibaba,3.75
+2026-05-20,37.2,Command A+,Cohere,0
+2026-05-25,17.9,MiniCPM5-1B (Non-reasoning),OpenBMB,0
+2026-05-25,18.2,MiniCPM5-1B (Reasoning),OpenBMB,0
+2026-05-28,61.4,"Claude Opus 4.8 (Adaptive Reasoning, Max Effort)",Anthropic,10.938
+2026-05-29,42.6,Step 3.7 Flash,StepFun,0.438
+2026-06-01,53.3,Qwen3.7 Plus,Alibaba,0.59
+2026-06-01,54.7,MiniMax-M3,MiniMax,0.525
+2026-06-03,29.2,Gemma 4 12B (Reasoning),Google,0
+2026-06-04,47.7,Nemotron 3 Ultra 550B A55B (Reasoning),NVIDIA,1.1
+2026-06-09,27.6,North Mini Code,Cohere,0
+2026-06-09,64.9,"Claude Fable 5 (Adaptive Reasoning, Max Effort, Opus 4.8 Fallback)",Anthropic,21.875
