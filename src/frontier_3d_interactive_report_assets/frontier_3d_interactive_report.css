@@ -108,6 +108,7 @@ select {
 
 #frontier3d {
   position: relative;
+  overflow: hidden;
   width: 100%;
   height: 100%;
 }
@@ -152,32 +153,26 @@ select {
   pointer-events: none;
 }
 
-.aa-threejs-axis-label {
+.aa-threejs-axis-label,
+.aa-threejs-axis-tick-label {
   position: absolute;
   z-index: 3;
-  max-width: 45%;
-  padding: 3px 7px;
-  border-radius: 4px;
+  padding: 2px 4px;
+  border-radius: 3px;
   color: #334155;
-  background: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.88);
   font-size: 12px;
-  font-weight: 650;
+  line-height: 1.3;
+  white-space: nowrap;
   pointer-events: none;
 }
 
-.aa-threejs-axis-label-x {
-  right: 12px;
-  bottom: 10px;
+.aa-threejs-axis-label {
+  font-weight: 650;
 }
 
-.aa-threejs-axis-label-y {
-  left: 12px;
-  bottom: 10px;
-}
-
-.aa-threejs-axis-label-z {
-  left: 12px;
-  top: 10px;
+.aa-threejs-axis-tick-label {
+  font-variant-numeric: tabular-nums;
 }
 
 .aa-country-region-legend {
@@ -728,6 +723,13 @@ details[open] > .aa-collapsible-summary::before {
 }
 
 @media (max-width: 900px) {
+  .aa-threejs-axis-label {
+    width: max-content;
+    max-width: min(220px, 45vw);
+    white-space: normal;
+    text-align: center;
+  }
+
   .frontier-3d-main-row {
     flex-direction: column;
   }

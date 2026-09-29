@@ -139,18 +139,150 @@ import {
   tooltip.hidden = true;
   plotRegion.appendChild(tooltip);
 
-  const axisLabelElements = {
-    x: createAxisLabelElement("x"),
-    y: createAxisLabelElement("y"),
-    z: createAxisLabelElement("z"),
-  };
+  const axisAnnotations = [];
 
-  function createAxisLabelElement(axisName) {
+  function createAxisAnnotationElement(axisName, labelText, isTitle) {
     const element = document.createElement("div");
-    element.className = `aa-threejs-axis-label aa-threejs-axis-label-${axisName}`;
-    element.setAttribute("aria-hidden", "true");
-    plotRegion.appendChild(element);
+    element.className = isTitle ? "aa-threejs-axis-label" : "aa-threejs-axis-tick-label";
+    element.dataset.axisName = axisName;
+    element.textContent = labelText;
+    graphContainer.appendChild(element);
     return element;
+  }
+
+  function updateProjectedAxisAnnotations() {
+    const canvasWidth = graphContainer.clientWidth;
+    const canvasHeight = graphContainer.clientHeight;
+    const projectToCanvas = (position) => {
+      const projected = position.clone().project(perspectiveCamera);
+      return new THREE.Vector2(
+        (projected.x + 1) * canvasWidth / 2,
+        (1 - projected.y) * canvasHeight / 2,
+      );
+    };
+    const projectedCenter = projectToCanvas(new THREE.Vector3());
+    const occupiedLabelRectangles = [];
+    // 先布局完整轴名，再让拥挤刻度让位，避免窄屏上数值遮住单位。
+    for (const renderTitles of [true, false]) {
+      axisAnnotations.forEach(({ start, end, labels }) => {
+        const projectedStart = projectToCanvas(start);
+        const projectedEnd = projectToCanvas(end);
+        const axisDirection = projectedEnd.clone().sub(projectedStart);
+        const outwardDirection = new THREE.Vector2(-axisDirection.y, axisDirection.x).normalize();
+        const projectedMidpoint = projectToCanvas(start.clone().lerp(end, 0.5));
+        if (outwardDirection.dot(projectedMidpoint.sub(projectedCenter)) < 0) {
+          outwardDirection.negate();
+        }
+        let titleAngle = Math.atan2(axisDirection.y, axisDirection.x) * 180 / Math.PI;
+        if (titleAngle > 90) titleAngle -= 180;
+        if (titleAngle < -90) titleAngle += 180;
+        labels.filter(({ isTitle }) => isTitle === renderTitles).forEach(({ element, position, isTitle }) => {
+          const projected = position.clone().project(perspectiveCamera);
+          element.hidden = projected.z < -1 || projected.z > 1 || axisDirection.length() < 1;
+          if (element.hidden) return;
+          const anchorPosition = projectToCanvas(position);
+          element.style.transform = `translate(-50%, -50%) rotate(${isTitle ? titleAngle : 0}deg)`;
+          const measuredBounds = element.getBoundingClientRect();
+          const halfWidth = measuredBounds.width / 2;
+          const halfHeight = measuredBounds.height / 2;
+          const labelDirection = isTitle ? axisDirection.clone().normalize() : new THREE.Vector2(1, 0);
+          const labelNormal = new THREE.Vector2(-labelDirection.y, labelDirection.x);
+          const labelRectangle = {
+            directions: [labelDirection, labelNormal],
+            halfSizes: [element.offsetWidth / 2, element.offsetHeight / 2],
+          };
+          const preferredFraction = anchorPosition.clone().sub(projectedStart).dot(axisDirection) / axisDirection.lengthSq();
+          let selectedLabelPosition = null;
+          // 标题可沿同一轴的可见片段滑动；刻度始终保留自己的真实投影锚点。
+          for (const offset of isTitle ? [48, 24, -48, -24, 0] : [16, -16, 8, -8, 0]) {
+            let minimumFraction = isTitle ? 0 : preferredFraction;
+            let maximumFraction = isTitle ? 1 : preferredFraction;
+            for (const [coordinate, canvasSize, halfSize] of [
+              ["x", canvasWidth, halfWidth], ["y", canvasHeight, halfHeight],
+            ]) {
+              const minimumAnchor = Math.max(0, halfSize + 2 - outwardDirection[coordinate] * offset);
+              const maximumAnchor = Math.min(canvasSize, canvasSize - halfSize - 2 - outwardDirection[coordinate] * offset);
+              const direction = axisDirection[coordinate];
+              if (Math.abs(direction) < 1e-8) {
+                if (projectedStart[coordinate] < minimumAnchor || projectedStart[coordinate] > maximumAnchor) {
+                  maximumFraction = -1;
+                }
+              } else {
+                const firstFraction = (minimumAnchor - projectedStart[coordinate]) / direction;
+                const lastFraction = (maximumAnchor - projectedStart[coordinate]) / direction;
+                minimumFraction = Math.max(minimumFraction, Math.min(firstFraction, lastFraction));
+                maximumFraction = Math.min(maximumFraction, Math.max(firstFraction, lastFraction));
+              }
+              if (minimumAnchor > maximumAnchor) maximumFraction = -1;
+            }
+            if (minimumFraction > maximumFraction) continue;
+            const preferredVisibleFraction = THREE.MathUtils.clamp(preferredFraction, minimumFraction, maximumFraction);
+            for (const fraction of isTitle
+              ? [preferredVisibleFraction, minimumFraction, maximumFraction]
+              : [preferredFraction]) {
+              const candidate = projectedStart.clone().addScaledVector(axisDirection, fraction)
+                .addScaledVector(outwardDirection, offset);
+              // 用旋转矩形的分离轴判定相交，不能把斜标题的整个外接框都当作遮挡。
+              if (canvasWidth < 900 && occupiedLabelRectangles.some((other) => ![...labelRectangle.directions, ...other.directions]
+                .some((direction) => {
+                  const projectedHalfSize = (rectangle) => rectangle.directions.reduce(
+                    (sum, rectangleDirection, index) => sum + Math.abs(rectangleDirection.dot(direction)) * rectangle.halfSizes[index], 0,
+                  );
+                  return Math.abs(candidate.clone().sub(other.center).dot(direction)) >=
+                    projectedHalfSize(labelRectangle) + projectedHalfSize(other) + 2;
+                }))) continue;
+              selectedLabelPosition = candidate;
+              occupiedLabelRectangles.push({ ...labelRectangle, center: candidate });
+              break;
+            }
+            if (selectedLabelPosition) break;
+          }
+          element.hidden = !selectedLabelPosition;
+          if (selectedLabelPosition) {
+            element.style.left = `${selectedLabelPosition.x}px`;
+            element.style.top = `${selectedLabelPosition.y}px`;
+          }
+        });
+      });
+    }
+  }
+
+  function axisTickValues(axisConfiguration) {
+    const [minimum, maximum] = axisConfiguration.fixed_range.map(Number);
+    const span = maximum - minimum;
+    if (!Number.isFinite(span) || span <= 0) return [];
+    if (axisConfiguration.scale_type === "log" && span >= 1) {
+      const exponentStep = Math.max(1, Math.ceil(span / 6));
+      const values = [];
+      for (let exponent = Math.ceil(minimum); exponent <= maximum; exponent += exponentStep) {
+        values.push(10 ** exponent);
+      }
+      if (values.length >= 3) return values;
+      // 整数幂不足时补入 2、5 倍刻度，避免线性步长挤在对数轴高值端。
+      values.length = 0;
+      for (let exponent = Math.floor(minimum); exponent <= maximum; exponent += 1) {
+        for (const multiplier of [1, 2, 5]) {
+          const scaledValue = exponent + Math.log10(multiplier);
+          if (scaledValue >= minimum && scaledValue <= maximum) {
+            values.push(Number((multiplier * 10 ** exponent).toPrecision(12)));
+          }
+        }
+      }
+      return values;
+    }
+    // 窄对数区间在原始数值上选刻度，再用与模型相同的变换定位。
+    const rawMinimum = axisConfiguration.scale_type === "log" ? 10 ** minimum : minimum;
+    const rawMaximum = axisConfiguration.scale_type === "log" ? 10 ** maximum : maximum;
+    const approximateStep = (rawMaximum - rawMinimum) / 5;
+    const magnitude = 10 ** Math.floor(Math.log10(approximateStep));
+    let step = [1, 2, 5, 10].find((factor) => factor * magnitude >= approximateStep) * magnitude;
+    // 向上取整的间隔可能只留下两个刻度；减半补足覆盖，已有密集刻度保持不变。
+    if (Math.floor(rawMaximum / step) - Math.ceil(rawMinimum / step) < 2) step /= 2;
+    const values = [];
+    for (let index = Math.ceil(rawMinimum / step); index <= Math.floor(rawMaximum / step); index += 1) {
+      values.push(Number((index * step).toPrecision(12)));
+    }
+    return values;
   }
 
   function requestThreeDimensionalSceneRender() {
@@ -159,6 +291,7 @@ import {
     window.requestAnimationFrame(() => {
       renderFrameRequested = false;
       webglRenderer.render(threeScene, perspectiveCamera);
+      updateProjectedAxisAnnotations();
     });
   }
 
@@ -214,8 +347,6 @@ import {
 
   function buildAxesAndGrid() {
     clearThreeObjectGroup(staticAxesAndGridGroup);
-    const boxMinimum = -1;
-    const boxMaximum = 1;
     const corner = (x, y, z) => new THREE.Vector3(x, y, z);
     const boxEdges = [
       [corner(-1, -1, -1), corner(1, -1, -1)],
@@ -235,28 +366,55 @@ import {
       lineObjectFromPositionPairs(boxEdges.flat(), 0x64748b),
     );
 
+    axisAnnotations.forEach(({ labels }) => labels.forEach(({ element }) => element.remove()));
+    axisAnnotations.length = 0;
+    const axes = activeThreeDimensionalScene.three_dimensional_axis_configuration;
     const gridPositionPairs = [];
-    [-0.5, 0, 0.5].forEach((gridCoordinate) => {
-      gridPositionPairs.push(
-        corner(boxMinimum, gridCoordinate, boxMinimum),
-        corner(boxMaximum, gridCoordinate, boxMinimum),
-        corner(gridCoordinate, boxMinimum, boxMinimum),
-        corner(gridCoordinate, boxMaximum, boxMinimum),
-        corner(boxMinimum, boxMaximum, gridCoordinate),
-        corner(boxMaximum, boxMaximum, gridCoordinate),
-        corner(boxMinimum, gridCoordinate, boxMinimum),
-        corner(boxMinimum, gridCoordinate, boxMaximum),
-      );
+    const tickPositionPairs = [];
+    // 三条有标注的轴是数据立方体的真实边，标题和数值随相机投影更新。
+    [
+      ["x", corner(-1, 1, -1), corner(1, 1, -1), corner(0, 0.04, 0)],
+      ["y", corner(-1, -1, -1), corner(-1, 1, -1), corner(-0.04, 0, 0)],
+      ["z", corner(-1, -1, -1), corner(-1, -1, 1), corner(-0.04, 0, 0)],
+    ].forEach(([axisName, start, end, tickOffset]) => {
+      const axisConfiguration = axes[`${axisName}_axis`];
+      const labels = [{
+        element: createAxisAnnotationElement(axisName, axisConfiguration.title_text, true),
+        position: start.clone().lerp(end, 0.5),
+        isTitle: true,
+      }];
+      tickPositionPairs.push(start, end);
+      axisTickValues(axisConfiguration).forEach((value) => {
+        const coordinate = normalizedAxisValue(value, axisConfiguration);
+        const position = start.clone().lerp(end, (coordinate + 1) / 2);
+        tickPositionPairs.push(position, position.clone().add(tickOffset));
+        const element = createAxisAnnotationElement(
+          axisName,
+          Math.abs(value) >= 1e6 || (value !== 0 && Math.abs(value) < 0.001)
+            ? value.toExponential()
+            : String(value),
+          false,
+        );
+        element.dataset.axisValue = String(value);
+        labels.push({ element, position, isTitle: false });
+        if (axisName === "x") {
+          gridPositionPairs.push(corner(coordinate, -1, -1), corner(coordinate, 1, -1));
+        } else if (axisName === "y") {
+          gridPositionPairs.push(corner(-1, coordinate, -1), corner(1, coordinate, -1));
+        } else {
+          gridPositionPairs.push(
+            corner(-1, -1, coordinate), corner(-1, 1, coordinate),
+            corner(-1, 1, coordinate), corner(1, 1, coordinate),
+          );
+        }
+      });
+      axisAnnotations.push({ start, end, labels });
     });
+    staticAxesAndGridGroup.add(lineObjectFromPositionPairs(tickPositionPairs, 0x334155));
     const gridObject = lineObjectFromPositionPairs(gridPositionPairs, 0xd8dee6);
     gridObject.material.transparent = true;
     gridObject.material.opacity = 0.72;
     staticAxesAndGridGroup.add(gridObject);
-
-    const axes = activeThreeDimensionalScene.three_dimensional_axis_configuration;
-    axisLabelElements.x.textContent = axes.x_axis.title_text;
-    axisLabelElements.y.textContent = axes.y_axis.title_text;
-    axisLabelElements.z.textContent = axes.z_axis.title_text;
   }
 
   function splitCoordinateSequenceIntoSegments(xCoordinates, yCoordinates, zCoordinates) {
