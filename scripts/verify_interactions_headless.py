@@ -1,6 +1,7 @@
 """Frontier 3D three.js 端到端 headless 交互验证。"""
 from __future__ import annotations
 
+import json
 import math
 import sys
 from pathlib import Path
@@ -22,6 +23,428 @@ HTML_PATH = (
 
 def _camera_distance(left: list[float], right: list[float]) -> float:
     return math.sqrt(sum((a - b) ** 2 for a, b in zip(left, right)))
+
+
+COMPARABLE_ONLY_TOGGLE_SELECTOR = (
+    "#aa-model-identity-controls "
+    "#aa-show-only-current-intelligence-index-version-comparable-models-toggle"
+)
+METRIC_VARIANT_KEYS = (
+    "effective__effective",
+    "effective__raw",
+    "blended__effective",
+    "blended__raw",
+)
+
+
+def _wait_for_two_animation_frames(page) -> None:
+    page.evaluate(
+        "() => new Promise(resolve => "
+        "requestAnimationFrame(() => requestAnimationFrame(resolve)))"
+    )
+
+
+def _activate_metric_variant(page, metric_variant_key: str) -> None:
+    page.evaluate(
+        "key => window.setFrontierMetricCombination(...key.split('__'))",
+        metric_variant_key,
+    )
+    page.wait_for_function(
+        "expectedKey => window.frontierThreeDimensionalVisualizationState()"
+        ".activeMetricVariantKey === expectedKey",
+        arg=metric_variant_key,
+    )
+    _wait_for_two_animation_frames(page)
+
+
+def verify_historical_intelligence_index_version_points_and_comparable_only_toggle(
+    page, check
+) -> None:
+    """历史口径点（analysis_eligibility=false）：虚线样式、tooltip/pin 原因、开关隐藏且不可拾取。"""
+    check(
+        page.locator(COMPARABLE_ONLY_TOGGLE_SELECTOR).count() == 1,
+        "「仅当期可比」开关位于工具栏「模型标识」组",
+    )
+    check(
+        not page.locator(COMPARABLE_ONLY_TOGGLE_SELECTOR).is_checked(),
+        "「仅当期可比」默认关闭",
+    )
+    for metric_variant_key in METRIC_VARIANT_KEYS:
+        _activate_metric_variant(page, metric_variant_key)
+        expected_historical_model_names = page.evaluate(
+            """key => window.FRONTIER_3D_VISUALIZATION_DATASET.metric_variants[key]
+              .three_dimensional_scene.displayed_model_markers
+              .filter(model => model.analysis_eligibility
+                ?.is_analysis_eligible_for_current_metric_variant === false)
+              .map(model => model.name)""",
+            metric_variant_key,
+        )
+        state = page.evaluate("() => window.frontierThreeDimensionalVisualizationState()")
+        check(
+            state["historicalIntelligenceIndexVersionModelMarkerCount"]
+            == len(expected_historical_model_names),
+            f"{metric_variant_key} 历史口径点数与契约一致（{len(expected_historical_model_names)}）",
+        )
+        check(
+            state["visibleHistoricalIntelligenceIndexVersionModelMarkerCount"]
+            == len(expected_historical_model_names),
+            f"{metric_variant_key} 开关关闭时历史口径点照常显示",
+        )
+        check(
+            state["historicalIntelligenceIndexVersionStyledModelMarkerCount"]
+            == len(expected_historical_model_names)
+            and state["currentIntelligenceIndexVersionStyledModelMarkerCount"]
+            == state["displayedModelMarkerCount"] - len(expected_historical_model_names),
+            f"{metric_variant_key} 历史口径点全部用虚线底板 + 半透明 Logo，当期点全部用实心底板 + 不透明 Logo"
+            f"（历史样式 {state['historicalIntelligenceIndexVersionStyledModelMarkerCount']}，"
+            f"当期样式 {state['currentIntelligenceIndexVersionStyledModelMarkerCount']}）",
+        )
+        historical_markers_have_null_analysis_layer_in_contract = page.evaluate(
+            """() => {
+              const dataset = window.FRONTIER_3D_VISUALIZATION_DATASET;
+              const state = window.frontierThreeDimensionalVisualizationState();
+              const models = dataset.metric_variants[state.activeMetricVariantKey]
+                .three_dimensional_scene.displayed_model_markers;
+              return models.every(model =>
+                (model.analysis_eligibility?.is_analysis_eligible_for_current_metric_variant
+                  === false) === (model.panel?.layer === null)
+                || model.analysis_eligibility === undefined);
+            }"""
+        )
+        check(
+            historical_markers_have_null_analysis_layer_in_contract,
+            f"{metric_variant_key} 历史口径点在契约中不带分析层号",
+        )
+
+    _activate_metric_variant(page, "effective__effective")
+    default_variant_historical_model_names = page.evaluate(
+        """() => window.FRONTIER_3D_VISUALIZATION_DATASET
+          .metric_variants.effective__effective.three_dimensional_scene
+          .displayed_model_markers
+          .filter(model => model.analysis_eligibility
+            ?.is_analysis_eligible_for_current_metric_variant === false)
+          .map(model => model.name)"""
+    )
+    if default_variant_historical_model_names:
+        frontmost_historical_model = page.evaluate(
+            """historicalModelNames => {
+              const diagnostics = window.frontierThreeDimensionalRendererDiagnostics;
+              for (const modelName of historicalModelNames) {
+                const frontmost =
+                  diagnostics.frontmostPointerInteractionAtProjectedModelPosition(modelName);
+                if (frontmost?.frontmostModelName === modelName) {
+                  return {
+                    name: modelName,
+                    baseModelName: frontmost.frontmostBaseModelName,
+                    projectedPosition: frontmost.projectedCanvasPosition,
+                  };
+                }
+              }
+              return null;
+            }""",
+            default_variant_historical_model_names,
+        )
+        check(frontmost_historical_model is not None, "存在可直接悬停的历史口径点")
+        if frontmost_historical_model:
+            page.mouse.move(
+                frontmost_historical_model["projectedPosition"]["clientX"],
+                frontmost_historical_model["projectedPosition"]["clientY"],
+            )
+            page.wait_for_function(
+                "() => !document.querySelector('#aa-threejs-model-tooltip').hidden"
+            )
+            tooltip_text = page.locator("#aa-threejs-model-tooltip").inner_text()
+            check(
+                "不参与" in tooltip_text and "历史口径" in tooltip_text,
+                "真实鼠标悬停历史口径点时 tooltip 显示原因",
+            )
+            page.evaluate(
+                "baseModelName => window.pinFrontierBaseModel(baseModelName)",
+                frontmost_historical_model["baseModelName"],
+            )
+            check(
+                page.locator(
+                    "#aa-pinned-panel .aa-pinned-variant-card"
+                    ".is-historical-intelligence-index-version "
+                    ".aa-historical-intelligence-index-version-reason-note"
+                ).count()
+                > 0,
+                "pin 卡为历史口径档位显示原因",
+            )
+            page.evaluate(
+                "baseModelName => window.unpinFrontierBaseModel(baseModelName)",
+                frontmost_historical_model["baseModelName"],
+            )
+            # 真实点击工具栏会把指针移出画布（pointerleave 本身就会撤掉 tooltip），测不出
+            # 「隐藏悬停中的点时撤掉 tooltip」；这里让指针留在该点上，经 API 切换开关。
+            page.mouse.move(
+                frontmost_historical_model["projectedPosition"]["clientX"],
+                frontmost_historical_model["projectedPosition"]["clientY"],
+            )
+            page.wait_for_function(
+                "() => !document.querySelector('#aa-threejs-model-tooltip').hidden"
+            )
+            page.evaluate(
+                "() => window.setShowOnlyCurrentIntelligenceIndexVersionComparableModels(true)"
+            )
+            _wait_for_two_animation_frames(page)
+            state_after_toggle_without_pointer_move = page.evaluate(
+                "() => window.frontierThreeDimensionalVisualizationState()"
+            )
+            check(
+                page.locator("#aa-threejs-model-tooltip").is_hidden()
+                and state_after_toggle_without_pointer_move["hoveredLineageKey"] is None
+                and state_after_toggle_without_pointer_move["hoveredReasoningBaseModelName"] is None,
+                "指针仍停在历史口径点上时开启「仅当期可比」，tooltip 与悬停谱系一并撤掉",
+            )
+            page.evaluate(
+                "() => window.setShowOnlyCurrentIntelligenceIndexVersionComparableModels(false)"
+            )
+            page.mouse.move(1, 1)
+            page.evaluate("() => window.clearFrontierHoverState()")
+
+    verify_pinned_relationship_lines_never_dangle_at_hidden_model_markers(page, check)
+
+    page.locator(COMPARABLE_ONLY_TOGGLE_SELECTOR).check()
+    page.wait_for_function(
+        "() => window.frontierThreeDimensionalVisualizationState()"
+        ".showOnlyCurrentIntelligenceIndexVersionComparableModels"
+    )
+    _wait_for_two_animation_frames(page)
+    toggled_state = page.evaluate(
+        "() => window.frontierThreeDimensionalVisualizationState()"
+    )
+    check(
+        toggled_state["visibleHistoricalIntelligenceIndexVersionModelMarkerCount"] == 0,
+        "开启「仅当期可比」后可见历史口径点为 0",
+    )
+    check(
+        toggled_state["pickableHistoricalIntelligenceIndexVersionModelMarkerCount"] == 0,
+        "开启「仅当期可比」后可拾取历史口径点为 0",
+    )
+    check(
+        toggled_state["visibleModelMarkerCount"]
+        == toggled_state["displayedModelMarkerCount"]
+        - len(default_variant_historical_model_names),
+        "开启后只隐藏历史口径点",
+    )
+    check(
+        page.locator("#aa-threejs-model-tooltip").is_hidden(),
+        "隐藏悬停中的历史口径点时撤掉 tooltip",
+    )
+    raycast_hits_on_hidden_historical_points = page.evaluate(
+        """historicalModelNames => {
+          const diagnostics = window.frontierThreeDimensionalRendererDiagnostics;
+          const historicalNameSet = new Set(historicalModelNames);
+          return historicalModelNames.filter(modelName => {
+            const frontmost =
+              diagnostics.frontmostPointerInteractionAtProjectedModelPosition(modelName);
+            return frontmost && historicalNameSet.has(frontmost.frontmostModelName);
+          });
+        }""",
+        default_variant_historical_model_names,
+    )
+    check(
+        raycast_hits_on_hidden_historical_points == [],
+        "隐藏后在历史口径点投影位置做真实射线拾取不命中任何历史口径点",
+    )
+    _activate_metric_variant(page, "blended__effective")
+    check(
+        page.evaluate(
+            "() => { const state = window.frontierThreeDimensionalVisualizationState(); "
+            "return state.showOnlyCurrentIntelligenceIndexVersionComparableModels && "
+            "state.visibleHistoricalIntelligenceIndexVersionModelMarkerCount === 0 && "
+            "state.pickableHistoricalIntelligenceIndexVersionModelMarkerCount === 0; }"
+        ),
+        "切换口径后「仅当期可比」保持生效",
+    )
+    page.locator(COMPARABLE_ONLY_TOGGLE_SELECTOR).uncheck()
+    _activate_metric_variant(page, "effective__effective")
+    restored_state = page.evaluate(
+        "() => window.frontierThreeDimensionalVisualizationState()"
+    )
+    check(
+        restored_state["visibleHistoricalIntelligenceIndexVersionModelMarkerCount"]
+        == len(default_variant_historical_model_names),
+        "关闭「仅当期可比」后历史口径点恢复显示",
+    )
+
+
+DANGLING_RELATIONSHIP_LINE_ENDPOINT_SUMMARY_JAVASCRIPT = """() => {
+  const diagnostics = window.frontierThreeDimensionalRendererDiagnostics;
+  const lineEndpoints = diagnostics.transientRelationshipLineEndpointPositions();
+  const markers = diagnostics.displayedModelMarkerPositionsAndVisibility();
+  const ancestorPositions = diagnostics.displayedPrunedLineageAncestorMarkerPositions();
+  const positionKey = (position) => position.map((value) => value.toFixed(6)).join(',');
+  const anchoredPositionKeys = new Set([
+    ...markers.filter((marker) => marker.visible).map((marker) => positionKey(marker.position)),
+    ...ancestorPositions.map(positionKey),
+  ]);
+  const hiddenMarkerPositionKeys = new Set(
+    markers.filter((marker) => !marker.visible).map((marker) => positionKey(marker.position)),
+  );
+  const danglingEndpoints = [...lineEndpoints.lineage, ...lineEndpoints.reasoning]
+    .map(positionKey)
+    .filter((key) => hiddenMarkerPositionKeys.has(key) && !anchoredPositionKeys.has(key));
+  return {
+    lineageEndpointCount: lineEndpoints.lineage.length,
+    reasoningEndpointCount: lineEndpoints.reasoning.length,
+    danglingEndpointCount: danglingEndpoints.length,
+  };
+}"""
+
+
+def verify_pinned_relationship_lines_never_dangle_at_hidden_model_markers(page, check) -> None:
+    """R2-F1：开启「仅当期可比」后，pin 的推理档位/谱系连线只连可见标记，不留两端无点的悬空线。"""
+    _activate_metric_variant(page, "effective__effective")
+    base_model_names_by_historical_share = page.evaluate(
+        """() => {
+          const dataset = window.FRONTIER_3D_VISUALIZATION_DATASET.metric_variants.effective__effective;
+          const markers = dataset.three_dimensional_scene.displayed_model_markers;
+          const baseGroups = dataset.interaction_relationships.base_groups || {};
+          const isHistorical = (index) =>
+            markers[index].analysis_eligibility?.is_analysis_eligible_for_current_metric_variant === false;
+          const entries = Object.entries(baseGroups).filter(([, indices]) => indices.length >= 2);
+          return {
+            allHistorical: entries.filter(([, indices]) => indices.every(isHistorical)).map(([name]) => name),
+            mixed: entries.filter(([, indices]) =>
+              indices.some(isHistorical) && !indices.every(isHistorical)).map(([name]) => name),
+          };
+        }"""
+    )
+    scenario_base_model_names = (
+        base_model_names_by_historical_share["allHistorical"][:3]
+        + base_model_names_by_historical_share["mixed"][:3]
+    )
+    if not scenario_base_model_names:
+        print("  · 默认口径没有含历史口径档位的多档位基模型，跳过悬空连线检查")
+        return
+    for base_model_name in scenario_base_model_names:
+        page.evaluate("name => window.pinFrontierBaseModel(name)", base_model_name)
+    _wait_for_two_animation_frames(page)
+    before_toggle_summary = page.evaluate(DANGLING_RELATIONSHIP_LINE_ENDPOINT_SUMMARY_JAVASCRIPT)
+    check(
+        before_toggle_summary["reasoningEndpointCount"] > 0,
+        f"pin {len(scenario_base_model_names)} 个含历史口径档位的基模型后画出推理档位连线"
+        f"（端点 {before_toggle_summary['reasoningEndpointCount']}）",
+    )
+    page.evaluate("() => window.setShowOnlyCurrentIntelligenceIndexVersionComparableModels(true)")
+    _wait_for_two_animation_frames(page)
+    after_toggle_summary = page.evaluate(DANGLING_RELATIONSHIP_LINE_ENDPOINT_SUMMARY_JAVASCRIPT)
+    check(
+        after_toggle_summary["danglingEndpointCount"] == 0,
+        "开启「仅当期可比」后推理档位/谱系连线不再连到被隐藏的标记"
+        f"（悬空端点 {after_toggle_summary['danglingEndpointCount']}，"
+        f"推理端点 {before_toggle_summary['reasoningEndpointCount']}→{after_toggle_summary['reasoningEndpointCount']}，"
+        f"谱系端点 {before_toggle_summary['lineageEndpointCount']}→{after_toggle_summary['lineageEndpointCount']}）",
+    )
+    if base_model_names_by_historical_share["allHistorical"]:
+        page.locator("#aa-search-input").fill(base_model_names_by_historical_share["allHistorical"][0])
+        hidden_result_row = page.locator(
+            "#aa-search-results .aa-result-row",
+            has_text=base_model_names_by_historical_share["allHistorical"][0],
+        ).first
+        check(
+            "is-hidden-by-comparable-only-toggle" in (hidden_result_row.get_attribute("class") or ""),
+            "搜索结果把全部档位都被「仅当期可比」隐藏的基模型标为已隐藏",
+        )
+        page.locator("#aa-search-input").fill("")
+    page.evaluate("() => window.setShowOnlyCurrentIntelligenceIndexVersionComparableModels(false)")
+    _wait_for_two_animation_frames(page)
+    restored_summary = page.evaluate(DANGLING_RELATIONSHIP_LINE_ENDPOINT_SUMMARY_JAVASCRIPT)
+    check(
+        restored_summary["reasoningEndpointCount"] == before_toggle_summary["reasoningEndpointCount"],
+        "关闭「仅当期可比」后 pin 的推理档位连线随即恢复（开关会触发连线重绘）",
+    )
+    for base_model_name in scenario_base_model_names:
+        page.evaluate("name => window.unpinFrontierBaseModel(name)", base_model_name)
+
+
+def verify_pareto_frontier_surface_mesh_renders_with_finite_integer_indices(
+    page, check
+) -> None:
+    """P0-4 回归：实心面网格非空时，切到实心面必须新增三角形，且契约/几何索引全为有限整数。"""
+    for metric_variant_key in METRIC_VARIANT_KEYS:
+        _activate_metric_variant(page, metric_variant_key)
+        contract_mesh_summary = page.evaluate(
+            """key => {
+              const mesh = window.FRONTIER_3D_VISUALIZATION_DATASET.metric_variants[key]
+                .three_dimensional_scene.pareto_frontier_surface_triangle_mesh || {};
+              const coordinateFields = ['x_coordinates', 'y_coordinates', 'z_coordinates'];
+              const indexFields = ['triangle_vertex_index_a', 'triangle_vertex_index_b',
+                'triangle_vertex_index_c'];
+              const fields = [...coordinateFields, ...indexFields];
+              const isNonEmpty = fields.some(field =>
+                mesh[field] !== undefined && (!Array.isArray(mesh[field]) || mesh[field].length > 0));
+              const arraysAreArrays = fields.every(field => Array.isArray(mesh[field]));
+              const vertexCount = arraysAreArrays ? mesh.x_coordinates.length : 0;
+              return {
+                isNonEmpty,
+                vertexCount,
+                triangleCount: arraysAreArrays ? mesh.triangle_vertex_index_a.length : 0,
+                coordinatesAreFinite: arraysAreArrays && coordinateFields.every(field =>
+                  mesh[field].length === vertexCount &&
+                  mesh[field].every(value => typeof value === 'number' && Number.isFinite(value))),
+                indicesAreFiniteIntegersWithinRange: arraysAreArrays && indexFields.every(field =>
+                  mesh[field].length === mesh.triangle_vertex_index_a.length &&
+                  mesh[field].every(value =>
+                    Number.isInteger(value) && value >= 0 && value < vertexCount)),
+              };
+            }""",
+            metric_variant_key,
+        )
+        state = page.evaluate("() => window.frontierThreeDimensionalVisualizationState()")
+        check(
+            state["nonFiniteContractCoordinateCount"] == 0
+            and state["outOfRangeContractTriangleVertexIndexCount"] == 0
+            and state["skippedInvalidContractGeometryNames"] == [],
+            f"{metric_variant_key} 契约几何无非有限坐标/越界索引"
+            f"（nonFinite={state['nonFiniteContractCoordinateCount']}，"
+            f"跳过={state['skippedInvalidContractGeometryNames']}）",
+        )
+        if not contract_mesh_summary["isNonEmpty"]:
+            print(f"  · {metric_variant_key} 实心面为合法空网格，跳过三角形增量断言")
+            continue
+        check(
+            contract_mesh_summary["coordinatesAreFinite"]
+            and contract_mesh_summary["indicesAreFiniteIntegersWithinRange"]
+            and contract_mesh_summary["triangleCount"] > 0,
+            f"{metric_variant_key} 契约实心面坐标有限、索引为 [0,n) 内整数"
+            f"（{contract_mesh_summary['triangleCount']} 个三角形）",
+        )
+        page.evaluate("() => window.setParetoFrontierVisualizationStyle('wireframe')")
+        _wait_for_two_animation_frames(page)
+        wireframe_triangle_count = page.evaluate(
+            "() => window.frontierThreeDimensionalVisualizationState()"
+            ".renderedTriangleCountInLatestFrame"
+        )
+        page.evaluate("() => window.setParetoFrontierVisualizationStyle('solid')")
+        _wait_for_two_animation_frames(page)
+        solid_triangle_count = page.evaluate(
+            "() => window.frontierThreeDimensionalVisualizationState()"
+            ".renderedTriangleCountInLatestFrame"
+        )
+        surface_geometry_summary = page.evaluate(
+            "() => window.frontierThreeDimensionalRendererDiagnostics"
+            ".paretoFrontierSurfaceGeometrySummary()"
+        )
+        check(
+            solid_triangle_count > wireframe_triangle_count,
+            f"{metric_variant_key} 切到实心面后渲染三角形数增加"
+            f"（{wireframe_triangle_count} → {solid_triangle_count}）",
+        )
+        check(
+            surface_geometry_summary["visible"]
+            and surface_geometry_summary["triangleCount"]
+            == contract_mesh_summary["triangleCount"]
+            and surface_geometry_summary[
+                "allTriangleVertexIndicesAreFiniteIntegersWithinVertexRange"
+            ]
+            and surface_geometry_summary["allVertexPositionsAreFinite"],
+            f"{metric_variant_key} 实心面几何三角形数与契约一致且索引全为有限整数",
+        )
+    page.evaluate("() => window.setParetoFrontierVisualizationStyle('wireframe')")
+    _activate_metric_variant(page, "effective__effective")
 
 
 def main() -> int:
@@ -80,11 +503,28 @@ def main() -> int:
             == initial_state["organizationLogoMarkerCount"],
             "全部厂商 Logo 底板均写入深度缓冲",
         )
-        check(
-            initial_state["paretoFrontierSurfaceWritesDepth"] is True
-            and initial_state["achievableFrontierSurfaceWritesDepth"] is True,
-            "前沿曲面均写入深度缓冲",
+        # D-5 定案前保留 depthWrite 断言；实心面/可达面是合法空网格（Pareto<4 或共线）时对象不创建、值为 null
+        initial_contract_surface_triangle_counts = page.evaluate(
+            """() => {
+              const state = window.frontierThreeDimensionalVisualizationState();
+              const scene = window.FRONTIER_3D_VISUALIZATION_DATASET
+                .metric_variants[state.activeMetricVariantKey].three_dimensional_scene;
+              const triangleCount = (mesh) => (mesh?.triangle_vertex_index_a || []).length;
+              return {
+                pareto: triangleCount(scene.pareto_frontier_surface_triangle_mesh),
+                achievable: triangleCount(scene.achievable_frontier_surface_triangle_mesh),
+              };
+            }"""
         )
+        for surface_name, state_key in (
+            ("pareto", "paretoFrontierSurfaceWritesDepth"),
+            ("achievable", "achievableFrontierSurfaceWritesDepth"),
+        ):
+            if initial_contract_surface_triangle_counts[surface_name] > 0:
+                check(initial_state[state_key] is True, f"{surface_name} 前沿曲面写入深度缓冲")
+            else:
+                print(f"  · {surface_name} 前沿曲面为合法空网格，跳过 depthWrite 断言")
+                check(initial_state[state_key] is None, f"{surface_name} 合法空网格不创建曲面对象")
         check(
             initial_state["failedOrganizationLogoCanvasTextureCount"] == 0,
             "当前视图全部厂商 Logo 已解码为 CanvasTexture",
@@ -194,34 +634,121 @@ def main() -> int:
         )
         check(_camera_distance(camera_before_drag, camera_after_drag) > 0.05, "真实拖拽改变相机")
 
-        lineage_pick = page.evaluate(
+        # 复验风险 2：真实数据里「投影最孤立」的被剪枝前身仍可能被近邻标记遮挡（S2：o3 与 Claude
+        # Opus 4.6 只差约 9px，悬停命中后者而超时）。改为逐条谱系尝试：程序化 pin 该谱系的基模型让前身
+        # 显示，用与真实悬停相同的射线拾取（frontmost 命中校验）找出能被悬停真正命中的前身；
+        # 都找不到才失败，并打印每条谱系每个前身最前面命中的是谁。
+        lineage_pick_candidates = page.evaluate(
             """() => {
               const relationships = window.FRONTIER_3D_INTERACTION_RELATIONSHIPS;
               const diagnostics = window.frontierThreeDimensionalRendererDiagnostics;
+              const candidates = [];
+              const seenLineageKeys = new Set();
               for (const projectedModel of relationships.models) {
                 const frontmostInteraction =
                   diagnostics.frontmostPointerInteractionAtProjectedModelPosition(
                     projectedModel.name,
                   );
                 if (!frontmostInteraction) continue;
-                const lineage =
-                  relationships.lineages[frontmostInteraction.frontmostLineageKey];
-                const prunedAncestor = lineage?.find((node) => !node.kept);
-                if (lineage && lineage.length >= 2 && prunedAncestor) {
-                  const baseModelName = frontmostInteraction.frontmostBaseModelName;
-                  return {
-                    base: baseModelName,
-                    name: frontmostInteraction.frontmostModelName,
-                    lineageKey: frontmostInteraction.frontmostLineageKey,
-                    variants: relationships.base_groups[baseModelName].length,
-                    prunedAncestorName: prunedAncestor.name,
-                    projectedModelPosition:
-                      frontmostInteraction.projectedCanvasPosition,
-                  };
-                }
+                const lineageKey = frontmostInteraction.frontmostLineageKey;
+                if (seenLineageKeys.has(lineageKey)) continue;
+                const lineage = relationships.lineages[lineageKey];
+                if (!lineage || lineage.length < 2 || !lineage.some((node) => !node.kept)) continue;
+                seenLineageKeys.add(lineageKey);
+                const baseModelName = frontmostInteraction.frontmostBaseModelName;
+                candidates.push({
+                  base: baseModelName,
+                  name: frontmostInteraction.frontmostModelName,
+                  lineageKey,
+                  variants: relationships.base_groups[baseModelName].length,
+                  projectedModelPosition: frontmostInteraction.projectedCanvasPosition,
+                });
               }
-              return null;
+              return candidates;
             }"""
+        )
+        lineage_pick = None
+        frontmost_hit_check_diagnostics = []
+        for lineage_pick_candidate in lineage_pick_candidates:
+            page.evaluate(
+                "baseModelName => window.pinFrontierBaseModel(baseModelName)",
+                lineage_pick_candidate["base"],
+            )
+            _wait_for_two_animation_frames(page)
+            hoverable_pruned_ancestor_check = page.evaluate(
+                """lineageKey => {
+                  const relationships = window.FRONTIER_3D_INTERACTION_RELATIONSHIPS;
+                  const diagnostics = window.frontierThreeDimensionalRendererDiagnostics;
+                  const displayedModelPositions = relationships.models
+                    .map((model) => diagnostics.projectedCanvasPositionForModelName(model.name))
+                    .filter(Boolean);
+                  const prunedAncestorChecks = (relationships.lineages[lineageKey] || [])
+                    .filter((node) => !node.kept)
+                    .map((node) => ({
+                      name: node.name,
+                      frontmostCheck:
+                        diagnostics.frontmostPointerInteractionAtProjectedPrunedLineageAncestorPosition(
+                          node.name,
+                        ),
+                    }))
+                    .filter((candidate) => candidate.frontmostCheck);
+                  for (const candidate of prunedAncestorChecks) {
+                    const position = candidate.frontmostCheck.projectedCanvasPosition;
+                    candidate.nearestOtherDistance = Math.min(
+                      Infinity,
+                      ...prunedAncestorChecks
+                        .filter((other) => other.name !== candidate.name)
+                        .map((other) => other.frontmostCheck.projectedCanvasPosition)
+                        .concat(displayedModelPositions)
+                        .map((other) => Math.hypot(other.clientX - position.clientX, other.clientY - position.clientY)),
+                    );
+                  }
+                  // 同一谱系里优先取投影最孤立、且 frontmost 命中的正是它自己的前身
+                  prunedAncestorChecks.sort((left, right) => right.nearestOtherDistance - left.nearestOtherDistance);
+                  const hoverablePrunedAncestor = prunedAncestorChecks.find(
+                    (candidate) => candidate.frontmostCheck.frontmostInteractionTargetIsRequestedPrunedLineageAncestor,
+                  );
+                  return {
+                    hoverablePrunedAncestor: hoverablePrunedAncestor
+                      ? {
+                          name: hoverablePrunedAncestor.name,
+                          position: hoverablePrunedAncestor.frontmostCheck.projectedCanvasPosition,
+                          nearestOtherDistance: hoverablePrunedAncestor.nearestOtherDistance,
+                        }
+                      : null,
+                    occludedPrunedAncestors: prunedAncestorChecks
+                      .filter((candidate) => !candidate.frontmostCheck.frontmostInteractionTargetIsRequestedPrunedLineageAncestor)
+                      .map((candidate) => ({
+                        name: candidate.name,
+                        frontmostInteractionTargetName: candidate.frontmostCheck.frontmostInteractionTargetName,
+                        nearestOtherDistance: candidate.nearestOtherDistance,
+                      })),
+                  };
+                }""",
+                lineage_pick_candidate["lineageKey"],
+            )
+            page.evaluate(
+                "baseModelName => window.unpinFrontierBaseModel(baseModelName)",
+                lineage_pick_candidate["base"],
+            )
+            page.evaluate("() => window.clearFrontierHoverState()")
+            frontmost_hit_check_diagnostics.append(
+                {"lineageKey": lineage_pick_candidate["lineageKey"], **hoverable_pruned_ancestor_check}
+            )
+            if hoverable_pruned_ancestor_check["hoverablePrunedAncestor"] is not None:
+                lineage_pick = {
+                    **lineage_pick_candidate,
+                    "prunedAncestorName": hoverable_pruned_ancestor_check["hoverablePrunedAncestor"]["name"],
+                    "hoverablePrunedAncestor": hoverable_pruned_ancestor_check["hoverablePrunedAncestor"],
+                }
+                break
+        if lineage_pick is None:
+            print("    frontmost 命中校验诊断（每条谱系每个被剪枝前身最前面命中的是谁）：")
+            for frontmost_hit_check_diagnostic in frontmost_hit_check_diagnostics:
+                print(f"      {json.dumps(frontmost_hit_check_diagnostic, ensure_ascii=False)}")
+        check(
+            lineage_pick is not None,
+            f"逐条谱系做 frontmost 命中校验，找到能被悬停真正命中的被剪枝前身（尝试 {len(frontmost_hit_check_diagnostics)} 条谱系）",
         )
         assert lineage_pick is not None
         projected_model_position = lineage_pick["projectedModelPosition"]
@@ -280,12 +807,23 @@ def main() -> int:
             "pin 不重置相机",
         )
         check(page.locator("#aa-pinned-panel").is_visible(), "pin 详情卡在右栏可见")
-        projected_pruned_ancestor_position = page.evaluate(
-            "name => window.frontierThreeDimensionalRendererDiagnostics"
-            ".projectedCanvasPositionForPrunedLineageAncestorName(name)",
-            lineage_pick["prunedAncestorName"],
+        # 前身已在上面按 frontmost 命中校验选定（同谱系里投影最孤立且能被真正命中者）；pin 后再取一次
+        # 投影位置（相机未变，应与校验时一致）。
+        most_isolated_pruned_ancestor = {
+            **lineage_pick["hoverablePrunedAncestor"],
+            "position": page.evaluate(
+                "ancestorName => window.frontierThreeDimensionalRendererDiagnostics"
+                ".projectedCanvasPositionForPrunedLineageAncestorName(ancestorName)",
+                lineage_pick["prunedAncestorName"],
+            )
+            or lineage_pick["hoverablePrunedAncestor"]["position"],
+        }
+        print(
+            "    被剪枝前身取 frontmost 命中校验通过、投影最孤立者："
+            f"{most_isolated_pruned_ancestor['name']}"
+            f"（谱系 {lineage_pick['lineageKey']}，最近邻 {most_isolated_pruned_ancestor['nearestOtherDistance']:.1f}px）"
         )
-        assert projected_pruned_ancestor_position is not None
+        projected_pruned_ancestor_position = most_isolated_pruned_ancestor["position"]
         page.mouse.move(
             projected_pruned_ancestor_position["clientX"],
             projected_pruned_ancestor_position["clientY"],
@@ -413,8 +951,16 @@ def main() -> int:
             == 4,
             "智能权重更新为 4",
         )
+        # 默认口径的分析 Pareto 少于 2 个时（例：API 升 family、目录分区被拒，有效速度口径全是历史口径点），
+        # 排行最多 1 行，权重无从重排；这是合法的数据状态（页头另有告警），不是交互缺陷
+        frontier_model_count_for_weighted_ranking = len(weighted_ranking_before["ranking"])
+        if frontier_model_count_for_weighted_ranking < 2:
+            print(
+                f"  - 跳过「权重变化会重排前沿模型」：当前口径前沿模型 {frontier_model_count_for_weighted_ranking} 个，无从重排"
+            )
         check(
-            [row["name"] for row in weighted_ranking_before["ranking"]]
+            frontier_model_count_for_weighted_ranking < 2
+            or [row["name"] for row in weighted_ranking_before["ranking"]]
             != [row["name"] for row in weighted_ranking_after["ranking"]],
             "权重变化会重排前沿模型",
         )
@@ -428,6 +974,16 @@ def main() -> int:
             )
             < 1e-8,
             "突出度与权重操作不重置相机",
+        )
+
+        print("\n[8] 历史口径点样式、原因文案与「仅当期可比」开关（W1-6）")
+        verify_historical_intelligence_index_version_points_and_comparable_only_toggle(
+            page, check
+        )
+
+        print("\n[9] 实心面网格与契约数值（W1-10 阻断断言）")
+        verify_pareto_frontier_surface_mesh_renders_with_finite_integer_indices(
+            page, check
         )
 
         print("\n[7] 侧栏、自包含与运行时健康")

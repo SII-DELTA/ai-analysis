@@ -1,6 +1,15 @@
-"""Frontier 3D three.js 公共数据契约与厂商身份行为验证。"""
+"""Frontier 3D three.js 公共数据契约与厂商身份行为验证。
+
+用法：
+    python scripts/verify_frontier_3d_threejs_public_contract.py [<frontier_3d.html>]
+- 总是验证：厂商身份注册表，以及由合成模型表构建的契约；
+- 给出 HTML 路径时，另外从 HTML 中取出内嵌的数据契约，验证契约校验（有限数坐标、索引范围等）、
+  每个显示点都带 `value_provenance` 与 `analysis_eligibility`，以及各口径历史口径点计数与 marker 一致。
+"""
 from __future__ import annotations
 
+import json
+import re
 import sys
 from pathlib import Path
 
@@ -40,6 +49,76 @@ def _synthetic_models_with_chinese_united_states_and_other_creators() -> pd.Data
         dataframe["cost_to_run"] / 2.0
     )
     return dataframe
+
+
+FRONTIER_3D_EMBEDDED_VISUALIZATION_DATASET_SCRIPT_TAG_PATTERN = re.compile(
+    r'<script id="frontier-3d-visualization-dataset-json" type="application/json">(.*?)</script>',
+    re.DOTALL,
+)
+DISPLAYED_MODEL_MARKER_VALUE_PROVENANCE_REQUIRED_KEYS = (
+    "cost_to_run_value_source",
+    "cost_to_run_value_intelligence_index_version",
+    "cost_to_run_value_fetched_at_utc",
+    "output_token_count_value_source",
+    "output_token_count_value_intelligence_index_version",
+    "output_token_count_value_fetched_at_utc",
+    "blended_price_cache_hit_price_source",
+)
+
+
+def verify_frontier_3d_visualization_dataset_embedded_in_rendered_html(
+    rendered_frontier_3d_html_path: Path,
+) -> None:
+    """验证渲染产物里内嵌的真实数据契约（不是合成契约）。"""
+    rendered_html_text = rendered_frontier_3d_html_path.read_text(encoding="utf-8")
+    embedded_dataset_matches = FRONTIER_3D_EMBEDDED_VISUALIZATION_DATASET_SCRIPT_TAG_PATTERN.findall(
+        rendered_html_text
+    )
+    assert len(embedded_dataset_matches) == 1, "HTML 中应恰有一段内嵌数据契约"
+    embedded_dataset = json.loads(embedded_dataset_matches[0])
+    validate_frontier_3d_visualization_dataset(embedded_dataset)
+    assert "artificial_analysis_data_provenance" in embedded_dataset
+    for variant_key, variant in embedded_dataset["metric_variants"].items():
+        displayed_model_markers = variant["three_dimensional_scene"]["displayed_model_markers"]
+        for displayed_model_marker in displayed_model_markers:
+            value_provenance = displayed_model_marker.get("value_provenance")
+            assert isinstance(value_provenance, dict), (
+                f"{variant_key}：{displayed_model_marker['name']} 缺 value_provenance"
+            )
+            missing_value_provenance_keys = [
+                required_key
+                for required_key in DISPLAYED_MODEL_MARKER_VALUE_PROVENANCE_REQUIRED_KEYS
+                if required_key not in value_provenance
+            ]
+            assert not missing_value_provenance_keys, (
+                f"{variant_key}：{displayed_model_marker['name']} 的 value_provenance 缺 "
+                f"{missing_value_provenance_keys}"
+            )
+            assert isinstance(displayed_model_marker.get("analysis_eligibility"), dict), (
+                f"{variant_key}：{displayed_model_marker['name']} 缺 analysis_eligibility"
+            )
+        historical_version_marker_count = sum(
+            displayed_model_marker["analysis_eligibility"][
+                "is_analysis_eligible_for_current_metric_variant"
+            ]
+            is False
+            for displayed_model_marker in displayed_model_markers
+        )
+        assert historical_version_marker_count == variant["historical_version_value_model_count"], (
+            f"{variant_key}：历史口径 marker 数 {historical_version_marker_count} 与契约计数 "
+            f"{variant['historical_version_value_model_count']} 不一致"
+        )
+        pareto_surface_triangle_count = len(
+            variant["three_dimensional_scene"]["pareto_frontier_surface_triangle_mesh"][
+                "triangle_vertex_index_a"
+            ]
+        )
+        print(
+            f"    {variant_key}：显示 {len(displayed_model_markers)}、分析 Pareto "
+            f"{variant['pareto_model_count']}、历史口径 {historical_version_marker_count}、"
+            f"实心面三角形 {pareto_surface_triangle_count}"
+        )
+    print(f"✅ 内嵌数据契约验证通过：{rendered_frontier_3d_html_path}")
 
 
 def main() -> None:
@@ -138,6 +217,9 @@ def main() -> None:
     assert len(static_export_figure.data) > 0
 
     print("✅ Frontier 3D three.js 公共数据契约验证通过")
+
+    if len(sys.argv) > 1:
+        verify_frontier_3d_visualization_dataset_embedded_in_rendered_html(Path(sys.argv[1]))
 
 
 if __name__ == "__main__":

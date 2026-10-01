@@ -1,0 +1,4 @@
+# three.js 交互渲染器 bundle 由 scripts/build_frontier_3d_threejs_interactive_renderer.mjs 生成：
+# 不做文本 diff（约 780KB 的压缩代码），并在 GitHub 语言统计与 PR diff 中标为生成文件。
+# 一致性由 `node scripts/build_frontier_3d_threejs_interactive_renderer.mjs --check` 保证。
+src/frontier_3d_interactive_report_assets/frontier_3d_threejs_interactive_renderer_bundle.js -diff linguist-generated

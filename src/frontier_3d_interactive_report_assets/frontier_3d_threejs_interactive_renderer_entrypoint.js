@@ -37,6 +37,31 @@ import {
     throw new Error("Frontier 3D report document is incomplete");
   }
 
+  const reportHeader = document.getElementById("frontier-3d-report-header");
+
+  // 契约顶层数据来源（W1-8 起提供）；旧契约缺该字段时页头降级为「抓取时间未知」等文案，不报错。
+  const artificialAnalysisDataProvenance =
+    visualizationDataset.artificial_analysis_data_provenance || {};
+  // 署名链接固定指向 AA 首页，不取契约中的 URL，避免契约字符串变成可点击的任意链接。
+  const ARTIFICIAL_ANALYSIS_ATTRIBUTION_URL = "https://artificialanalysis.ai/";
+  const HISTORICAL_INTELLIGENCE_INDEX_VERSION_FALLBACK_REASON_TEXT =
+    "历史口径（非当期智能指数版本的成本/冗长度），不参与本口径前沿计算";
+
+  function renderedDocumentMetaContent(metaName) {
+    const metaElement = document.querySelector(`meta[name="${metaName}"]`);
+    return metaElement ? metaElement.getAttribute("content") || "" : "";
+  }
+
+  // 渲染器写入的产物指纹（W0-5），用于在「当前视图」中核对 HTML 由哪个 bundle/提交生成。
+  const frontierReportArtifactFingerprint = {
+    rendererBundleSha256:
+      renderedDocumentMetaContent("frontier-3d-renderer-bundle-sha256") || "unknown",
+    generatorGitCommit:
+      renderedDocumentMetaContent("frontier-3d-generator-git-commit") || "unknown",
+    renderedAtUtc:
+      renderedDocumentMetaContent("frontier-3d-rendered-at-utc") || "unknown",
+  };
+
   window.FRONTIER_3D_VISUALIZATION_DATASET = visualizationDataset;
   window.THREE = THREE;
 
@@ -103,6 +128,12 @@ import {
   let transientReasoningVariantLineObject = null;
 
   let countryRegionMarkerVisible = false;
+  // 「仅当期可比」：开启时隐藏历史口径点（W1-6 / D-1），隐藏的点也不可拾取；跨口径切换时保持。
+  let showOnlyCurrentIntelligenceIndexVersionComparableModels = false;
+  // 当前口径载入时统计的契约数值问题（W1-10 前端兜底）：非有限坐标/索引、越界索引与因此未建的几何。
+  let nonFiniteContractCoordinateCount = 0;
+  let outOfRangeContractTriangleVertexIndexCount = 0;
+  let skippedInvalidContractGeometryNames = [];
   let frontierStyle = "wireframe";
   let achievableFrontierSurfaceVisible = false;
   let sidePanelExpanded = true;
@@ -121,6 +152,10 @@ import {
   let costMetricSelect;
   let speedMetricSelect;
   let countryRegionMarkerToggle;
+  let currentIntelligenceIndexVersionComparableOnlyToggle;
+  let reportHeaderModelCountSummary;
+  let howToReadDrawerToggleButton;
+  let howToReadDrawer;
   let achievableFrontierSurfaceToggle;
   let frontierStyleButtons = [];
   let organizationFilterPanel;
@@ -417,7 +452,46 @@ import {
     staticAxesAndGridGroup.add(gridObject);
   }
 
-  function splitCoordinateSequenceIntoSegments(xCoordinates, yCoordinates, zCoordinates) {
+  function isFiniteContractNumber(value) {
+    return typeof value === "number" && Number.isFinite(value);
+  }
+
+  // 契约数组字段不是数组时（例如 Plotly 的 {"dtype","bdata"} 对象）按「1 个非有限值、0 个元素」计。
+  function contractArrayFieldOrEmpty(contractObject, fieldName, invalidValueCounter) {
+    const fieldValue = contractObject ? contractObject[fieldName] : undefined;
+    if (Array.isArray(fieldValue)) return fieldValue;
+    if (fieldValue !== undefined && fieldValue !== null) invalidValueCounter.nonFiniteValueCount += 1;
+    return [];
+  }
+
+  function recordSkippedInvalidContractGeometry(geometryName, invalidValueCounter) {
+    nonFiniteContractCoordinateCount += invalidValueCounter.nonFiniteValueCount;
+    outOfRangeContractTriangleVertexIndexCount += invalidValueCounter.outOfRangeIndexCount;
+    skippedInvalidContractGeometryNames.push(geometryName);
+    console.warn(
+      `Frontier 3D 契约几何 ${geometryName} 含非有限坐标/索引或结构不一致，已跳过绘制`,
+      invalidValueCounter,
+    );
+  }
+
+  function splitCoordinateSequenceIntoSegments(lineSegmentsContract, geometryName) {
+    const invalidValueCounter = { nonFiniteValueCount: 0, outOfRangeIndexCount: 0 };
+    const coordinateSequences = ["x_coordinates", "y_coordinates", "z_coordinates"].map(
+      (fieldName) => contractArrayFieldOrEmpty(lineSegmentsContract, fieldName, invalidValueCounter),
+    );
+    const [xCoordinates, yCoordinates, zCoordinates] = coordinateSequences;
+    const lengthsMatch = xCoordinates.length === yCoordinates.length &&
+      xCoordinates.length === zCoordinates.length;
+    // null/undefined 是断线分隔符；其余非有限值（字符串、NaN）让整条线框作废，而不是被悄悄当作断点。
+    coordinateSequences.forEach((sequence) => sequence.forEach((coordinate) => {
+      if (coordinate !== null && coordinate !== undefined && !isFiniteContractNumber(coordinate)) {
+        invalidValueCounter.nonFiniteValueCount += 1;
+      }
+    }));
+    if (!lengthsMatch || invalidValueCounter.nonFiniteValueCount) {
+      recordSkippedInvalidContractGeometry(geometryName, invalidValueCounter);
+      return [];
+    }
     const positionPairs = [];
     let previousPosition = null;
     for (let index = 0; index < xCoordinates.length; index += 1) {
@@ -433,21 +507,57 @@ import {
     return positionPairs;
   }
 
-  function triangleMeshObject(meshContract, materialOptions) {
-    if (!meshContract || !meshContract.x_coordinates.length) return null;
-    const positions = meshContract.x_coordinates.flatMap((xCoordinate, index) =>
+  function triangleMeshObject(meshContract, materialOptions, geometryName) {
+    const invalidValueCounter = { nonFiniteValueCount: 0, outOfRangeIndexCount: 0 };
+    const [xCoordinates, yCoordinates, zCoordinates] = [
+      "x_coordinates", "y_coordinates", "z_coordinates",
+    ].map((fieldName) => contractArrayFieldOrEmpty(meshContract, fieldName, invalidValueCounter));
+    const triangleVertexIndexSequences = [
+      "triangle_vertex_index_a", "triangle_vertex_index_b", "triangle_vertex_index_c",
+    ].map((fieldName) => contractArrayFieldOrEmpty(meshContract, fieldName, invalidValueCounter));
+    const vertexCount = xCoordinates.length;
+    const triangleCount = triangleVertexIndexSequences[0].length;
+    // 坐标字段本身不是数组（如旧契约的 bdata 对象）时顶点数无从得知：只记那 1 次结构错误，
+    // 不把全部索引都算成「越界」，免得诊断计数误导排查（R2-F10）。
+    const everyCoordinateFieldIsArray = ["x_coordinates", "y_coordinates", "z_coordinates"].every(
+      (fieldName) => Array.isArray(meshContract?.[fieldName]),
+    );
+    [xCoordinates, yCoordinates, zCoordinates].forEach((sequence) => sequence.forEach((coordinate) => {
+      if (!isFiniteContractNumber(coordinate)) invalidValueCounter.nonFiniteValueCount += 1;
+    }));
+    triangleVertexIndexSequences.forEach((sequence) => sequence.forEach((vertexIndex) => {
+      if (!isFiniteContractNumber(vertexIndex) || !Number.isInteger(vertexIndex)) {
+        invalidValueCounter.nonFiniteValueCount += 1;
+      } else if (everyCoordinateFieldIsArray && (vertexIndex < 0 || vertexIndex >= vertexCount)) {
+        invalidValueCounter.outOfRangeIndexCount += 1;
+      }
+    }));
+    const structureIsConsistent =
+      yCoordinates.length === vertexCount && zCoordinates.length === vertexCount &&
+      triangleVertexIndexSequences.every((sequence) => sequence.length === triangleCount);
+    if (
+      !structureIsConsistent ||
+      invalidValueCounter.nonFiniteValueCount ||
+      invalidValueCounter.outOfRangeIndexCount
+    ) {
+      recordSkippedInvalidContractGeometry(geometryName, invalidValueCounter);
+      return null;
+    }
+    // Pareto 点不足或投影共线时契约给出合法的空网格：不建对象，也不计为错误。
+    if (!vertexCount || !triangleCount) return null;
+    const positions = xCoordinates.flatMap((xCoordinate, index) =>
       normalizedThreeDimensionalPosition(
         xCoordinate,
-        meshContract.y_coordinates[index],
-        meshContract.z_coordinates[index],
+        yCoordinates[index],
+        zCoordinates[index],
       ).toArray(),
     );
     const triangleIndices = [];
-    for (let triangleIndex = 0; triangleIndex < meshContract.triangle_vertex_index_a.length; triangleIndex += 1) {
+    for (let triangleIndex = 0; triangleIndex < triangleCount; triangleIndex += 1) {
       triangleIndices.push(
-        meshContract.triangle_vertex_index_a[triangleIndex],
-        meshContract.triangle_vertex_index_b[triangleIndex],
-        meshContract.triangle_vertex_index_c[triangleIndex],
+        triangleVertexIndexSequences[0][triangleIndex],
+        triangleVertexIndexSequences[1][triangleIndex],
+        triangleVertexIndexSequences[2][triangleIndex],
       );
     }
     const geometry = new THREE.BufferGeometry();
@@ -466,12 +576,9 @@ import {
 
   function buildFrontierGeometry() {
     clearThreeObjectGroup(frontierGeometryGroup);
-    const wireframeContract =
-      activeThreeDimensionalScene.pareto_frontier_wireframe_line_segments;
     const wireframePositionPairs = splitCoordinateSequenceIntoSegments(
-      wireframeContract.x_coordinates,
-      wireframeContract.y_coordinates,
-      wireframeContract.z_coordinates,
+      activeThreeDimensionalScene.pareto_frontier_wireframe_line_segments,
+      "pareto_frontier_wireframe_line_segments",
     );
     frontierWireframeObject = wireframePositionPairs.length
       ? lineObjectFromPositionPairs(wireframePositionPairs, 0x245c9a, 2)
@@ -481,12 +588,14 @@ import {
     frontierSurfaceObject = triangleMeshObject(
       activeThreeDimensionalScene.pareto_frontier_surface_triangle_mesh,
       { color: 0x3182bd, opacity: 0.25 },
+      "pareto_frontier_surface_triangle_mesh",
     );
     if (frontierSurfaceObject) frontierGeometryGroup.add(frontierSurfaceObject);
 
     achievableFrontierSurfaceObject = triangleMeshObject(
       activeThreeDimensionalScene.achievable_frontier_surface_triangle_mesh,
       { color: 0x31a354, opacity: 0.2 },
+      "achievable_frontier_surface_triangle_mesh",
     );
     if (achievableFrontierSurfaceObject) {
       frontierGeometryGroup.add(achievableFrontierSurfaceObject);
@@ -520,6 +629,20 @@ import {
     context.strokeStyle = "rgba(71,85,105,0.45)";
     context.stroke();
   });
+  // 历史口径点（D-1）：半透明浅灰底板 + 虚线描边，与当期白底板一眼可分，Logo 另用低不透明度材质。
+  const historicalIntelligenceIndexVersionLogoBackplateTexture = canvasTextureFromDrawing(
+    (context) => {
+      roundedRectanglePath(context, 10, 10, 108, 108, 24);
+      context.fillStyle = "rgba(241,245,249,0.62)";
+      context.fill();
+      context.setLineDash([14, 9]);
+      context.lineWidth = 6;
+      context.strokeStyle = "rgba(71,85,105,0.9)";
+      context.stroke();
+    },
+  );
+  // EXPERIMENT_NODE: 历史口径点 Logo 的不透明度（0.42）与虚线底板样式，待与用户对比 0.3/0.5 两档后定。
+  const HISTORICAL_INTELLIGENCE_INDEX_VERSION_LOGO_OPACITY = 0.42;
   const paretoRingTexture = canvasTextureFromDrawing((context) => {
     context.beginPath();
     context.arc(64, 64, 53, 0, Math.PI * 2);
@@ -597,6 +720,11 @@ import {
   const whiteLogoBackplateMaterial = spriteMaterial(whiteLogoBackplateTexture, {
     depthWrite: true,
   });
+  // 与白底板保持相同的深度写入（D-5 定案前不改遮挡语义），只改外观。
+  const historicalIntelligenceIndexVersionLogoBackplateMaterial = spriteMaterial(
+    historicalIntelligenceIndexVersionLogoBackplateTexture,
+    { depthWrite: true },
+  );
   const paretoRingMaterial = spriteMaterial(paretoRingTexture);
   const pinnedRingMaterial = spriteMaterial(pinnedRingTexture);
   const prunedLineageAncestorMaterial = spriteMaterial(
@@ -607,6 +735,7 @@ import {
   );
   [
     whiteLogoBackplateMaterial,
+    historicalIntelligenceIndexVersionLogoBackplateMaterial,
     paretoRingMaterial,
     pinnedRingMaterial,
     prunedLineageAncestorMaterial,
@@ -627,6 +756,48 @@ import {
 
   function currentOrganizationVisibility(creatorName) {
     return !hiddenOrganizationCreatorNames.has(creatorName);
+  }
+
+  // 旧契约没有 analysis_eligibility 字段时一律按「参与分析」处理（W1-6 降级约定）。
+  function modelIsAnalysisEligibleForActiveMetricVariant(model) {
+    return model?.analysis_eligibility?.is_analysis_eligible_for_current_metric_variant !== false;
+  }
+
+  function historicalIntelligenceIndexVersionReasonText(model) {
+    return (
+      model?.analysis_eligibility?.ineligibility_reason_text ||
+      HISTORICAL_INTELLIGENCE_INDEX_VERSION_FALLBACK_REASON_TEXT
+    );
+  }
+
+  function modelMarkerIsCurrentlyVisible(modelIndex) {
+    const model = displayedModelMarkers[modelIndex];
+    const visualObjects = modelVisualObjectsByModelIndex[modelIndex];
+    if (!model || !visualObjects || visualObjects.hasNonFiniteContractCoordinate) return false;
+    if (!currentOrganizationVisibility(model.creator)) return false;
+    return !(
+      showOnlyCurrentIntelligenceIndexVersionComparableModels &&
+      !modelIsAnalysisEligibleForActiveMetricVariant(model)
+    );
+  }
+
+  // 历史口径点复用同一张 Logo 纹理（共享加载状态），只换一份低不透明度材质。
+  const historicalIntelligenceIndexVersionLogoMaterialsByCreatorName = {};
+
+  function historicalIntelligenceIndexVersionLogoMaterialForCreatorName(
+    creatorName,
+    currentVersionLogoMaterial,
+  ) {
+    let historicalLogoMaterial =
+      historicalIntelligenceIndexVersionLogoMaterialsByCreatorName[creatorName];
+    if (!historicalLogoMaterial) {
+      historicalLogoMaterial = currentVersionLogoMaterial.clone();
+      historicalLogoMaterial.opacity = HISTORICAL_INTELLIGENCE_INDEX_VERSION_LOGO_OPACITY;
+      historicalLogoMaterial.userData = { sharedMaterial: true };
+      historicalIntelligenceIndexVersionLogoMaterialsByCreatorName[creatorName] =
+        historicalLogoMaterial;
+    }
+    return historicalLogoMaterial;
   }
 
   function organizationLogoMaterialForCreatorName(creatorName, identity) {
@@ -673,10 +844,20 @@ import {
     clickableOrganizationLogoSprites = [];
     pointerInteractiveModelMarkerSprites = [];
     displayedModelMarkers.forEach((model, modelIndex) => {
-      const position = normalizedThreeDimensionalPosition(model.x, model.y, model.z);
+      // 坐标非有限的模型仍建占位 sprite（保持下标对齐），但永不显示、不可拾取，并计入状态。
+      const nonFiniteMarkerCoordinateCount = [model.x, model.y, model.z].filter(
+        (coordinate) => !isFiniteContractNumber(coordinate),
+      ).length;
+      nonFiniteContractCoordinateCount += nonFiniteMarkerCoordinateCount;
+      const position = nonFiniteMarkerCoordinateCount
+        ? new THREE.Vector3()
+        : normalizedThreeDimensionalPosition(model.x, model.y, model.z);
       const identity = organizationIdentityMetadataByCreatorName[model.creator];
+      const isAnalysisEligible = modelIsAnalysisEligibleForActiveMetricVariant(model);
       const backplateSprite = addSharedMaterialSprite(
-        whiteLogoBackplateMaterial,
+        isAnalysisEligible
+          ? whiteLogoBackplateMaterial
+          : historicalIntelligenceIndexVersionLogoBackplateMaterial,
         position,
         0.145,
         30,
@@ -698,7 +879,17 @@ import {
         );
         organizationLogoMaterialsByCreatorName[model.creator] = logoMaterial;
       }
-      const logoSprite = addSharedMaterialSprite(logoMaterial, position, 0.11, 40);
+      const logoSprite = addSharedMaterialSprite(
+        isAnalysisEligible
+          ? logoMaterial
+          : historicalIntelligenceIndexVersionLogoMaterialForCreatorName(
+            model.creator,
+            logoMaterial,
+          ),
+        position,
+        0.11,
+        40,
+      );
       [backplateSprite, countryRegionSprite, logoSprite].forEach((markerSprite) => {
         markerSprite.userData.modelIndex = modelIndex;
         markerSprite.userData.interactionTargetKind = "displayed_model";
@@ -727,6 +918,8 @@ import {
 
       modelVisualObjectsByModelIndex.push({
         creatorName: model.creator,
+        isAnalysisEligible,
+        hasNonFiniteContractCoordinate: nonFiniteMarkerCoordinateCount > 0,
         logoSprite,
         backplateSprite,
         countryRegionSprite,
@@ -739,20 +932,39 @@ import {
     applyStandoutVisualEncoding();
   }
 
+  // 厂商筛选、「仅当期可比」与非有限坐标共同决定标记可见性；不可见的 sprite 同时退出拾取。
   function applyOrganizationVisibilityToModelMarkers() {
     modelVisualObjectsByModelIndex.forEach((visualObjects, modelIndex) => {
       const model = displayedModelMarkers[modelIndex];
-      const organizationVisible = currentOrganizationVisibility(model.creator);
-      visualObjects.logoSprite.visible = organizationVisible;
-      visualObjects.backplateSprite.visible = organizationVisible;
+      const markerVisible = modelMarkerIsCurrentlyVisible(modelIndex);
+      visualObjects.logoSprite.visible = markerVisible;
+      visualObjects.backplateSprite.visible = markerVisible;
       visualObjects.countryRegionSprite.visible =
-        organizationVisible && countryRegionMarkerVisible;
+        markerVisible && countryRegionMarkerVisible;
       visualObjects.paretoRingSprite.visible =
-        organizationVisible && model.panel.layer === 1;
+        markerVisible && model.panel?.layer === 1;
       visualObjects.pinnedRingSprite.visible =
-        organizationVisible && pinnedBaseModelNames.has(model.base_model_name);
+        markerVisible && pinnedBaseModelNames.has(model.base_model_name);
     });
+    renderReportHeaderModelCountSummary();
+    // 可见性变了，pin/悬停的连线、搜索结果的「已隐藏」标注都要跟着重算
+    redrawHoveredAndPinnedRelationships();
+    renderSearchResults();
     requestThreeDimensionalSceneRender();
+  }
+
+  function setShowOnlyCurrentIntelligenceIndexVersionComparableModels(nextValue) {
+    showOnlyCurrentIntelligenceIndexVersionComparableModels = Boolean(nextValue);
+    if (currentIntelligenceIndexVersionComparableOnlyToggle) {
+      currentIntelligenceIndexVersionComparableOnlyToggle.checked =
+        showOnlyCurrentIntelligenceIndexVersionComparableModels;
+    }
+    // 正在悬停的点被隐藏时同时撤掉 tooltip 与谱系，避免残留指向不可见点的状态。
+    if (hoveredModelIndex !== null && !modelMarkerIsCurrentlyVisible(hoveredModelIndex)) {
+      setHoveredModelIndex(null);
+    }
+    applyOrganizationVisibilityToModelMarkers();
+    return Promise.resolve(showOnlyCurrentIntelligenceIndexVersionComparableModels);
   }
 
   function setCountryRegionMarkerVisible(nextVisible) {
@@ -813,6 +1025,14 @@ import {
     orbitControls.update();
   }
 
+  // 谱系节点是否可作为连线端点：被剪枝的前身总会画出自己的标记；已上图（kept）的节点要求其标记当前可见
+  // （「仅当期可比」、厂商筛选、非有限坐标都会隐藏标记）。不可见的 kept 节点当作断点，不跨过它连线。
+  function lineageNodeMarkerIsCurrentlyDrawn(lineageNode) {
+    if (!lineageNode.kept) return true;
+    const modelIndex = modelIndexByModelName[lineageNode.name];
+    return modelIndex !== undefined && modelMarkerIsCurrentlyVisible(modelIndex);
+  }
+
   function redrawHoveredAndPinnedRelationships() {
     clearThreeObjectGroup(transientRelationshipGroup);
     clickablePrunedLineageAncestorSprites = [];
@@ -855,6 +1075,12 @@ import {
       for (let index = 1; index < nodes.length; index += 1) {
         const previousNode = nodes[index - 1];
         const currentNode = nodes[index];
+        if (
+          !lineageNodeMarkerIsCurrentlyDrawn(previousNode) ||
+          !lineageNodeMarkerIsCurrentlyDrawn(currentNode)
+        ) {
+          continue;
+        }
         lineagePositionPairs.push(
           normalizedThreeDimensionalPosition(previousNode.x, previousNode.y, previousNode.z),
           normalizedThreeDimensionalPosition(currentNode.x, currentNode.y, currentNode.z),
@@ -881,6 +1107,13 @@ import {
         baseGroupsByBaseModelName[baseModelName] ||
         [];
       for (let index = 1; index < modelIndices.length; index += 1) {
+        // 相邻两档都可见才连线：被隐藏（或坐标非有限）的档位不留两端无点的悬空线段
+        if (
+          !modelMarkerIsCurrentlyVisible(modelIndices[index - 1]) ||
+          !modelMarkerIsCurrentlyVisible(modelIndices[index])
+        ) {
+          continue;
+        }
         const previousModel = displayedModelMarkers[modelIndices[index - 1]];
         const currentModel = displayedModelMarkers[modelIndices[index]];
         reasoningPositionPairs.push(
@@ -909,15 +1142,24 @@ import {
       unclassified: "未分类",
     }[identity.country_region_category];
     const panel = model.panel;
-    return [
+    const isAnalysisEligible = modelIsAnalysisEligibleForActiveMetricVariant(model);
+    const tooltipLines = [
       `<strong>${escapeHtml(model.name)}</strong>`,
       `${escapeHtml(model.creator)} · ${countryCategoryLabel}`,
       `发布：${escapeHtml(panel.release_date)}`,
       `智能：${formatNumber(panel.intelligence, 1)}`,
       `${escapeHtml(activeInteractionRelationships.speed_axis_label)}：${formatNumber(panel[activeInteractionRelationships.speed_axis_field], 0)} tok/s`,
       `${escapeHtml(activeInteractionRelationships.cost_axis_label)}：$${formatNumber(panel[activeInteractionRelationships.cost_axis_field], 2)}`,
-      `Pareto 层：${formatNumber(panel.layer, 0)}`,
-    ].join("<br>");
+      isAnalysisEligible
+        ? `Pareto 层：${formatNumber(panel.layer, 0)}`
+        : "Pareto 层：不参与（历史口径）",
+    ];
+    if (!isAnalysisEligible) {
+      tooltipLines.push(
+        `<span class="aa-historical-intelligence-index-version-reason-note">${escapeHtml(historicalIntelligenceIndexVersionReasonText(model))}</span>`,
+      );
+    }
+    return tooltipLines.join("<br>");
   }
 
   function prunedLineageAncestorTooltipHtml(lineageNode) {
@@ -1125,7 +1367,7 @@ import {
     modelVisualObjectsByModelIndex.forEach((visualObjects, modelIndex) => {
       const model = displayedModelMarkers[modelIndex];
       visualObjects.pinnedRingSprite.visible =
-        currentOrganizationVisibility(model.creator) &&
+        modelMarkerIsCurrentlyVisible(modelIndex) &&
         pinnedBaseModelNames.has(model.base_model_name);
     });
     redrawHoveredAndPinnedRelationships();
@@ -1251,11 +1493,17 @@ import {
     activeMetricVariant = nextMetricVariant;
     activeThreeDimensionalScene = activeMetricVariant.three_dimensional_scene;
     activeInteractionRelationships = activeMetricVariant.interaction_relationships;
+    // 契约数值问题按「当前口径」统计：每次载入口径都从零开始。
+    nonFiniteContractCoordinateCount = 0;
+    outOfRangeContractTriangleVertexIndexCount = 0;
+    skippedInvalidContractGeometryNames = [];
     displayedModelMarkers = activeThreeDimensionalScene.displayed_model_markers || [];
     baseGroupsByBaseModelName = activeInteractionRelationships.base_groups || {};
     reasoningVariantGroupsByBaseModelName =
       activeInteractionRelationships.reasoning_variant_group_model_indices_by_base_model_name || {};
-    lineagesByOrganizationAndTier = activeInteractionRelationships.lineages || {};
+    lineagesByOrganizationAndTier = lineagesWithFiniteContractCoordinates(
+      activeInteractionRelationships.lineages || {},
+    );
     modelIndexByModelName = {};
     displayedModelMarkers.forEach((model, modelIndex) => {
       modelIndexByModelName[model.name] = modelIndex;
@@ -1287,12 +1535,33 @@ import {
       applyInitialCameraConfiguration();
     }
     renderCurrentView();
+    renderReportHeaderModelCountSummary();
+    renderHowToReadDrawer();
     renderOrganizationFilterPanel();
     renderPinnedModelsPanel();
     renderSearchResults();
     applyStandoutVisualEncoding();
     requestThreeDimensionalSceneRender();
     return true;
+  }
+
+  // 谱系节点坐标非有限时丢弃该节点并计数；丢弃后不足两代的谱系不再连线。
+  function lineagesWithFiniteContractCoordinates(rawLineagesByKey) {
+    const lineagesByKeyWithFiniteNodes = {};
+    Object.entries(rawLineagesByKey).forEach(([lineageKey, lineageNodes]) => {
+      const finiteLineageNodes = (Array.isArray(lineageNodes) ? lineageNodes : []).filter(
+        (lineageNode) => {
+          const nonFiniteNodeCoordinateCount = [lineageNode?.x, lineageNode?.y, lineageNode?.z]
+            .filter((coordinate) => !isFiniteContractNumber(coordinate)).length;
+          nonFiniteContractCoordinateCount += nonFiniteNodeCoordinateCount;
+          return nonFiniteNodeCoordinateCount === 0;
+        },
+      );
+      if (finiteLineageNodes.length >= 2) {
+        lineagesByKeyWithFiniteNodes[lineageKey] = finiteLineageNodes;
+      }
+    });
+    return lineagesByKeyWithFiniteNodes;
   }
 
   function activateMetricCombination(costMetricName, speedMetricName) {
@@ -1384,7 +1653,26 @@ import {
       countryRegionMarkerToggle,
       document.createTextNode("显示国别外框"),
     );
-    group.append(logoStatus, toggleLabel);
+    const comparableOnlyToggleLabel = document.createElement("label");
+    comparableOnlyToggleLabel.className = "aa-toggle-row";
+    comparableOnlyToggleLabel.title =
+      "隐藏本口径下用到非当期智能指数版本成本或冗长度的「历史口径」点（虚线底板）；隐藏后它们也不可悬停或点选";
+    currentIntelligenceIndexVersionComparableOnlyToggle = document.createElement("input");
+    currentIntelligenceIndexVersionComparableOnlyToggle.id =
+      "aa-show-only-current-intelligence-index-version-comparable-models-toggle";
+    currentIntelligenceIndexVersionComparableOnlyToggle.type = "checkbox";
+    currentIntelligenceIndexVersionComparableOnlyToggle.checked =
+      showOnlyCurrentIntelligenceIndexVersionComparableModels;
+    currentIntelligenceIndexVersionComparableOnlyToggle.addEventListener("change", () =>
+      setShowOnlyCurrentIntelligenceIndexVersionComparableModels(
+        currentIntelligenceIndexVersionComparableOnlyToggle.checked,
+      ),
+    );
+    comparableOnlyToggleLabel.append(
+      currentIntelligenceIndexVersionComparableOnlyToggle,
+      document.createTextNode("仅当期可比"),
+    );
+    group.append(logoStatus, toggleLabel, comparableOnlyToggleLabel);
     return group;
   }
 
@@ -1496,6 +1784,21 @@ import {
         const action = document.createElement("span");
         action.className = "aa-search-result-pin-button";
         action.textContent = pinnedBaseModelNames.has(baseModelName) ? "取消" : "Pin";
+        const baseModelIndices = baseGroupsByBaseModelName[baseModelName] || [];
+        const everyVariantIsHiddenByComparableOnlyToggle =
+          showOnlyCurrentIntelligenceIndexVersionComparableModels &&
+          baseModelIndices.length > 0 &&
+          baseModelIndices.every(
+            (modelIndex) =>
+              !modelIsAnalysisEligibleForActiveMetricVariant(displayedModelMarkers[modelIndex]),
+          );
+        if (everyVariantIsHiddenByComparableOnlyToggle) {
+          row.classList.add("is-hidden-by-comparable-only-toggle");
+          row.title = "全部档位都是历史口径点，已被「仅当期可比」隐藏；pin 后图上看不到它们";
+          name.append(
+            textElement("span", "aa-search-result-hidden-note", "（已被「仅当期可比」隐藏）"),
+          );
+        }
         row.append(name, action);
         row.addEventListener("click", () => togglePinnedBaseModelName(baseModelName));
         return row;
@@ -1617,7 +1920,16 @@ import {
         const model = displayedModelMarkers[modelIndex];
         const variant = document.createElement("div");
         variant.className = "aa-pinned-variant-card";
-        variant.textContent = `${model.name} · 智能 ${formatNumber(model.panel.intelligence, 1)} · ${model.reasoning_level_label}`;
+        const variantSummary = document.createElement("div");
+        variantSummary.textContent = `${model.name} · 智能 ${formatNumber(model.panel.intelligence, 1)} · ${model.reasoning_level_label}`;
+        variant.appendChild(variantSummary);
+        if (!modelIsAnalysisEligibleForActiveMetricVariant(model)) {
+          variant.classList.add("is-historical-intelligence-index-version");
+          const reasonNote = document.createElement("div");
+          reasonNote.className = "aa-historical-intelligence-index-version-reason-note";
+          reasonNote.textContent = historicalIntelligenceIndexVersionReasonText(model);
+          variant.appendChild(reasonNote);
+        }
         card.appendChild(variant);
       });
       list.appendChild(card);
@@ -1697,29 +2009,344 @@ import {
     return currentViewPanel;
   }
 
+  function currentViewOfActiveScene() {
+    return activeThreeDimensionalScene?.current_view || {};
+  }
+
+  // 历史口径点数以前端实际绘制的标记为准（与虚线样式一一对应），不单独信任契约计数。
+  function historicalIntelligenceIndexVersionModelCountForActiveVariant() {
+    return displayedModelMarkers.filter(
+      (model) => !modelIsAnalysisEligibleForActiveMetricVariant(model),
+    ).length;
+  }
+
+  function currentIntelligenceIndexVersionText() {
+    const version = artificialAnalysisDataProvenance.current_intelligence_index_version;
+    return version ? `v${String(version).replace(/^v/i, "")}` : "版本未知";
+  }
+
+  // 与 API 抓取时间的「按缓存文件时间推断」同一披露口径：版本不是 API 响应给的就注明来源。
+  function currentIntelligenceIndexVersionTextWithInferenceNote() {
+    const inferredFromAcceptedEmbeddedModelCatalogPartition =
+      artificialAnalysisDataProvenance.current_intelligence_index_version_source ===
+      "inferred_from_accepted_embedded_model_catalog_partition";
+    return `${currentIntelligenceIndexVersionText()}${
+      inferredFromAcceptedEmbeddedModelCatalogPartition ? "（按目录分区推定）" : ""
+    }`;
+  }
+
+  function artificialAnalysisApiFetchDescription() {
+    const fetchedAtUtc =
+      artificialAnalysisDataProvenance.artificial_analysis_api_response_fetched_at_utc;
+    if (!fetchedAtUtc) {
+      return { headerText: "抓取时间未知", detailText: "抓取时间未知（契约未记录 API 抓取时间）" };
+    }
+    const fetchedAtInferredFromCacheFileTime =
+      artificialAnalysisDataProvenance.artificial_analysis_api_response_fetched_at_utc_source ===
+      "inferred_from_cache_file_modification_time";
+    return {
+      headerText: `API 抓取于 ${String(fetchedAtUtc).slice(0, 10)}${
+        fetchedAtInferredFromCacheFileTime ? "（按缓存文件时间推断）" : ""
+      }`,
+      detailText: `${fetchedAtUtc}${
+        fetchedAtInferredFromCacheFileTime ? "（按缓存文件时间推断）" : "（抓取时记录）"
+      }`,
+    };
+  }
+
+  function reportArtifactFingerprintSummaryText() {
+    const { rendererBundleSha256, generatorGitCommit, renderedAtUtc } =
+      frontierReportArtifactFingerprint;
+    const generatorCommitIsDirty = generatorGitCommit.endsWith("-dirty");
+    const generatorCommitWithoutDirtySuffix = generatorGitCommit.replace(/-dirty$/, "");
+    const abbreviatedGeneratorCommit = /^[0-9a-f]{40}$/.test(generatorCommitWithoutDirtySuffix)
+      ? generatorCommitWithoutDirtySuffix.slice(0, 12)
+      : generatorCommitWithoutDirtySuffix;
+    return [
+      `bundle ${rendererBundleSha256.slice(0, 12)}`,
+      `commit ${abbreviatedGeneratorCommit}${generatorCommitIsDirty ? "-dirty" : ""}`,
+      `渲染 ${renderedAtUtc}`,
+    ].join(" · ");
+  }
+
   function renderCurrentView() {
     if (!currentViewPanel || !activeThreeDimensionalScene) return;
-    const view = activeThreeDimensionalScene.current_view || {};
+    const view = currentViewOfActiveScene();
     const summary = document.createElement("summary");
     summary.className = "aa-section-title aa-collapsible-summary";
     summary.textContent = "当前视图";
     const definitions = document.createElement("dl");
     definitions.className = "aa-current-view-grid";
+    const historicalModelCount = historicalIntelligenceIndexVersionModelCountForActiveVariant();
     [
       ["渲染器", "three.js"],
       ["数据日期", view.data_date || visualizationDataset.data_date || "?"],
+      ["智能指数", currentIntelligenceIndexVersionText()],
       ["成本口径", view.cost_metric_label || activeInteractionRelationships.cost_axis_label],
       ["速度口径", view.speed_metric_label || activeInteractionRelationships.speed_axis_label],
       ["模型数", String(displayedModelMarkers.length)],
+      ["参与分析", String(displayedModelMarkers.length - historicalModelCount)],
+      ["历史口径点", String(historicalModelCount)],
       ["Pareto 数", String(frontierModels().length)],
-    ].forEach(([labelText, valueText]) => {
+      [
+        "产物指纹",
+        reportArtifactFingerprintSummaryText(),
+        "aa-current-view-report-artifact-fingerprint",
+      ],
+    ].forEach(([labelText, valueText, descriptionElementId]) => {
       const term = document.createElement("dt");
       term.textContent = labelText;
       const description = document.createElement("dd");
       description.textContent = valueText;
+      if (descriptionElementId) {
+        description.id = descriptionElementId;
+        description.title = [
+          `renderer bundle sha256：${frontierReportArtifactFingerprint.rendererBundleSha256}`,
+          `generator git commit：${frontierReportArtifactFingerprint.generatorGitCommit}`,
+          `rendered at (UTC)：${frontierReportArtifactFingerprint.renderedAtUtc}`,
+        ].join("\n");
+      }
       definitions.append(term, description);
     });
     currentViewPanel.replaceChildren(summary, definitions);
+  }
+
+  function textElement(tagName, className, textContent) {
+    const element = document.createElement(tagName);
+    if (className) element.className = className;
+    if (textContent !== undefined) element.textContent = textContent;
+    return element;
+  }
+
+  function artificialAnalysisAttributionLinkElement(linkText, elementId) {
+    const attributionLink = textElement("a", "aa-artificial-analysis-attribution-link", linkText);
+    if (elementId) attributionLink.id = elementId;
+    attributionLink.href = ARTIFICIAL_ANALYSIS_ATTRIBUTION_URL;
+    attributionLink.target = "_blank";
+    attributionLink.rel = "noopener noreferrer";
+    return attributionLink;
+  }
+
+  // W0-4 页头：唯一标题 + AA 署名 + 抓取日期 + 指数版本 + 模型计数 + 「如何阅读」抽屉入口。
+  function buildReportHeader() {
+    if (!reportHeader) return;
+    const reportTitle =
+      reportHeader.querySelector("h1") ||
+      textElement("h1", "frontier-3d-report-title", document.title);
+    const headerMetadataRow = textElement("div", "aa-report-header-metadata-row");
+    headerMetadataRow.id = "aa-report-header-metadata-row";
+    const attributionLink = artificialAnalysisAttributionLinkElement(
+      "数据：Artificial Analysis",
+      "aa-report-header-artificial-analysis-attribution-link",
+    );
+    attributionLink.append(textElement("span", "aa-external-link-glyph", " ↗"));
+    const apiFetchDescription = artificialAnalysisApiFetchDescription();
+    const apiFetchDate = textElement(
+      "span",
+      "aa-report-header-metadata-item",
+      apiFetchDescription.headerText,
+    );
+    apiFetchDate.id = "aa-report-header-artificial-analysis-api-fetch-date";
+    apiFetchDate.title = apiFetchDescription.detailText;
+    const intelligenceIndexVersion = textElement(
+      "span",
+      "aa-report-header-metadata-item",
+      `智能指数 ${currentIntelligenceIndexVersionTextWithInferenceNote()}`,
+    );
+    intelligenceIndexVersion.id = "aa-report-header-intelligence-index-version";
+    reportHeaderModelCountSummary = textElement("span", "aa-report-header-metadata-item");
+    reportHeaderModelCountSummary.id = "aa-report-header-model-count-summary";
+    headerMetadataRow.append(
+      attributionLink,
+      apiFetchDate,
+      intelligenceIndexVersion,
+      reportHeaderModelCountSummary,
+    );
+    howToReadDrawerToggleButton = textElement(
+      "button",
+      "aa-how-to-read-drawer-toggle-button",
+      "如何阅读 ⓘ",
+    );
+    howToReadDrawerToggleButton.type = "button";
+    howToReadDrawerToggleButton.id = "aa-how-to-read-drawer-toggle";
+    howToReadDrawerToggleButton.setAttribute("aria-expanded", "false");
+    howToReadDrawerToggleButton.setAttribute("aria-controls", "aa-how-to-read-drawer");
+    howToReadDrawerToggleButton.addEventListener("click", () =>
+      setHowToReadDrawerOpen(howToReadDrawer.hidden),
+    );
+    const reportHeaderChildren = [reportTitle, howToReadDrawerToggleButton, headerMetadataRow];
+    // R1-03：没有被接受的内嵌目录分区时，取数侧写下的告警整行醒目显示（textContent，不解析 HTML）
+    const embeddedModelCatalogPartitionRejectionWarningText =
+      artificialAnalysisDataProvenance.embedded_model_catalog_partition_rejection_warning_text;
+    if (
+      typeof embeddedModelCatalogPartitionRejectionWarningText === "string" &&
+      embeddedModelCatalogPartitionRejectionWarningText.trim()
+    ) {
+      const partitionRejectionWarning = textElement(
+        "div",
+        "aa-report-header-data-quality-warning",
+        `⚠ ${embeddedModelCatalogPartitionRejectionWarningText}`,
+      );
+      partitionRejectionWarning.id =
+        "aa-report-header-embedded-model-catalog-partition-rejection-warning";
+      partitionRejectionWarning.setAttribute("role", "alert");
+      reportHeaderChildren.push(partitionRejectionWarning);
+    }
+    reportHeader.replaceChildren(...reportHeaderChildren);
+  }
+
+  function renderReportHeaderModelCountSummary() {
+    if (!reportHeaderModelCountSummary) return;
+    const displayedModelCount = displayedModelMarkers.length;
+    const visibleModelCount = displayedModelMarkers.filter((model, modelIndex) =>
+      modelMarkerIsCurrentlyVisible(modelIndex),
+    ).length;
+    const historicalModelCount = historicalIntelligenceIndexVersionModelCountForActiveVariant();
+    const summaryParts = [
+      visibleModelCount === displayedModelCount
+        ? `显示 ${displayedModelCount} 个模型`
+        : `显示 ${visibleModelCount}/${displayedModelCount} 个模型`,
+      `Pareto ${frontierModels().length}`,
+    ];
+    if (historicalModelCount) summaryParts.push(`历史口径 ${historicalModelCount}`);
+    reportHeaderModelCountSummary.textContent = summaryParts.join(" · ");
+  }
+
+  // 抽屉浮在绘图区之上（不改变画布尺寸，避免触发重排与相机投影变化）。
+  function buildHowToReadDrawer() {
+    howToReadDrawer = document.createElement("section");
+    howToReadDrawer.id = "aa-how-to-read-drawer";
+    howToReadDrawer.className = "aa-how-to-read-drawer";
+    howToReadDrawer.setAttribute("aria-label", "如何阅读本图");
+    // tabindex=-1：可被脚本聚焦（打开时焦点落在抽屉本身），但不进入常规 Tab 序列
+    howToReadDrawer.tabIndex = -1;
+    howToReadDrawer.hidden = true;
+    plotRegion.appendChild(howToReadDrawer);
+    document.addEventListener("keydown", (keyboardEvent) => {
+      if (keyboardEvent.key === "Escape" && !howToReadDrawer.hidden) {
+        setHowToReadDrawerOpen(false);
+      }
+    });
+  }
+
+  function setHowToReadDrawerOpen(nextOpen) {
+    if (!howToReadDrawer) return Promise.resolve(false);
+    const drawerOpen = Boolean(nextOpen);
+    const drawerWasOpen = !howToReadDrawer.hidden;
+    const keyboardFocusWasInsideDrawer = howToReadDrawer.contains(document.activeElement);
+    if (drawerOpen) renderHowToReadDrawer();
+    howToReadDrawer.hidden = !drawerOpen;
+    howToReadDrawerToggleButton?.setAttribute("aria-expanded", String(drawerOpen));
+    // 抽屉挂在工具栏之后的绘图区里：不移焦点的话键盘用户要 Tab 穿过整个工具栏才能进入抽屉
+    if (drawerOpen && !drawerWasOpen) {
+      howToReadDrawer.focus({ preventScroll: true });
+    } else if (!drawerOpen && drawerWasOpen && keyboardFocusWasInsideDrawer) {
+      howToReadDrawerToggleButton?.focus({ preventScroll: true });
+    }
+    return Promise.resolve(drawerOpen);
+  }
+
+  function howToReadDrawerSection(titleText, ...children) {
+    const section = textElement("section", "aa-how-to-read-drawer-section");
+    section.append(textElement("h3", "aa-how-to-read-drawer-section-title", titleText), ...children);
+    return section;
+  }
+
+  function renderHowToReadDrawer() {
+    if (!howToReadDrawer || !activeThreeDimensionalScene) return;
+    const view = currentViewOfActiveScene();
+    const axes = activeThreeDimensionalScene.three_dimensional_axis_configuration || {};
+    const drawerHeader = textElement("div", "aa-how-to-read-drawer-header");
+    const closeButton = textElement("button", "aa-link-button", "关闭");
+    closeButton.type = "button";
+    closeButton.id = "aa-how-to-read-drawer-close-button";
+    closeButton.addEventListener("click", () => setHowToReadDrawerOpen(false));
+    drawerHeader.append(textElement("h2", "aa-section-title", "如何阅读"), closeButton);
+
+    const axisDirectionList = textElement("ul", "aa-how-to-read-drawer-list");
+    [
+      [
+        `成本轴 x：${axes.x_axis?.title_text || view.cost_metric_label || "成本"}。越低越好（越便宜）。`,
+        view.cost_metric_note ? `口径：${view.cost_metric_note}` : "",
+      ],
+      [
+        `速度轴 y：${view.speed_axis_title_text || axes.y_axis?.title_text || view.speed_metric_label || "速度"}。越高越好。`,
+        view.speed_metric_note ? `口径：${view.speed_metric_note}` : "",
+      ],
+      [`智能轴 z：${axes.z_axis?.title_text || "智能指数"}。越高越好。`, ""],
+    ].forEach(([directionText, metricNoteText]) => {
+      const item = textElement("li", "", directionText);
+      if (metricNoteText) {
+        item.append(textElement("div", "aa-how-to-read-drawer-metric-note", metricNoteText));
+      }
+      axisDirectionList.appendChild(item);
+    });
+
+    const historicalModelCount = historicalIntelligenceIndexVersionModelCountForActiveVariant();
+    const historicalExplanation = textElement("p", "aa-how-to-read-drawer-paragraph");
+    historicalExplanation.append(
+      textElement("span", "aa-historical-intelligence-index-version-swatch"),
+      document.createTextNode(
+        `虚线底板、半透明 Logo 的点是「历史口径」点：本口径用到的成本或冗长度来自非当期智能指数版本（当期为 ${currentIntelligenceIndexVersionText()}）。它们照常显示，但不参与 Pareto、突出度、归一化与前沿几何的计算。当前口径共 ${historicalModelCount} 个；勾选工具栏「仅当期可比」可隐藏它们。`,
+      ),
+    );
+
+    const provenanceDefinitions = textElement("dl", "aa-current-view-grid");
+    const catalogVersion =
+      artificialAnalysisDataProvenance.embedded_model_catalog_intelligence_index_version;
+    const catalogCapturedAtUtc =
+      artificialAnalysisDataProvenance.embedded_model_catalog_captured_at_utc;
+    const websitePageFetchPaused =
+      artificialAnalysisDataProvenance.artificial_analysis_website_page_fetch_paused;
+    const apiTier = artificialAnalysisDataProvenance.artificial_analysis_api_tier;
+    [
+      ["数据提供方", artificialAnalysisAttributionLinkElement("Artificial Analysis")],
+      ["API 抓取", artificialAnalysisApiFetchDescription().detailText],
+      [
+        "智能指数",
+        `${currentIntelligenceIndexVersionTextWithInferenceNote()}${apiTier ? `（API ${apiTier} tier）` : ""}`,
+      ],
+      [
+        "内嵌模型目录",
+        catalogVersion
+          ? `v${catalogVersion}${catalogCapturedAtUtc ? `，缓存于 ${catalogCapturedAtUtc}` : ""}`
+          : "未记录",
+      ],
+      [
+        "网页抓取",
+        websitePageFetchPaused === true
+          ? "已暂停（只读已有缓存）"
+          : websitePageFetchPaused === false ? "已开启" : "未记录",
+      ],
+      ["剪枝参考日", artificialAnalysisDataProvenance.pruning_reference_date || "未记录"],
+    ].forEach(([labelText, valueTextOrElement]) => {
+      const description = document.createElement("dd");
+      description.append(valueTextOrElement);
+      provenanceDefinitions.append(textElement("dt", "", labelText), description);
+    });
+
+    howToReadDrawer.replaceChildren(
+      drawerHeader,
+      howToReadDrawerSection(
+        "三个坐标轴",
+        axisDirectionList,
+        textElement(
+          "p",
+          "aa-how-to-read-drawer-paragraph",
+          "初始视角从「低成本、高速度、高智能」一角看向对角；拖拽旋转，滚轮缩放，右键拖动平移。",
+        ),
+      ),
+      howToReadDrawerSection(
+        "Pareto 前沿",
+        textElement(
+          "p",
+          "aa-how-to-read-drawer-paragraph",
+          "带深色圆环的点是本口径的 Pareto 点：没有其他模型在成本、速度、智能上同时不差且至少一维更好。线框与实心面只由这些点生成，仅作视觉导引。",
+        ),
+      ),
+      howToReadDrawerSection("历史口径点", historicalExplanation),
+      howToReadDrawerSection("数据来源", provenanceDefinitions),
+    );
   }
 
   function setSidePanelExpanded(nextExpanded) {
@@ -1731,6 +2358,8 @@ import {
   }
 
   function buildUserInterface() {
+    buildReportHeader();
+    buildHowToReadDrawer();
     toolbar.replaceChildren(
       buildMetricControls(),
       buildModelIdentityControls(),
@@ -1739,9 +2368,10 @@ import {
     );
     const header = document.createElement("div");
     header.className = "aa-side-panel-header";
+    // 报告标题只在页头出现一次；侧栏这里只是收起按钮旁的栏目标签，不是第二个标题。
     const title = document.createElement("div");
-    title.className = "aa-side-panel-title";
-    title.textContent = "Frontier 3D";
+    title.className = "aa-side-panel-label";
+    title.textContent = "图表控制";
     sidePanelToggleButton = document.createElement("button");
     sidePanelToggleButton.type = "button";
     sidePanelToggleButton.id = "aa-side-panel-toggle";
@@ -1866,10 +2496,72 @@ import {
     };
   }
 
+  // 被剪枝前身的 frontmost 命中校验（复验风险 2）：在其投影位置做与真实悬停相同的射线拾取，
+  // 返回最前面命中的是谁；验证脚本据此逐条谱系挑出「悬停能真正命中」的前身，避免被近邻标记遮挡。
+  function frontmostPointerInteractionAtProjectedPrunedLineageAncestorPosition(
+    prunedLineageAncestorName,
+  ) {
+    const projectedCanvasPosition =
+      projectedCanvasPositionForPrunedLineageAncestorName(prunedLineageAncestorName);
+    if (!projectedCanvasPosition) return null;
+    const interactionTarget = interactionTargetAtCanvasClientCoordinates(
+      projectedCanvasPosition.clientX,
+      projectedCanvasPosition.clientY,
+    );
+    const frontmostInteractionTargetName =
+      interactionTarget?.interactionTargetKind === "displayed_model"
+        ? displayedModelMarkers[interactionTarget.modelIndex]?.name ?? null
+        : interactionTarget?.prunedLineageAncestorNode?.name ?? null;
+    return {
+      projectedCanvasPosition,
+      frontmostInteractionTargetKind: interactionTarget?.interactionTargetKind ?? null,
+      frontmostInteractionTargetName,
+      frontmostInteractionTargetIsRequestedPrunedLineageAncestor:
+        interactionTarget?.interactionTargetKind !== "displayed_model" &&
+        frontmostInteractionTargetName === prunedLineageAncestorName,
+    };
+  }
+
+  // 实心面几何的运行时摘要：供验证脚本断言「三角形数 > 0 且索引全为顶点范围内的有限整数」。
+  function paretoFrontierSurfaceGeometrySummary() {
+    if (!frontierSurfaceObject) {
+      return {
+        built: false,
+        visible: false,
+        vertexCount: 0,
+        triangleCount: 0,
+        allTriangleVertexIndicesAreFiniteIntegersWithinVertexRange: true,
+        allVertexPositionsAreFinite: true,
+      };
+    }
+    const positionAttribute = frontierSurfaceObject.geometry.attributes.position;
+    const triangleVertexIndices = Array.from(frontierSurfaceObject.geometry.index.array);
+    return {
+      built: true,
+      visible: frontierSurfaceObject.visible,
+      vertexCount: positionAttribute.count,
+      triangleCount: triangleVertexIndices.length / 3,
+      allTriangleVertexIndicesAreFiniteIntegersWithinVertexRange: triangleVertexIndices.every(
+        (vertexIndex) =>
+          Number.isInteger(vertexIndex) && vertexIndex >= 0 && vertexIndex < positionAttribute.count,
+      ),
+      allVertexPositionsAreFinite: Array.from(positionAttribute.array).every(Number.isFinite),
+    };
+  }
+
   function frontierThreeDimensionalVisualizationState() {
-    const visibleModelCount = displayedModelMarkers.filter((model) =>
-      currentOrganizationVisibility(model.creator),
+    const visibleModelCount = displayedModelMarkers.filter((model, modelIndex) =>
+      modelMarkerIsCurrentlyVisible(modelIndex),
     ).length;
+    const pickableModelIndices = new Set(
+      visiblePointerInteractionSprites()
+        .filter((sprite) => sprite.userData.interactionTargetKind === "displayed_model")
+        .map((sprite) => sprite.userData.modelIndex),
+    );
+    const historicalModelIndices = displayedModelMarkers
+      .map((model, modelIndex) => [model, modelIndex])
+      .filter(([model]) => !modelIsAnalysisEligibleForActiveMetricVariant(model))
+      .map(([, modelIndex]) => modelIndex);
     const organizationNames = new Set(displayedModelMarkers.map((model) => model.creator));
     const visibleOrganizationCount = [...organizationNames].filter(
       (creatorName) => currentOrganizationVisibility(creatorName),
@@ -1931,9 +2623,69 @@ import {
         frontierSurfaceObject?.material.depthWrite ?? null,
       achievableFrontierSurfaceWritesDepth:
         achievableFrontierSurfaceObject?.material.depthWrite ?? null,
+      paretoFrontierSurfaceTriangleCount: frontierSurfaceObject
+        ? frontierSurfaceObject.geometry.index.count / 3
+        : 0,
+      renderedTriangleCountInLatestFrame: webglRenderer.info.render.triangles,
+      nonFiniteContractCoordinateCount,
+      outOfRangeContractTriangleVertexIndexCount,
+      skippedInvalidContractGeometryNames: [...skippedInvalidContractGeometryNames],
+      visibleModelMarkerCount: visibleModelCount,
+      showOnlyCurrentIntelligenceIndexVersionComparableModels,
+      historicalIntelligenceIndexVersionModelMarkerCount: historicalModelIndices.length,
+      visibleHistoricalIntelligenceIndexVersionModelMarkerCount: historicalModelIndices.filter(
+        (modelIndex) => modelVisualObjectsByModelIndex[modelIndex]?.logoSprite.visible,
+      ).length,
+      pickableHistoricalIntelligenceIndexVersionModelMarkerCount: historicalModelIndices.filter(
+        (modelIndex) => pickableModelIndices.has(modelIndex),
+      ).length,
+      // R2-F3：历史口径点的视觉编码（虚线底板 + 半透明 Logo）以实际材质计数，供验证脚本按口径断言
+      historicalIntelligenceIndexVersionStyledModelMarkerCount: modelVisualObjectsByModelIndex.filter(
+        (visualObjects) =>
+          visualObjects.backplateSprite.material ===
+            historicalIntelligenceIndexVersionLogoBackplateMaterial &&
+          visualObjects.logoSprite.material.opacity < 1,
+      ).length,
+      currentIntelligenceIndexVersionStyledModelMarkerCount: modelVisualObjectsByModelIndex.filter(
+        (visualObjects) =>
+          visualObjects.backplateSprite.material === whiteLogoBackplateMaterial &&
+          visualObjects.logoSprite.material.opacity >= 1,
+      ).length,
+      howToReadDrawerOpen: howToReadDrawer ? !howToReadDrawer.hidden : false,
+      reportArtifactFingerprint: { ...frontierReportArtifactFingerprint },
       sidePanelExpanded,
       cameraPosition: perspectiveCamera.position.toArray(),
     };
+  }
+
+  function lineObjectEndpointPositions(lineObject) {
+    if (!lineObject) return [];
+    const positionAttribute = lineObject.geometry.attributes.position;
+    return Array.from({ length: positionAttribute.count }, (_, positionIndex) => [
+      positionAttribute.getX(positionIndex),
+      positionAttribute.getY(positionIndex),
+      positionAttribute.getZ(positionIndex),
+    ]);
+  }
+
+  // R2-F1：验证脚本用这三组坐标从外部核对「连线端点是否落在被隐藏的标记上」。
+  function transientRelationshipLineEndpointPositions() {
+    return {
+      lineage: lineObjectEndpointPositions(transientLineageLineObject),
+      reasoning: lineObjectEndpointPositions(transientReasoningVariantLineObject),
+    };
+  }
+
+  function displayedModelMarkerPositionsAndVisibility() {
+    return modelVisualObjectsByModelIndex.map((visualObjects, modelIndex) => ({
+      name: displayedModelMarkers[modelIndex]?.name,
+      position: visualObjects.logoSprite.position.toArray(),
+      visible: modelMarkerIsCurrentlyVisible(modelIndex),
+    }));
+  }
+
+  function displayedPrunedLineageAncestorMarkerPositions() {
+    return clickablePrunedLineageAncestorSprites.map((sprite) => sprite.position.toArray());
   }
 
   function frontierStandoutRanking() {
@@ -1981,6 +2733,9 @@ import {
   window.setAchievableFrontierSurfaceVisibility =
     setAchievableFrontierSurfaceVisible;
   window.setCountryRegionMarkerVisibility = setCountryRegionMarkerVisible;
+  window.setShowOnlyCurrentIntelligenceIndexVersionComparableModels =
+    setShowOnlyCurrentIntelligenceIndexVersionComparableModels;
+  window.setFrontierHowToReadDrawerOpen = setHowToReadDrawerOpen;
   window.setFrontierSidePanelExpanded = setSidePanelExpanded;
   window.selectFrontierStandoutMetric = selectFrontierStandoutMetric;
   window.setFrontierStandoutAxisWeights = setStandoutAxisWeights;
@@ -1994,5 +2749,10 @@ import {
     projectedCanvasMarkerRadiiForModelName,
     projectedCanvasPositionForPrunedLineageAncestorName,
     frontmostPointerInteractionAtProjectedModelPosition,
+    frontmostPointerInteractionAtProjectedPrunedLineageAncestorPosition,
+    paretoFrontierSurfaceGeometrySummary,
+    transientRelationshipLineEndpointPositions,
+    displayedModelMarkerPositionsAndVisibility,
+    displayedPrunedLineageAncestorMarkerPositions,
   };
 })();

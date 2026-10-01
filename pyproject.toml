@@ -1,0 +1,39 @@
+[project]
+name = "ai-analysis-frontier-3d"
+version = "0.1.0"
+description = "Artificial Analysis 数据的三维 Pareto 前沿（智能 × 成本 × 速度）可视化与分析"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.26,<3",
+    "pandas>=2.0,<3",
+    # Plotly 6 起数值数组序列化为 {"dtype","bdata"}；契约构建依赖该行为的已知边界
+    "plotly>=6.0,<7",
+    "requests>=2.31,<3",
+    "scipy>=1.11,<2",
+    "python-dotenv>=1.0,<2",
+]
+
+[project.optional-dependencies]
+# 静态导出（--export png/svg）才需要；交互式 HTML 不依赖它
+static-image-export = [
+    "kaleido>=1.0,<2",
+]
+test = [
+    "pytest>=8,<10",
+    "hypothesis>=6.100,<7",
+]
+# scripts/verify_*.py 的 Playwright 浏览器验证
+browser-verification = [
+    "playwright>=1.45,<2",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests/python_unit"]
+pythonpath = ["."]
+addopts = "-ra --strict-markers"
+markers = [
+    "requires_local_cached_artificial_analysis_data: 读取本机 data/raw 缓存（共享符号链接目录）的测试；默认跳过；用 --run-tests-requiring-local-cached-artificial-analysis-data、环境变量 RUN_TESTS_REQUIRING_LOCAL_CACHED_ARTIFICIAL_ANALYSIS_DATA=1 或 -m requires_local_cached_artificial_analysis_data 显式运行",
+]

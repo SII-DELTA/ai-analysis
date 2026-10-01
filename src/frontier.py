@@ -4,16 +4,111 @@
 
 A 支配 B  ⟺  intel_A ≥ intel_B 且 cost_A ≤ cost_B 且 speed_A ≥ speed_B，
             且三者至少一项严格成立。
+
+D-1「显示但不参与分析」（规格 4.1–4.3）：
+- 每个口径按「该口径实际用到的版本敏感字段」判定 analysis eligibility：有效运行成本
+  `cost_to_run` 要求成本值来自当期指数版本；有效速度 `eff_speed` 要求输出 token 数来自当期
+  版本；7:2:1 混合单价与原始速度与指数版本无关。不看 isEstimated。
+- 显示层在全部三维齐全点（含历史口径点）上剥层，保持原有点云；分析层只在 eligible 点上剥层，
+  `layer`/`is_pareto` 即分析层。非 eligible 点退出全部分析基准（Pareto、归一化、趋势、
+  对照集、超体积、垂距、前沿几何）。
 """
 from __future__ import annotations
-
-from datetime import datetime
 
 import numpy as np
 import pandas as pd
 from scipy.spatial import Delaunay
 
 DIMS = ["intelligence", "cost_to_run", "eff_speed"]
+
+COST_TO_RUN_VALUE_IS_FROM_CURRENT_INTELLIGENCE_INDEX_VERSION_COLUMN_NAME = (
+    "cost_to_run_value_is_from_current_intelligence_index_version"
+)
+OUTPUT_TOKEN_COUNT_VALUE_IS_FROM_CURRENT_INTELLIGENCE_INDEX_VERSION_COLUMN_NAME = (
+    "output_token_count_value_is_from_current_intelligence_index_version"
+)
+ANALYSIS_INELIGIBILITY_REASON_CODE_COST_TO_RUN_VALUE_NOT_FROM_CURRENT_INTELLIGENCE_INDEX_VERSION = (
+    "cost_to_run_value_not_from_current_intelligence_index_version"
+)
+ANALYSIS_INELIGIBILITY_REASON_CODE_OUTPUT_TOKEN_COUNT_VALUE_NOT_FROM_CURRENT_INTELLIGENCE_INDEX_VERSION = (
+    "output_token_count_value_not_from_current_intelligence_index_version"
+)
+# R1-01 (a)：被接受目录分区里，该 UUID 的目录智能分与当期 API 智能分不一致（AA 已重评）→ 目录 token
+# 降为非当期。fetch_data 把它写进逐行原因列，D-1 eligibility 用它代替上面的通用 token 原因码。
+ANALYSIS_INELIGIBILITY_REASON_CODE_OUTPUT_TOKEN_COUNT_VALUE_CATALOG_INTELLIGENCE_DISAGREES_WITH_CURRENT_API_INTELLIGENCE = (
+    "output_token_count_value_catalog_intelligence_disagrees_with_current_api_intelligence"
+)
+# 同上，但目录或 API 一侧缺智能分、无从核对该 UUID 是否被重评 → 同样不敢标当期
+ANALYSIS_INELIGIBILITY_REASON_CODE_OUTPUT_TOKEN_COUNT_VALUE_CATALOG_INTELLIGENCE_NOT_COMPARABLE_WITH_CURRENT_API_INTELLIGENCE = (
+    "output_token_count_value_catalog_intelligence_not_comparable_with_current_api_intelligence"
+)
+# fetch_data 产出的逐行列：token 值为何不是当期（只在「值来源是被接受目录分区、却被逐 UUID 降级」时非空）
+OUTPUT_TOKEN_COUNT_VALUE_NON_CURRENT_REASON_CODE_COLUMN_NAME = (
+    "output_token_count_value_non_current_reason_code"
+)
+# 原因码 → 中文补充说明（拼在「v4.3.2 冗长度」之后）
+OUTPUT_TOKEN_COUNT_CATALOG_DEMOTION_EXPLANATION_TEXT_BY_REASON_CODE = {
+    ANALYSIS_INELIGIBILITY_REASON_CODE_OUTPUT_TOKEN_COUNT_VALUE_CATALOG_INTELLIGENCE_DISAGREES_WITH_CURRENT_API_INTELLIGENCE: (
+        "目录智能分与当期 API 不一致，AA 已重评"
+    ),
+    ANALYSIS_INELIGIBILITY_REASON_CODE_OUTPUT_TOKEN_COUNT_VALUE_CATALOG_INTELLIGENCE_NOT_COMPARABLE_WITH_CURRENT_API_INTELLIGENCE: (
+        "目录或当期 API 缺智能分，无从核对是否已重评"
+    ),
+}
+# 调用方显式传入 analysis_eligible_mask、且值溯源列不能解释为何不合格时使用
+ANALYSIS_INELIGIBILITY_REASON_CODE_MARKED_INELIGIBLE_BY_CALLER_SUPPLIED_MASK = (
+    "marked_analysis_ineligible_by_caller_supplied_mask"
+)
+
+# 口径列 → 它依赖的「值是否来自当期版本」列与不合格原因码（按固定顺序：成本在前、token 在后）。
+# 不在表中的列（7:2:1 混合单价、原始速度、智能分）与指数版本无关，不产生 eligibility 约束。
+VERSION_SENSITIVE_VALUE_CURRENTNESS_COLUMN_AND_REASON_CODE_BY_METRIC_COLUMN_NAME: dict[
+    str, tuple[str, str]
+] = {
+    "cost_to_run": (
+        COST_TO_RUN_VALUE_IS_FROM_CURRENT_INTELLIGENCE_INDEX_VERSION_COLUMN_NAME,
+        ANALYSIS_INELIGIBILITY_REASON_CODE_COST_TO_RUN_VALUE_NOT_FROM_CURRENT_INTELLIGENCE_INDEX_VERSION,
+    ),
+    "eff_speed": (
+        OUTPUT_TOKEN_COUNT_VALUE_IS_FROM_CURRENT_INTELLIGENCE_INDEX_VERSION_COLUMN_NAME,
+        ANALYSIS_INELIGIBILITY_REASON_CODE_OUTPUT_TOKEN_COUNT_VALUE_NOT_FROM_CURRENT_INTELLIGENCE_INDEX_VERSION,
+    ),
+}
+# 原因码 → (中文字段名, 该字段值所属版本的列)，用于拼「历史口径（v4.1 成本/冗长度）」
+ANALYSIS_INELIGIBILITY_FIELD_DISPLAY_NAME_AND_VALUE_VERSION_COLUMN_BY_REASON_CODE = {
+    ANALYSIS_INELIGIBILITY_REASON_CODE_COST_TO_RUN_VALUE_NOT_FROM_CURRENT_INTELLIGENCE_INDEX_VERSION: (
+        "成本",
+        "cost_to_run_value_intelligence_index_version",
+    ),
+    ANALYSIS_INELIGIBILITY_REASON_CODE_OUTPUT_TOKEN_COUNT_VALUE_NOT_FROM_CURRENT_INTELLIGENCE_INDEX_VERSION: (
+        "冗长度",
+        "output_token_count_value_intelligence_index_version",
+    ),
+    **{
+        catalog_demotion_reason_code: (
+            f"冗长度：{catalog_demotion_explanation_text}",
+            "output_token_count_value_intelligence_index_version",
+        )
+        for catalog_demotion_reason_code, catalog_demotion_explanation_text in (
+            OUTPUT_TOKEN_COUNT_CATALOG_DEMOTION_EXPLANATION_TEXT_BY_REASON_CODE.items()
+        )
+    },
+}
+
+# 缺维度时的英文维度名（契约 missing_dimension_names）与中文显示名（drop_reason）
+FRONTIER_3D_DIMENSION_NAME_INTELLIGENCE = "intelligence"
+FRONTIER_3D_DIMENSION_NAME_COST = "cost"
+FRONTIER_3D_DIMENSION_NAME_SPEED = "speed"
+FRONTIER_3D_DIMENSION_DISPLAY_NAME_BY_DIMENSION_NAME = {
+    FRONTIER_3D_DIMENSION_NAME_INTELLIGENCE: "智能",
+    FRONTIER_3D_DIMENSION_NAME_COST: "成本",
+    FRONTIER_3D_DIMENSION_NAME_SPEED: "速度",
+}
+
+ANALYSIS_ELIGIBLE_COLUMN_NAME = "analysis_eligible_for_frontier_3d_metric_variant"
+DISPLAY_ELIGIBLE_COLUMN_NAME = "display_eligible_for_frontier_3d_metric_variant"
+ANALYSIS_INELIGIBILITY_REASON_CODES_COLUMN_NAME = "analysis_ineligibility_reason_codes"
+MISSING_DIMENSION_NAMES_COLUMN_NAME = "missing_dimension_names_for_frontier_3d_metric_variant"
 
 
 def dims_for(
@@ -22,6 +117,89 @@ def dims_for(
 ) -> list[str]:
     """按所选成本与速度口径返回三维列名。"""
     return ["intelligence", cost_metric_column_name, speed_metric_column_name]
+
+
+# ----------------------------------------------------------------------------- D-1 analysis eligibility
+def _is_true_boolean_flag(flag: object) -> bool:
+    """只有真正的布尔 True 才算当期；None / NaN / 其他值一律按非当期。"""
+    return isinstance(flag, (bool, np.bool_)) and bool(flag)
+
+
+def analysis_eligibility_for_frontier_3d_metric_variant(
+    df: pd.DataFrame,
+    cost_metric_column_name: str = "cost_to_run",
+    speed_metric_column_name: str = "eff_speed",
+) -> tuple[pd.Series, pd.Series]:
+    """按口径判定每行是否参与分析（规格 4.1），返回 (eligible 布尔列, 原因码列表列)。
+
+    只看该口径实际用到的版本敏感字段的 `*_value_is_from_current_intelligence_index_version`，
+    不看 isEstimated。表里没有对应的值溯源列（旧 CSV、旧合成表）时按「当期」处理，
+    与 D-1 之前的行为一致。缺值行的当期标志为 False，会带上原因码，但它们本来就因缺维度不显示。
+    """
+    reason_codes_by_row: list[list[str]] = [[] for _ in range(len(df))]
+    for metric_column_name in (cost_metric_column_name, speed_metric_column_name):
+        currentness_column_and_reason_code = (
+            VERSION_SENSITIVE_VALUE_CURRENTNESS_COLUMN_AND_REASON_CODE_BY_METRIC_COLUMN_NAME.get(
+                metric_column_name
+            )
+        )
+        if currentness_column_and_reason_code is None:
+            continue
+        currentness_column_name, reason_code = currentness_column_and_reason_code
+        if currentness_column_name not in df.columns:
+            continue
+        value_is_current = df[currentness_column_name].map(_is_true_boolean_flag)
+        # token 值被逐 UUID 降级时（R1-01 (a)），用 fetch_data 写下的专门原因码代替通用码
+        specific_reason_codes = (
+            df[OUTPUT_TOKEN_COUNT_VALUE_NON_CURRENT_REASON_CODE_COLUMN_NAME].tolist()
+            if currentness_column_name == OUTPUT_TOKEN_COUNT_VALUE_IS_FROM_CURRENT_INTELLIGENCE_INDEX_VERSION_COLUMN_NAME
+            and OUTPUT_TOKEN_COUNT_VALUE_NON_CURRENT_REASON_CODE_COLUMN_NAME in df.columns
+            else [None] * len(df)
+        )
+        for row_position, is_current in enumerate(value_is_current.to_numpy(bool)):
+            if not is_current:
+                specific_reason_code = specific_reason_codes[row_position]
+                reason_codes_by_row[row_position].append(
+                    specific_reason_code
+                    if isinstance(specific_reason_code, str) and specific_reason_code
+                    else reason_code
+                )
+    ineligibility_reason_codes = pd.Series(reason_codes_by_row, index=df.index, dtype=object)
+    analysis_eligible_mask = ineligibility_reason_codes.map(len).eq(0)
+    return analysis_eligible_mask, ineligibility_reason_codes
+
+
+def format_analysis_ineligibility_reason_text(
+    ineligibility_reason_codes: list[str],
+    cost_to_run_value_intelligence_index_version: str | None,
+    output_token_count_value_intelligence_index_version: str | None,
+) -> str | None:
+    """中文说明：`历史口径（v4.1 成本/冗长度），不参与本口径前沿计算`；版本按实际值填。"""
+    if not ineligibility_reason_codes:
+        return None
+    value_version_by_version_column_name = {
+        "cost_to_run_value_intelligence_index_version": cost_to_run_value_intelligence_index_version,
+        "output_token_count_value_intelligence_index_version": (
+            output_token_count_value_intelligence_index_version
+        ),
+    }
+    field_display_names_by_version_label: dict[str, list[str]] = {}
+    for reason_code in ineligibility_reason_codes:
+        field_display_name_and_version_column = (
+            ANALYSIS_INELIGIBILITY_FIELD_DISPLAY_NAME_AND_VALUE_VERSION_COLUMN_BY_REASON_CODE.get(reason_code)
+        )
+        if field_display_name_and_version_column is None:
+            field_display_names_by_version_label.setdefault("调用方标记", []).append("不参与分析")
+            continue
+        field_display_name, value_version_column_name = field_display_name_and_version_column
+        value_version = value_version_by_version_column_name.get(value_version_column_name)
+        version_label = f"v{value_version}" if value_version else "版本未知"
+        field_display_names_by_version_label.setdefault(version_label, []).append(field_display_name)
+    version_fragments = "；".join(
+        f"{version_label} {'/'.join(field_display_names)}"
+        for version_label, field_display_names in field_display_names_by_version_label.items()
+    )
+    return f"历史口径（{version_fragments}），不参与本口径前沿计算"
 
 
 # ----------------------------------------------------------------------------- Pareto 分层
@@ -50,27 +228,90 @@ def _layers_for_points(intel: np.ndarray, cost: np.ndarray, speed: np.ndarray) -
     return layer
 
 
+def _pareto_layer_numbers_on_rows(
+    df: pd.DataFrame,
+    rows_to_peel_mask: pd.Series,
+    cost_metric_column_name: str,
+    speed_metric_column_name: str,
+) -> pd.Series:
+    """只在 `rows_to_peel_mask` 选中的行上做 skyline peeling；其余行层号为 NaN。"""
+    layer_numbers = pd.Series(np.nan, index=df.index, dtype=float)
+    rows_to_peel = df[rows_to_peel_mask]
+    if rows_to_peel.empty:
+        return layer_numbers
+    layer_numbers.loc[rows_to_peel.index] = _layers_for_points(
+        rows_to_peel["intelligence"].to_numpy(float),
+        rows_to_peel[cost_metric_column_name].to_numpy(float),
+        rows_to_peel[speed_metric_column_name].to_numpy(float),
+    ).astype(float)
+    return layer_numbers
+
+
 def add_pareto_layers(
     df: pd.DataFrame,
     cost_metric_column_name: str = "cost_to_run",
     speed_metric_column_name: str = "eff_speed",
+    *,
+    analysis_eligible_mask: pd.Series | None = None,
 ) -> pd.DataFrame:
-    """给三维齐全的行加 `layer` 与 `is_pareto`；缺维度的行 layer=NaN、is_pareto=False。"""
+    """给三维齐全的行加分析层 `layer` 与 `is_pareto`；缺维度的行 layer=NaN、is_pareto=False。
+
+    给了 `analysis_eligible_mask` 时只在 eligible 行上剥层（D-1 分析层），非 eligible 行 layer=NaN。
+    """
     df = df.copy()
-    dims = dims_for(cost_metric_column_name, speed_metric_column_name)
-    df["layer"] = np.nan
-    df["is_pareto"] = False
-    full = df.dropna(subset=dims)
-    if full.empty:
-        return df
-    layers = _layers_for_points(
-        full["intelligence"].to_numpy(float),
-        full[cost_metric_column_name].to_numpy(float),
-        full[speed_metric_column_name].to_numpy(float),
+    has_all = df[dims_for(cost_metric_column_name, speed_metric_column_name)].notna().all(axis=1)
+    rows_to_peel_mask = has_all
+    if analysis_eligible_mask is not None:
+        rows_to_peel_mask = has_all & analysis_eligible_mask.reindex(df.index).fillna(False).astype(bool)
+    df["layer"] = _pareto_layer_numbers_on_rows(
+        df, rows_to_peel_mask, cost_metric_column_name, speed_metric_column_name
     )
-    df.loc[full.index, "layer"] = layers
-    df.loc[full.index, "is_pareto"] = layers == 1
+    df["is_pareto"] = df["layer"].eq(1)
     return df
+
+
+def _missing_frontier_3d_dimension_names_by_row(
+    df: pd.DataFrame,
+    cost_metric_column_name: str,
+    speed_metric_column_name: str,
+) -> pd.Series:
+    dimension_column_name_by_dimension_name = {
+        FRONTIER_3D_DIMENSION_NAME_INTELLIGENCE: "intelligence",
+        FRONTIER_3D_DIMENSION_NAME_COST: cost_metric_column_name,
+        FRONTIER_3D_DIMENSION_NAME_SPEED: speed_metric_column_name,
+    }
+    dimension_value_is_missing_by_dimension_name = {
+        dimension_name: df[dimension_column_name].isna().to_numpy(bool)
+        for dimension_name, dimension_column_name in dimension_column_name_by_dimension_name.items()
+    }
+    return pd.Series(
+        [
+            [
+                dimension_name
+                for dimension_name, value_is_missing in dimension_value_is_missing_by_dimension_name.items()
+                if value_is_missing[row_position]
+            ]
+            for row_position in range(len(df))
+        ],
+        index=df.index,
+        dtype=object,
+    )
+
+
+def _resolve_pruning_reference_timestamp(
+    pruning_reference_date: object | None,
+    legacy_today_argument: object | None,
+) -> pd.Timestamp:
+    """剪枝参考日期必须由调用方给出（CLI/builder 取 API 抓取日），不再回退到 datetime.now()。"""
+    pruning_reference_date_value = (
+        pruning_reference_date if pruning_reference_date is not None else legacy_today_argument
+    )
+    if pruning_reference_date_value is None:
+        raise ValueError(
+            "apply_pruning 缺少剪枝参考日期：请传 pruning_reference_date（通常取 API 抓取日期），"
+            "不再使用运行当天的日期"
+        )
+    return pd.Timestamp(pruning_reference_date_value).normalize()
 
 
 # ----------------------------------------------------------------------------- 均衡剪枝
@@ -79,39 +320,121 @@ def apply_pruning(
     since_months: int = 18,
     max_layers: int = 3,
     hard_age_cutoff_months: int = 36,
-    today: datetime | None = None,
+    today: object | None = None,
     cost_metric_column_name: str = "cost_to_run",
     speed_metric_column_name: str = "eff_speed",
+    *,
+    analysis_eligible_mask: pd.Series | None = None,
+    pruning_reference_date: object | None = None,
 ) -> pd.DataFrame:
-    """标注 `kept`：保留 = Pareto最优点 ∪ (近 since_months 月 ∧ 前 max_layers 层)，
-    再剔除早于 hard_age_cutoff_months 的"远古"模型（即便 Pareto 最优）。
-    缺三维者一律不保留。"""
-    df = add_pareto_layers(
-        df,
-        cost_metric_column_name=cost_metric_column_name,
-        speed_metric_column_name=speed_metric_column_name,
+    """标注显示层与分析层（D-1，规格 4.2）。
+
+    - 显示层：在全部三维齐全点（含历史口径点）上剥层 → `display_layer`、`display_is_pareto`，
+      保持 D-1 之前的点云；
+    - 分析层：只在 `analysis_eligible ∧ 三维齐全` 的点上剥层 → `layer`、`is_pareto`；
+      非 eligible 点 layer=NaN、is_pareto=False；
+    - `kept = 三维齐全 ∧ (分析 Pareto ∨ 显示 Pareto ∨ (近 since_months 月 ∧ (显示层 ≤ max_layers
+      ∨ 分析层 ≤ max_layers))) ∧ ¬早于 hard_age_cutoff_months`（远古模型即便 Pareto 最优也剔除）。
+      「分析层 ≤ max_layers」一项保证 eligible 点是否上图只由 eligible 点决定（D-1：历史口径点不得把
+      当期可比的近前沿点挤出显示）；对 eligible 点而言，显示层规则蕴含于分析层规则（点集更大，层号只会更大）。
+
+    `pruning_reference_date`（兼容旧名 `today`）必须给出；`analysis_eligible_mask` 缺省时按
+    `analysis_eligibility_for_frontier_3d_metric_variant` 从值溯源列判定。
+    """
+    df = df.copy()
+    pruning_reference_timestamp = _resolve_pruning_reference_timestamp(pruning_reference_date, today)
+    soft_cut = pruning_reference_timestamp - pd.DateOffset(months=since_months)
+    hard_cut = pruning_reference_timestamp - pd.DateOffset(months=hard_age_cutoff_months)
+
+    computed_analysis_eligible_mask, ineligibility_reason_codes = (
+        analysis_eligibility_for_frontier_3d_metric_variant(
+            df, cost_metric_column_name, speed_metric_column_name
+        )
     )
-    today = pd.Timestamp(today or datetime.now())
-    soft_cut = today - pd.DateOffset(months=since_months)
-    hard_cut = today - pd.DateOffset(months=hard_age_cutoff_months)
+    if analysis_eligible_mask is not None:
+        caller_analysis_eligible_mask = analysis_eligible_mask.reindex(df.index).fillna(False).astype(bool)
+        ineligibility_reason_codes = pd.Series(
+            [
+                []
+                if is_eligible
+                else (
+                    reason_codes
+                    or [ANALYSIS_INELIGIBILITY_REASON_CODE_MARKED_INELIGIBLE_BY_CALLER_SUPPLIED_MASK]
+                )
+                for is_eligible, reason_codes in zip(
+                    caller_analysis_eligible_mask.to_numpy(bool), ineligibility_reason_codes
+                )
+            ],
+            index=df.index,
+            dtype=object,
+        )
+        computed_analysis_eligible_mask = caller_analysis_eligible_mask
+    df[ANALYSIS_ELIGIBLE_COLUMN_NAME] = computed_analysis_eligible_mask.astype(bool)
+    df[ANALYSIS_INELIGIBILITY_REASON_CODES_COLUMN_NAME] = ineligibility_reason_codes
 
     has_all = df[dims_for(cost_metric_column_name, speed_metric_column_name)].notna().all(axis=1)
+    df["display_layer"] = _pareto_layer_numbers_on_rows(
+        df, has_all, cost_metric_column_name, speed_metric_column_name
+    )
+    df["display_is_pareto"] = df["display_layer"].eq(1)
+    df["layer"] = _pareto_layer_numbers_on_rows(
+        df,
+        has_all & df[ANALYSIS_ELIGIBLE_COLUMN_NAME],
+        cost_metric_column_name,
+        speed_metric_column_name,
+    )
+    df["is_pareto"] = df["layer"].eq(1)
+
     rdate = df["release_date"]
-    recent = rdate >= soft_cut
-    near = df["layer"] <= max_layers
-
-    kept = has_all & (df["is_pareto"] | (recent & near))
-    # 远古硬截断：早于 hard_cut 或无日期且非近 期 -> 删（即使 Pareto）
-    too_old = rdate < hard_cut
-    kept = kept & ~too_old.fillna(False)
-
+    recent = (rdate >= soft_cut).fillna(False).astype(bool)
+    near_display_frontier = df["display_layer"] <= max_layers
+    near_analysis_frontier = df["layer"] <= max_layers
+    # 远古硬截断：早于 hard_cut → 删（即使 Pareto）；无日期不算远古（但也不算近期）
+    too_old = (rdate < hard_cut).fillna(False).astype(bool)
+    # 只按显示层判定「近前沿」时，9/23 数据上默认口径有 10 个 eligible 近期点（分析层 ≤3）被历史口径点
+    # 把显示层推到 >3 而未上图——这等于让非当期值影响当期点的去留，违背 D-1；故并入分析层判定（107→117）。
+    kept = (
+        has_all
+        & (
+            df["is_pareto"]
+            | df["display_is_pareto"]
+            | (recent & (near_display_frontier | near_analysis_frontier))
+        )
+        & ~too_old
+    )
     df["kept"] = kept
-    # 记录剔除原因，便于核查
-    reason = np.where(~has_all, "缺维度",
-              np.where(too_old.fillna(False), "过旧(硬截断)",
-              np.where(kept, "保留",
-              np.where(~recent, "过旧(软窗外且非前沿)", "离前沿太远"))))
-    df["drop_reason"] = reason
+    df[DISPLAY_ELIGIBLE_COLUMN_NAME] = kept
+
+    missing_dimension_names_by_row = _missing_frontier_3d_dimension_names_by_row(
+        df, cost_metric_column_name, speed_metric_column_name
+    )
+    df[MISSING_DIMENSION_NAMES_COLUMN_NAME] = missing_dimension_names_by_row
+    missing_dimension_drop_reason_text = missing_dimension_names_by_row.map(
+        lambda missing_dimension_names: "缺维度："
+        + "/".join(
+            FRONTIER_3D_DIMENSION_DISPLAY_NAME_BY_DIMENSION_NAME[dimension_name]
+            for dimension_name in missing_dimension_names
+        )
+    )
+    # 记录剔除原因，便于核查（契约 excluded_models_with_drop_reason 与 CLI 缺维告警使用）
+    df["drop_reason"] = np.where(
+        ~has_all,
+        missing_dimension_drop_reason_text,
+        np.where(
+            too_old,
+            "过旧(硬截断)",
+            np.where(
+                kept,
+                "保留",
+                np.where(
+                    rdate.isna(),
+                    # 无日期既不算远古也不算近期；不写「过旧」，免得与契约里 release_date=null 自相矛盾
+                    "发布日期缺失且非前沿",
+                    np.where(~recent, "过旧(软窗外且非前沿)", "离前沿太远"),
+                ),
+            ),
+        ),
+    )
     return df
 
 
@@ -126,14 +449,21 @@ def achievable_frontier_grid(
     """F(成本预算 c, 速度下限 s) = max{intel | cost≤c 且 speed≥s}。
 
     返回 (Cgrid_log, Sgrid, Z)，C 轴取 log10(成本)。无可行点处 Z=NaN。
-    用三维齐全的模型构建（不限于保留集，以反映真实可达上界）。
+    用三维齐全的模型构建（不限于保留集，以反映真实可达上界）；已由 `apply_pruning` 标注
+    analysis eligibility 时只用 eligible 点（D-1：历史口径点不参与可达上界）。
     """
     full = df.dropna(
         subset=dims_for(cost_metric_column_name, speed_metric_column_name)
     )
+    if ANALYSIS_ELIGIBLE_COLUMN_NAME in full.columns:
+        full = full[full[ANALYSIS_ELIGIBLE_COLUMN_NAME].astype(bool)]
     cost = full[cost_metric_column_name].to_numpy(float)
     speed = full[speed_metric_column_name].to_numpy(float)
     intel = full["intelligence"].to_numpy(float)
+    if full.empty:
+        # 没有参与分析的点（例：API 升级到新 family、默认口径 eligible 为 0）→ 全 NaN 网格，不对空数组取 min
+        all_nan_grid = np.full((ny, nx), np.nan)
+        return all_nan_grid.copy(), all_nan_grid.copy(), all_nan_grid
 
     cx = np.linspace(np.log10(cost.min()), np.log10(cost.max()), nx)
     sy = np.linspace(speed.min(), speed.max(), ny)
@@ -380,16 +710,21 @@ def add_standout_metrics(
     speed_metric_column_name: str = "eff_speed",
     speed_log: bool = True,
 ) -> pd.DataFrame:
-    """给 kept 行加四个突出度指标列 + 归一坐标 g_cost/g_speed/g_intel。
+    """给 kept ∧ analysis eligible 行加四个突出度指标列 + 归一坐标 g_cost/g_speed/g_intel。
 
-    在 `apply_pruning` 之后调用（需要 kept / is_pareto）。四指标一律在**当前变体的 kept 集**
-    （= 屏幕上显示的模型）上计算，前沿以全局 is_pareto ∩ kept 界定，与可视前沿一致。
+    在 `apply_pruning` 之后调用（需要 kept / is_pareto / analysis eligibility）。四指标与归一化
+    min/max、趋势拟合、智能抬升对照集、超体积、垂距一律只在**当前变体的 kept ∧ eligible 集**上
+    计算（D-1，规格 4.3）；非 eligible 的 kept 点（历史口径）这些值全为 NaN（契约输出 null）。
+    前沿以分析层 is_pareto ∩ kept 界定，与可视前沿一致。没有 eligibility 列（旧调用方）时按全部 eligible。
     加权超体积仅算 w=1 的静态值（供 hover/列）；前端滑杆改权重时在 JS 端用同一算法实时重算。
     """
     df = df.copy()
     for column in STANDOUT_COLUMNS:
         df[column] = np.nan
-    kept = df[df["kept"]]
+    kept_and_analysis_eligible_mask = df["kept"].astype(bool)
+    if ANALYSIS_ELIGIBLE_COLUMN_NAME in df.columns:
+        kept_and_analysis_eligible_mask &= df[ANALYSIS_ELIGIBLE_COLUMN_NAME].astype(bool)
+    kept = df[kept_and_analysis_eligible_mask]
     if kept.empty:
         return df
     idx = kept.index

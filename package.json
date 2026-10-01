@@ -1,6 +1,10 @@
 {
   "name": "ai-analysis-frontier-3d-interactive-renderer",
   "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "build:frontier-3d-threejs": "node scripts/build_frontier_3d_threejs_interactive_renderer.mjs"
   },

@@ -3,6 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="frontier-3d-renderer-bundle-sha256" content="{{FRONTIER_3D_RENDERER_BUNDLE_SHA256}}">
+  <meta name="frontier-3d-generator-git-commit" content="{{FRONTIER_3D_GENERATOR_GIT_COMMIT}}">
+  <meta name="frontier-3d-rendered-at-utc" content="{{FRONTIER_3D_RENDERED_AT_UTC}}">
   <link rel="icon" href="data:,">
   <title>{{REPORT_TITLE}}</title>
   <style>
@@ -11,6 +14,9 @@
 </head>
 <body>
   <div id="frontier-3d-report-shell" class="frontier-3d-report-shell">
+    <header id="frontier-3d-report-header" class="frontier-3d-report-header" aria-label="报告页头">
+      <h1 id="frontier-3d-report-title" class="frontier-3d-report-title">{{REPORT_TITLE}}</h1>
+    </header>
     <div id="frontier-3d-toolbar" class="frontier-3d-toolbar" aria-label="顶部工具栏"></div>
     <div id="frontier-3d-main-row" class="frontier-3d-main-row">
       <main id="frontier-3d-plot-region" class="frontier-3d-plot-region">

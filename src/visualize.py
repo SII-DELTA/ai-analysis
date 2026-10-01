@@ -20,7 +20,62 @@ import plotly.graph_objects as go
 from plotly.colors import qualitative
 from scipy.spatial import Delaunay
 
+from . import frontier
+
 PALETTE = qualitative.Dark24 + qualitative.Light24
+
+# 契约 marker.value_provenance 的字段（与 fetch_data 的值溯源列同名，规格 5.3）
+DISPLAYED_MODEL_MARKER_VALUE_PROVENANCE_COLUMN_NAMES = (
+    "cost_to_run_value_source",
+    "cost_to_run_value_intelligence_index_version",
+    "cost_to_run_value_fetched_at_utc",
+    "output_token_count_value_source",
+    "output_token_count_value_intelligence_index_version",
+    "output_token_count_value_fetched_at_utc",
+    "blended_price_cache_hit_price_source",
+)
+SPEED_AXIS_UNIT_TEXT = "tok/s"
+
+
+def _finite_float_or_none(raw_value: object) -> float | None:
+    """契约里的数值：有限浮点原样输出，NaN/Inf/None/非数值一律输出 None（→ JSON null）。"""
+    if raw_value is None or isinstance(raw_value, bool):
+        return None
+    try:
+        float_value = float(raw_value)
+    except (TypeError, ValueError):
+        return None
+    return float_value if np.isfinite(float_value) else None
+
+
+def _text_or_none(raw_value: object) -> str | None:
+    """契约里的可空字符串：None / NaN / NaT → None，其余转成字符串。"""
+    if raw_value is None or isinstance(raw_value, str):
+        return raw_value
+    if pd.isna(raw_value):
+        return None
+    return str(raw_value)
+
+
+def _boolean_or_none(raw_value: object) -> bool | None:
+    if isinstance(raw_value, (bool, np.bool_)):
+        return bool(raw_value)
+    return None
+
+
+def speed_axis_title_text_with_unit_and_scale(speed_axis_name_text: str, speed_log: bool) -> str:
+    """速度轴完整标题：`<轴名> tok/s（对数）`；线性轴不带「（对数）」。"""
+    return f"{speed_axis_name_text} {SPEED_AXIS_UNIT_TEXT}" + ("（对数）" if speed_log else "")
+
+
+def intelligence_axis_title_text_with_intelligence_index_version(
+    current_intelligence_index_version: str | None,
+) -> str:
+    """z 轴标题带当期指数版本（W0-4）：`智能指数（AA Intelligence Index v4.3.2）`。"""
+    if current_intelligence_index_version:
+        return f"智能指数（AA Intelligence Index v{current_intelligence_index_version}）"
+    return "智能指数（AA Intelligence Index，版本未知）"
+
 
 # ── 模型名解析：基模型分组 + 谱系（creator+tier）分组 ────────────────────────
 # Artificial Analysis 把同一基模型的每个 reasoning 档位作为独立条目返回（名字带
@@ -163,7 +218,39 @@ def _build_lineage_payload(
     # —— models / base_groups：仅 kept ——
     def _field_or_none(r, name):
         # 突出度/归一坐标由 add_standout_metrics 写入；缺列或 NaN → None(→ JS null)。
-        return float(r[name]) if name in r.index and pd.notna(r[name]) else None
+        return _finite_float_or_none(r[name]) if name in r.index else None
+
+    def _analysis_eligibility(r) -> dict:
+        # D-1（规格 5.3）：没有 eligibility 列（旧调用方）时按「参与分析」输出
+        if frontier.ANALYSIS_ELIGIBLE_COLUMN_NAME not in r.index:
+            return {
+                "is_analysis_eligible_for_current_metric_variant": True,
+                "ineligibility_reason_codes": [],
+                "ineligibility_reason_text": None,
+            }
+        raw_ineligibility_reason_codes = r.get(frontier.ANALYSIS_INELIGIBILITY_REASON_CODES_COLUMN_NAME)
+        ineligibility_reason_codes = (
+            list(raw_ineligibility_reason_codes)
+            if isinstance(raw_ineligibility_reason_codes, (list, tuple))
+            else []
+        )
+        return {
+            "is_analysis_eligible_for_current_metric_variant": bool(
+                r[frontier.ANALYSIS_ELIGIBLE_COLUMN_NAME]
+            ),
+            "ineligibility_reason_codes": ineligibility_reason_codes,
+            "ineligibility_reason_text": frontier.format_analysis_ineligibility_reason_text(
+                ineligibility_reason_codes,
+                _text_or_none(r.get("cost_to_run_value_intelligence_index_version")),
+                _text_or_none(r.get("output_token_count_value_intelligence_index_version")),
+            ),
+        }
+
+    def _value_provenance(r) -> dict:
+        return {
+            column_name: _text_or_none(r.get(column_name))
+            for column_name in DISPLAYED_MODEL_MARKER_VALUE_PROVENANCE_COLUMN_NAMES
+        }
 
     kept = df_full[df_full["kept"]].reset_index(drop=True)
     models: list[dict] = []
@@ -186,17 +273,23 @@ def _build_lineage_payload(
             "x": float(r[cost_metric_column_name]),
             "y": float(r[speed_metric_column_name]),
             "z": float(r["intelligence"]),
+            # panel 里可能缺失的数值（跨口径列、非 eligible 点的分析层号）一律输出 None（规格 5.3）
             "panel": {
                 "release_date": rd.strftime("%Y-%m-%d") if pd.notna(rd) else "?",
-                "intelligence": float(r["intelligence"]),
-                "output_speed": float(r["output_speed"]),
-                "eff_speed": float(r["eff_speed"]),
-                "cost_to_run": float(r["cost_to_run"]),
-                "blended_price_cache_input_output_7_to_2_to_1": float(
+                "intelligence": _finite_float_or_none(r["intelligence"]),
+                "output_speed": _finite_float_or_none(r["output_speed"]),
+                "eff_speed": _finite_float_or_none(r["eff_speed"]),
+                "cost_to_run": _finite_float_or_none(r["cost_to_run"]),
+                "blended_price_cache_input_output_7_to_2_to_1": _finite_float_or_none(
                     r["blended_price_cache_input_output_7_to_2_to_1"]
                 ),
-                "layer": float(r["layer"]),
+                "layer": _finite_float_or_none(r["layer"]),
             },
+            "analysis_eligibility": _analysis_eligibility(r),
+            "value_provenance": _value_provenance(r),
+            "artificial_analysis_intelligence_index_is_estimated": _boolean_or_none(
+                r.get("artificial_analysis_intelligence_index_is_estimated")
+            ),
             # 四个突出度值（加权超体积为 w=1 静态值；JS 端按滑杆权重实时重算）
             "standout_metrics": {
                 "trend_residual": _field_or_none(r, "standout_trend_residual"),
@@ -285,6 +378,15 @@ def _build_lineage_payload(
         "speed_axis_label": speed_metric_label,
     }
 
+# RVF-002：某口径剪枝后零 kept、又没有任何三维齐全的谱系节点（如有效速度全缺）时的兜底轴范围。
+# 对数轴以 log10 为单位：成本 0.1–1000，速度 1–1000 tok/s；线性轴为原值：速度 0–1000、智能 0–100。
+# EXPERIMENT_NODE: 空口径兜底轴范围用固定常数，还是改取全量数据里该轴已有值的范围（与其他口径对齐）
+FALLBACK_COST_AXIS_LOG10_RANGE_FOR_EMPTY_SCENE_WITHOUT_PLOTTABLE_VALUES = (-1.0, 3.0)
+FALLBACK_SPEED_AXIS_LOG10_RANGE_FOR_EMPTY_SCENE_WITHOUT_PLOTTABLE_VALUES = (0.0, 3.0)
+FALLBACK_SPEED_AXIS_LINEAR_RANGE_FOR_EMPTY_SCENE_WITHOUT_PLOTTABLE_VALUES = (0.0, 1000.0)
+FALLBACK_INTELLIGENCE_AXIS_LINEAR_RANGE_FOR_EMPTY_SCENE_WITHOUT_PLOTTABLE_VALUES = (0.0, 100.0)
+
+
 def _fixed_axis_ranges(
     kept: pd.DataFrame,
     payload: dict,
@@ -306,20 +408,47 @@ def _fixed_axis_ranges(
         for n in nodes:
             costs.append(n["x"]); speeds.append(n["y"]); intels.append(n["z"])
 
-    def log_range(vals, pad=0.04):
+    def log_range(vals, pad=0.04, fallback_log10_range_for_empty_scene=None):
+        # RVF-002：空场景（零 kept 且零谱系节点）没有值可取 min/max，用兜底范围让坐标轴仍可画
+        if not vals:
+            return list(fallback_log10_range_for_empty_scene)
         lo, hi = min(vals), max(vals)
         l0, l1 = np.log10(lo), np.log10(hi)
         m = (l1 - l0) * pad or 0.1
         return [l0 - m, l1 + m]
 
-    def lin_range(vals, pad=0.05):
+    def lin_range(vals, pad=0.05, fallback_linear_range_for_empty_scene=None):
+        if not vals:
+            return list(fallback_linear_range_for_empty_scene)
         lo, hi = min(vals), max(vals)
         m = (hi - lo) * pad or 1.0
         return [lo - m, hi + m]
 
-    x_range = log_range(costs)                                  # 成本恒对数
-    y_range = log_range(speeds) if speed_log else lin_range(speeds)
-    z_range = lin_range(intels)
+    x_range = log_range(                                         # 成本恒对数
+        costs,
+        fallback_log10_range_for_empty_scene=FALLBACK_COST_AXIS_LOG10_RANGE_FOR_EMPTY_SCENE_WITHOUT_PLOTTABLE_VALUES,
+    )
+    y_range = (
+        log_range(
+            speeds,
+            fallback_log10_range_for_empty_scene=(
+                FALLBACK_SPEED_AXIS_LOG10_RANGE_FOR_EMPTY_SCENE_WITHOUT_PLOTTABLE_VALUES
+            ),
+        )
+        if speed_log
+        else lin_range(
+            speeds,
+            fallback_linear_range_for_empty_scene=(
+                FALLBACK_SPEED_AXIS_LINEAR_RANGE_FOR_EMPTY_SCENE_WITHOUT_PLOTTABLE_VALUES
+            ),
+        )
+    )
+    z_range = lin_range(
+        intels,
+        fallback_linear_range_for_empty_scene=(
+            FALLBACK_INTELLIGENCE_AXIS_LINEAR_RANGE_FOR_EMPTY_SCENE_WITHOUT_PLOTTABLE_VALUES
+        ),
+    )
     return x_range, y_range, z_range
 
 
@@ -328,7 +457,7 @@ HOVER_TMPL = (
     "厂商: %{customdata[1]} · 发布: %{customdata[2]}<br>"
     "智能指数: %{customdata[3]:.1f}<br>"
     "原始速度: %{customdata[4]:.0f} tok/s · 冗长度: %{customdata[8]:.1f}M 输出tok<br>"
-    "有效速度: %{customdata[9]:.0f} tok/s（按中位冗长归一）<br>"
+    "有效速度: %{customdata[9]:.0f} tok/s（按版本参考冗长度归一）<br>"
     "有效运行成本(跑完评测实花): $%{customdata[5]:.2f}<br>"
     "7:2:1 混合单价: $%{customdata[6]:.2f}/M · Pareto层: %{customdata[7]:.0f}<br>"
     "突出度｜趋势残差 %{customdata[10]:.1f} · 智能抬升 %{customdata[11]:.1f}"
@@ -394,9 +523,12 @@ def _frontier_mesh(
     except Exception:
         return None
     i, j, k = tri.simplices[:, 0], tri.simplices[:, 1], tri.simplices[:, 2]
+    # P0-4 根修：Plotly 6 会把 numpy 数组序列化成 {"dtype","bdata"}，契约再 list() 就只剩键名；
+    # 一律传 Python 列表（.tolist() 同时把 numpy 标量转成原生 float/int）。
     return go.Mesh3d(
-        x=cost, y=speed, z=intel, i=i, j=j, k=k,
-        intensity=intel, colorscale="Viridis", opacity=0.45,
+        x=cost.tolist(), y=speed.tolist(), z=intel.tolist(),
+        i=i.tolist(), j=j.tolist(), k=k.tolist(),
+        intensity=intel.tolist(), colorscale="Viridis", opacity=0.45,
         showscale=False, flatshading=True, name="前沿流形 (Pareto 编织)",
         hoverinfo="skip", showlegend=True,
     )
@@ -434,10 +566,10 @@ def _frontier_wireframe(
         for a, b in ((s[0], s[1]), (s[1], s[2]), (s[2], s[0])):
             edges.add((min(int(a), int(b)), max(int(a), int(b))))
     xs, ys, zs = [], [], []
-    for a, b in edges:
-        xs += [cost[a], cost[b], None]
-        ys += [speed[a], speed[b], None]
-        zs += [intel[a], intel[b], None]
+    for a, b in sorted(edges):
+        xs += [float(cost[a]), float(cost[b]), None]
+        ys += [float(speed[a]), float(speed[b]), None]
+        zs += [float(intel[a]), float(intel[b]), None]
     return go.Scatter3d(
         x=xs, y=ys, z=zs, mode="lines",
         line=dict(color="rgba(50,80,150,0.6)", width=3),
@@ -516,8 +648,14 @@ def _achievable_frontier_step_mesh(
             if z_value is None:
                 continue
             vertex_offset = len(xs)
-            xs.extend([x_edges[x_index], x_edges[x_index + 1], x_edges[x_index + 1], x_edges[x_index]])
-            ys.extend([y_edges[y_index], y_edges[y_index], y_edges[y_index + 1], y_edges[y_index + 1]])
+            xs.extend(
+                float(x_edge)
+                for x_edge in (x_edges[x_index], x_edges[x_index + 1], x_edges[x_index + 1], x_edges[x_index])
+            )
+            ys.extend(
+                float(y_edge)
+                for y_edge in (y_edges[y_index], y_edges[y_index], y_edges[y_index + 1], y_edges[y_index + 1])
+            )
             zs.extend([z_value, z_value, z_value, z_value])
             ii.extend([vertex_offset, vertex_offset])
             jj.extend([vertex_offset + 1, vertex_offset + 2])
@@ -544,10 +682,18 @@ def build_figure(
     cost_metric_unit: str = "USD",
     speed_metric_column_name: str = "eff_speed",
     speed_metric_label: str = "有效速度",
+    *,
+    speed_metric_axis_title_text: str | None = None,
+    current_intelligence_index_version: str | None = None,
+    reference_output_million_tokens_by_intelligence_index_version_family: dict | None = None,
 ) -> tuple[go.Figure, dict]:
+    """`speed_metric_axis_title_text` 是速度轴名（不含单位与刻度类型，缺省用 label）；
+    `current_intelligence_index_version` 写进 z 轴标题；有效速度的归一常数写进口径说明。
+
+    零 kept 的口径（如有效速度全缺）输出合法空场景：无散点、空 Pareto 与空网格、兜底轴范围
+    （RVF-002 / R1-03，其他口径不受影响）；「全部口径都零模型」的报错由契约构建器负责。
+    """
     kept = df[df["kept"]].copy()
-    if kept.empty:
-        raise ValueError("剪枝后无保留模型，请放宽参数")
     speed_log = speed_scale == "log"
     colors = _creator_colors(kept["creator"])
 
@@ -695,8 +841,31 @@ def build_figure(
     )
 
     is_eff = speed_metric_column_name == "eff_speed"
-    speed_note = ("有效速度=原始速度÷相对冗长度(按中位归一)，惩罚冗长推理模型"
-                  if is_eff else "原始 median tok/s")
+    reference_output_million_tokens_text = "、".join(
+        f"v{version_family}：{reference_output_million_tokens:g}M"
+        for version_family, reference_output_million_tokens in sorted(
+            (reference_output_million_tokens_by_intelligence_index_version_family or {}).items()
+        )
+    )
+    speed_note = (
+        "有效速度 = 原始速度 ÷（跑完智能指数的输出 token 数 ÷ 该版本参考 token 量"
+        + (f"，{reference_output_million_tokens_text}" if reference_output_million_tokens_text else "")
+        + "），惩罚冗长推理模型；不含 TTFT 与工具耗时，跨指数版本不可比"
+        if is_eff
+        else "原始 median tok/s"
+    )
+    speed_axis_title_text = speed_axis_title_text_with_unit_and_scale(
+        speed_metric_axis_title_text or speed_metric_label, speed_log
+    )
+    intelligence_axis_title_text = intelligence_axis_title_text_with_intelligence_index_version(
+        current_intelligence_index_version
+    )
+    if frontier.ANALYSIS_ELIGIBLE_COLUMN_NAME in kept.columns:
+        analysis_eligible_kept_model_count = int(
+            kept[frontier.ANALYSIS_ELIGIBLE_COLUMN_NAME].astype(bool).sum()
+        )
+    else:
+        analysis_eligible_kept_model_count = int(len(kept))
     cost_note = (
         "跑完 Intelligence Index 的实际总花费"
         if cost_metric_column_name == "cost_to_run"
@@ -709,8 +878,11 @@ def build_figure(
         "cost_metric_note": cost_note,
         "speed_metric_label": speed_metric_label,
         "speed_metric_note": speed_note,
+        "speed_axis_title_text": speed_axis_title_text,
         "kept_model_count": int(len(kept)),
         "pareto_model_count": int(len(pareto)),
+        "analysis_eligible_model_count": analysis_eligible_kept_model_count,
+        "historical_version_value_model_count": int(len(kept)) - analysis_eligible_kept_model_count,
     }
     fig.update_layout(
         title=dict(
@@ -727,12 +899,12 @@ def build_figure(
                        range=x_range, autorange=False,
                        backgroundcolor="rgb(248,248,250)",
                        tickfont=dict(size=12)),
-            yaxis=dict(title=dict(text=f"{speed_metric_label} tok/s" + ("（对数）" if speed_log else ""),
+            yaxis=dict(title=dict(text=speed_axis_title_text,
                                   font=dict(size=13)),
                        type="log" if speed_log else "linear",
                        range=y_range, autorange=False,
                        tickfont=dict(size=12)),
-            zaxis=dict(title=dict(text="智能指数 (AA Intelligence Index)",
+            zaxis=dict(title=dict(text=intelligence_axis_title_text,
                                   font=dict(size=13)),
                        range=z_range, autorange=False,
                        tickfont=dict(size=12)),

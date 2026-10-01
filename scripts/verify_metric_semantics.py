@@ -1,8 +1,16 @@
-"""指标口径的最小回归验证。"""
+"""指标口径的最小回归验证（合成数据为主，不联网、不读 output/ 与 data/processed/）。
+
+覆盖：7:2:1 混合价与 cache-hit 价来源、详情页 token 只取 currentModel（P0-3）、网页抓取暂停时
+不发请求（D-12）、版本化回退快照、突出度语义、D-1 历史口径点不改变分析 Pareto、可达阶梯面、
+实心面不再被 Plotly 编成 bdata（P0-4），以及契约校验的正例（零模型场景、零 Pareto 空网格）与
+反例（空 scene、bdata、索引越界、缺 panel）。
+"""
 from __future__ import annotations
 
+import copy
 import math
 import sys
+import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -13,6 +21,21 @@ sys.path.insert(0, str(REPOSITORY_ROOT))
 
 from src import cli, fetch_data, frontier, visualize
 from src import frontier_3d_visualization_dataset_builder as dataset_builder
+from tests.fixtures.build_frontier_3d_synthetic_fixture_models_dataframe import (  # noqa: E402
+    FRONTIER_3D_SYNTHETIC_FIXTURE_PRUNING_REFERENCE_DATE,
+    build_frontier_3d_synthetic_fixture_models_dataframe,
+)
+from tests.fixtures.build_synthetic_artificial_analysis_model_detail_page_html import (  # noqa: E402
+    build_synthetic_artificial_analysis_embedded_model_object,
+    build_synthetic_artificial_analysis_model_detail_page_html,
+    synthetic_artificial_analysis_model_uuid,
+)
+
+# 合成数据的固定剪枝参考日期（剪枝不再使用运行当天的日期）
+FIXED_PRUNING_REFERENCE_DATE_FOR_SYNTHETIC_STANDOUT_CHECK = "2026-01-01"
+# 版本化回退快照（v4.1，7/1 采集）的行数：有成本 296 行，有原始输出 token 数 377 行
+EXPECTED_VERSIONED_FALLBACK_SNAPSHOT_COST_TO_RUN_MODEL_COUNT = 296
+EXPECTED_VERSIONED_FALLBACK_SNAPSHOT_CANONICAL_OUTPUT_TOKEN_COUNT_MODEL_COUNT = 377
 
 
 def _grid_hypervolume(points: np.ndarray, n: int = 200) -> float:
@@ -55,7 +78,13 @@ def _verify_standout_metrics() -> None:
     df["output_speed"] = df["eff_speed"]
     df["output_mtokens"] = 1.0
     df["blended_price_cache_input_output_7_to_2_to_1"] = df["cost_to_run"]
-    df = frontier.apply_pruning(df, since_months=999, max_layers=99, hard_age_cutoff_months=9999)
+    df = frontier.apply_pruning(
+        df,
+        since_months=999,
+        max_layers=99,
+        hard_age_cutoff_months=9999,
+        pruning_reference_date=FIXED_PRUNING_REFERENCE_DATE_FOR_SYNTHETIC_STANDOUT_CHECK,
+    )
     df = frontier.add_standout_metrics(df, "cost_to_run", "eff_speed", speed_log=True)
     kept = df[df["kept"]].set_index("name")
     frontier_names = set(kept[kept["is_pareto"]].index)
@@ -78,6 +107,53 @@ def _verify_standout_metrics() -> None:
         values = kept[column].to_numpy(float)
         assert ((values > 0) & (values < 1)).all(), f"{column} 越界 (0,1)"
     print("✅ 突出度指标语义验证通过")
+
+    # D-1：加一个支配所有点的历史口径点（v4.1 成本与 token），分析 Pareto 与突出度不变
+    rows_with_provenance = pd.DataFrame(rows, columns=["name", "intelligence", "cost_to_run", "eff_speed"])
+    rows_with_provenance["cost_to_run_value_is_from_current_intelligence_index_version"] = True
+    rows_with_provenance["output_token_count_value_is_from_current_intelligence_index_version"] = True
+    dominating_historical_point = {
+        "name": "H",
+        "intelligence": 99.0,
+        "cost_to_run": 0.01,
+        "eff_speed": 10_000.0,
+        "cost_to_run_value_is_from_current_intelligence_index_version": False,
+        "output_token_count_value_is_from_current_intelligence_index_version": False,
+    }
+    rows_with_historical_point = pd.concat(
+        [rows_with_provenance, pd.DataFrame([dominating_historical_point])], ignore_index=True
+    )
+    for dataframe_to_complete in (rows_with_provenance, rows_with_historical_point):
+        dataframe_to_complete["creator"] = "X"
+        dataframe_to_complete["release_date"] = pd.Timestamp("2026-01-01")
+    scored_without_historical_point, scored_with_historical_point = (
+        frontier.add_standout_metrics(
+            frontier.apply_pruning(
+                dataframe_to_score,
+                since_months=999,
+                max_layers=99,
+                hard_age_cutoff_months=9999,
+                pruning_reference_date=FIXED_PRUNING_REFERENCE_DATE_FOR_SYNTHETIC_STANDOUT_CHECK,
+            )
+        ).set_index("name")
+        for dataframe_to_score in (rows_with_provenance, rows_with_historical_point)
+    )
+    analysis_pareto_names_with_historical_point = set(
+        scored_with_historical_point.index[scored_with_historical_point["is_pareto"]]
+    )
+    assert analysis_pareto_names_with_historical_point == frontier_names, (
+        analysis_pareto_names_with_historical_point
+    )
+    assert scored_with_historical_point.loc["H", "kept"], "历史口径点应照常显示"
+    assert scored_with_historical_point.loc["H", "display_is_pareto"], "历史口径点在显示层是 Pareto"
+    assert math.isnan(scored_with_historical_point.loc["H", "layer"]), "历史口径点不应有分析层号"
+    pd.testing.assert_frame_equal(
+        scored_without_historical_point[frontier.STANDOUT_COLUMNS],
+        scored_with_historical_point.loc[
+            scored_without_historical_point.index, frontier.STANDOUT_COLUMNS
+        ],
+    )
+    print("✅ D-1 历史口径点不改变分析 Pareto 与突出度")
 
 
 def _verify_achievable_frontier_step_mesh() -> None:
@@ -133,90 +209,182 @@ class _FakeApiResponse:
         return self._payload
 
 
-def _verify_artificial_analysis_model_detail_page_output_token_fallback() -> None:
-    escaped_model_detail_page_html = (
-        r'{\"canonicalIntelligenceIndexTokenCount\":'
-        r'{\"input\":1000000,\"output\":30000000}}'
+def _verify_artificial_analysis_model_detail_page_output_token_parsing() -> None:
+    """P0-3：只取 currentModel 自身的 token；页面首个带 token 的对象不是本模型时也不能错拿。"""
+    other_model_id = synthetic_artificial_analysis_model_uuid(1)
+    current_model_id = synthetic_artificial_analysis_model_uuid(2)
+    other_model_object = build_synthetic_artificial_analysis_embedded_model_object(
+        model_id=other_model_id,
+        slug="synthetic-other-model",
+        name="Synthetic Other Model",
+        canonical_output_token_count=99_000_000,
+    )
+    current_model_object = build_synthetic_artificial_analysis_embedded_model_object(
+        model_id=current_model_id,
+        slug="synthetic-current-model",
+        name="Synthetic Current Model",
+        canonical_output_token_count=30_000_000,
+    )
+    parse_token = (
+        fetch_data.parse_canonical_output_token_count_from_artificial_analysis_model_detail_page_html
     )
     assert (
-        fetch_data.parse_canonical_output_token_count_from_artificial_analysis_model_detail_page_html(
-            escaped_model_detail_page_html
+        parse_token(
+            build_synthetic_artificial_analysis_model_detail_page_html(
+                embedded_model_objects=[other_model_object, current_model_object],
+                current_model_object={"id": current_model_id, "slug": "synthetic-current-model"},
+            )
         )
         == 30_000_000
     )
+    # 没有 currentModel：旧实现会拿「全页首个匹配」，现在必须返回 None
     assert (
-        fetch_data.parse_canonical_output_token_count_from_artificial_analysis_model_detail_page_html(
-            '{"canonicalIntelligenceIndexTokenCount":{"output":0}}'
-        )
-        is None
-    )
-    assert (
-        fetch_data.parse_canonical_output_token_count_from_artificial_analysis_model_detail_page_html(
-            "<html>无相关字段</html>"
-        )
-        is None
-    )
-
-    model_dataframe = pd.DataFrame(
-        [
-            {
-                "slug": "model-requiring-detail-page-fallback",
-                "intelligence": 60.0,
-                "output_speed": 100.0,
-                "cost_to_run": 20.0,
-                "intel_per_m_output": math.nan,
-            },
-            {
-                "slug": "model-already-containing-output-token-metric",
-                "intelligence": 50.0,
-                "output_speed": 90.0,
-                "cost_to_run": 15.0,
-                "intel_per_m_output": 4.0,
-            },
-            {
-                "slug": "model-missing-required-cost-dimension",
-                "intelligence": 40.0,
-                "output_speed": 80.0,
-                "cost_to_run": math.nan,
-                "intel_per_m_output": math.nan,
-            },
-        ]
-    )
-    requested_model_detail_pages: list[tuple[str, bool]] = []
-    original_fetch_model_detail_page_html = (
-        fetch_data.fetch_artificial_analysis_model_detail_page_html
-    )
-
-    def fake_fetch_model_detail_page_html(
-        model_slug: str,
-        refresh: bool = False,
-    ) -> str:
-        requested_model_detail_pages.append((model_slug, refresh))
-        return escaped_model_detail_page_html
-
-    try:
-        fetch_data.fetch_artificial_analysis_model_detail_page_html = (
-            fake_fetch_model_detail_page_html
-        )
-        filled_row_count = (
-            fetch_data.fill_missing_intelligence_per_million_output_tokens_from_artificial_analysis_model_detail_pages(
-                model_dataframe,
-                refresh=True,
+        parse_token(
+            build_synthetic_artificial_analysis_model_detail_page_html(
+                embedded_model_objects=[other_model_object, current_model_object],
             )
         )
-    finally:
-        fetch_data.fetch_artificial_analysis_model_detail_page_html = (
-            original_fetch_model_detail_page_html
+        is None
+    )
+    current_model_object_without_tokens = build_synthetic_artificial_analysis_embedded_model_object(
+        model_id=current_model_id,
+        slug="synthetic-current-model",
+        name="Synthetic Current Model",
+    )
+    assert (
+        parse_token(
+            build_synthetic_artificial_analysis_model_detail_page_html(
+                embedded_model_objects=[other_model_object, current_model_object_without_tokens],
+                current_model_object={"id": current_model_id, "slug": "synthetic-current-model"},
+            )
         )
+        is None
+    )
+    assert parse_token("<html>无相关字段</html>") is None
+    print("✅ Artificial Analysis 模型详情页 token 只取 currentModel 验证通过")
 
-    assert filled_row_count == 1
-    assert requested_model_detail_pages == [
-        ("model-requiring-detail-page-fallback", True)
+
+def _verify_website_page_fetch_paused_by_default_sends_no_request() -> None:
+    """D-12：默认暂停网页抓取，缓存缺失时返回 None，不发任何请求。"""
+    original_get = fetch_data.requests.get
+
+    def fail_on_any_network_request(*arguments, **keyword_arguments):
+        raise AssertionError(f"暂停抓取时不应发请求: {arguments}")
+
+    try:
+        fetch_data.requests.get = fail_on_any_network_request
+        with tempfile.TemporaryDirectory() as empty_model_detail_page_cache_directory:
+            assert (
+                fetch_data.fetch_artificial_analysis_model_detail_page_html(
+                    "synthetic-model-without-cache",
+                    refresh=True,
+                    model_detail_page_html_cache_directory=Path(empty_model_detail_page_cache_directory),
+                )
+                is None
+            )
+    finally:
+        fetch_data.requests.get = original_get
+    print("✅ 网页抓取默认暂停（D-12）验证通过")
+
+
+def _verify_frontier_mesh_is_not_encoded_as_plotly_bdata() -> None:
+    """P0-4：实心面 trace 传 Python 列表，契约里是有限数与合法索引，三角形数 > 0。"""
+    dataset = dataset_builder.build_frontier_3d_visualization_dataset(
+        build_frontier_3d_synthetic_fixture_models_dataframe(),
+        since_months=18,
+        max_layers=3,
+        hard_age_cutoff_months=36,
+        speed_scale="log",
+        pruning_reference_date=FRONTIER_3D_SYNTHETIC_FIXTURE_PRUNING_REFERENCE_DATE,
+    )
+    dataset_builder.validate_frontier_3d_visualization_dataset(dataset)
+    default_variant = dataset["metric_variants"]["effective__effective"]
+    surface_mesh = default_variant["three_dimensional_scene"]["pareto_frontier_surface_triangle_mesh"]
+    assert len(surface_mesh["triangle_vertex_index_a"]) > 0, "默认口径实心面三角形数应 > 0"
+    assert all(isinstance(value, float) for value in surface_mesh["x_coordinates"])
+    mesh_traces = [
+        trace
+        for trace in default_variant["plotly_static_export_trace_data"]
+        if trace.get("type") == "mesh3d" and trace.get("name", "").startswith("前沿流形")
     ]
-    assert model_dataframe.loc[0, "intel_per_m_output"] == 2.0
-    assert model_dataframe.loc[1, "intel_per_m_output"] == 4.0
-    assert math.isnan(model_dataframe.loc[2, "intel_per_m_output"])
-    print("✅ Artificial Analysis 模型详情页输出 token 回退验证通过")
+    assert mesh_traces and not isinstance(mesh_traces[0]["x"], dict), "实心面 trace 仍被编码成 bdata"
+    print("✅ 实心面不再被 Plotly 编码成 bdata（P0-4）验证通过")
+
+
+def _verify_dataset_validation_positive_and_negative_examples() -> None:
+    zero_model_scene = {
+        "displayed_model_markers": [],
+        "pareto_frontier_wireframe_line_segments": {
+            "x_coordinates": [], "y_coordinates": [], "z_coordinates": [],
+        },
+        "pareto_frontier_surface_triangle_mesh": {
+            "x_coordinates": [], "y_coordinates": [], "z_coordinates": [],
+            "triangle_vertex_index_a": [], "triangle_vertex_index_b": [], "triangle_vertex_index_c": [],
+        },
+        "achievable_frontier_surface_triangle_mesh": {
+            "x_coordinates": [], "y_coordinates": [], "z_coordinates": [],
+            "triangle_vertex_index_a": [], "triangle_vertex_index_b": [], "triangle_vertex_index_c": [],
+        },
+        "three_dimensional_axis_configuration": {"x_axis": {}, "y_axis": {}, "z_axis": {}},
+        "current_view": {},
+    }
+    zero_model_variant = {
+        "three_dimensional_scene": zero_model_scene,
+        "interaction_relationships": {},
+        "plotly_static_export_trace_data": [],
+        "plotly_static_export_layout": {},
+    }
+    zero_model_dataset = {
+        "schema_version": dataset_builder.FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION,
+        "interactive_renderer": "threejs",
+        "initial_variant_key": "effective__effective",
+        "organization_identity_metadata_by_creator_name": {},
+        "metric_variants": {
+            variant_key: copy.deepcopy(zero_model_variant)
+            for variant_key in ("effective__effective", "effective__raw", "blended__effective", "blended__raw")
+        },
+    }
+    # 正例：零模型、零 Pareto 的合法场景（全部网格为空）
+    dataset_builder.validate_frontier_3d_visualization_dataset(zero_model_dataset)
+
+    def assert_validation_rejects(invalid_dataset: dict, description: str) -> None:
+        try:
+            dataset_builder.validate_frontier_3d_visualization_dataset(invalid_dataset)
+        except ValueError:
+            return
+        raise AssertionError(f"契约校验应拒绝：{description}")
+
+    # 反例：空 scene（旧版本曾断言它合法）
+    empty_scene_dataset = copy.deepcopy(zero_model_dataset)
+    for variant in empty_scene_dataset["metric_variants"].values():
+        variant["three_dimensional_scene"] = {}
+    assert_validation_rejects(empty_scene_dataset, "空 scene")
+
+    # 反例：实心面坐标是 bdata 键名（P0-4 的真实形态）
+    listed_bdata_dataset = copy.deepcopy(zero_model_dataset)
+    listed_bdata_dataset["metric_variants"]["effective__effective"]["three_dimensional_scene"][
+        "pareto_frontier_surface_triangle_mesh"
+    ]["x_coordinates"] = ["dtype", "bdata"]
+    assert_validation_rejects(listed_bdata_dataset, "实心面坐标为 ['dtype','bdata']")
+
+    # 反例：三角索引越界
+    out_of_range_index_dataset = copy.deepcopy(zero_model_dataset)
+    out_of_range_mesh = out_of_range_index_dataset["metric_variants"]["effective__effective"][
+        "three_dimensional_scene"
+    ]["pareto_frontier_surface_triangle_mesh"]
+    out_of_range_mesh.update(
+        x_coordinates=[0.0, 1.0, 2.0], y_coordinates=[0.0, 1.0, 0.0], z_coordinates=[1.0, 1.0, 1.0],
+        triangle_vertex_index_a=[0], triangle_vertex_index_b=[1], triangle_vertex_index_c=[3],
+    )
+    assert_validation_rejects(out_of_range_index_dataset, "三角索引越界")
+
+    # 反例：显示点缺 panel
+    missing_panel_dataset = copy.deepcopy(zero_model_dataset)
+    missing_panel_dataset["metric_variants"]["effective__effective"]["three_dimensional_scene"][
+        "displayed_model_markers"
+    ] = [{"name": "缺 panel 的点", "x": 1.0, "y": 1.0, "z": 1.0}]
+    assert_validation_rejects(missing_panel_dataset, "显示点缺 panel")
+    print("✅ 契约校验正例（零模型/零 Pareto）与反例（空 scene/bdata/越界/缺 panel）验证通过")
 
 
 def main() -> None:
@@ -227,6 +395,9 @@ def main() -> None:
         "price_1m_output_tokens": 3.0,
     }
     assert fetch_data.calculate_blended_price_cache_input_output_7_to_2_to_1(native_pricing) == 9.99
+    assert fetch_data.calculate_blended_price_cache_input_output_7_to_2_to_1_with_cache_hit_price_source(
+        native_pricing
+    ) == (9.99, fetch_data.BLENDED_PRICE_CACHE_HIT_PRICE_SOURCE_ARTIFICIAL_ANALYSIS_API_NATIVE_BLENDED_PRICE)
 
     component_pricing = {
         "price_1m_cache_hit_tokens": 1.0,
@@ -234,11 +405,27 @@ def main() -> None:
         "price_1m_output_tokens": 3.0,
     }
     assert fetch_data.calculate_blended_price_cache_input_output_7_to_2_to_1(component_pricing) == 1.4
-    assert math.isnan(
-        fetch_data.calculate_blended_price_cache_input_output_7_to_2_to_1(
+    assert fetch_data.calculate_blended_price_cache_input_output_7_to_2_to_1_with_cache_hit_price_source(
+        component_pricing
+    ) == (1.4, fetch_data.BLENDED_PRICE_CACHE_HIT_PRICE_SOURCE_COMPUTED_WITH_API_CACHE_HIT_PRICE)
+    # P0-6：缺 cache-hit 价时按 AA 惯例用 input 价代替 = (9×input + output)/10，不再是 NaN
+    blended_price_without_cache_hit, blended_price_source_without_cache_hit = (
+        fetch_data.calculate_blended_price_cache_input_output_7_to_2_to_1_with_cache_hit_price_source(
             {"price_1m_input_tokens": 2.0, "price_1m_output_tokens": 3.0}
         )
     )
+    assert math.isclose(blended_price_without_cache_hit, (9 * 2.0 + 3.0) / 10)
+    assert (
+        blended_price_source_without_cache_hit
+        == fetch_data.BLENDED_PRICE_CACHE_HIT_PRICE_SOURCE_COMPUTED_WITH_INPUT_PRICE_AS_CACHE_HIT_PRICE
+    )
+    # input 或 output 缺失 → NaN，来源 None
+    blended_price_without_output, blended_price_source_without_output = (
+        fetch_data.calculate_blended_price_cache_input_output_7_to_2_to_1_with_cache_hit_price_source(
+            {"price_1m_input_tokens": 2.0, "price_1m_cache_hit_tokens": 1.0}
+        )
+    )
+    assert math.isnan(blended_price_without_output) and blended_price_source_without_output is None
 
     assert frontier.dims_for(
         cost_metric_column_name="blended_price_cache_input_output_7_to_2_to_1",
@@ -261,27 +448,12 @@ def main() -> None:
     )
     assert set(cli.COST_METRICS) == {"effective", "blended"}
     assert set(cli.SPEED_METRICS) == {"effective", "raw"}
-    empty_variant = {
-        "three_dimensional_scene": {},
-        "interaction_relationships": {},
-        "plotly_static_export_trace_data": [],
-        "plotly_static_export_layout": {},
-    }
+    # 契约校验的正例与反例见 _verify_dataset_validation_positive_and_negative_examples
+    # （旧版本在这里断言「空 scene 也合法」，现在空 scene 是反例）
     empty_variant_template = {
-        "effective__effective": dict(empty_variant),
-        "effective__raw": dict(empty_variant),
-        "blended__effective": dict(empty_variant),
-        "blended__raw": dict(empty_variant),
+        variant_key: {}
+        for variant_key in ("effective__effective", "effective__raw", "blended__effective", "blended__raw")
     }
-    dataset_builder.validate_frontier_3d_visualization_dataset(
-        {
-            "schema_version": dataset_builder.FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION,
-            "interactive_renderer": "threejs",
-            "initial_variant_key": "effective__effective",
-            "organization_identity_metadata_by_creator_name": {},
-            "metric_variants": empty_variant_template,
-        }
-    )
     dataset_with_raw_initial_metric_variant = {
         "initial_variant_key": "effective__raw",
         "metric_variants": empty_variant_template,
@@ -305,17 +477,22 @@ def main() -> None:
         == "blended__effective"
     )
 
-    original_processed_dir = fetch_data.PROCESSED
-    try:
-        fetch_data.PROCESSED = REPOSITORY_ROOT / "nonexistent-processed-dir-for-fallback-test"
-        fallback_cost_by_model_id, fallback_intel_per_m_by_model_id = (
-            fetch_data.load_cost_and_output_token_fallbacks()
-        )
-    finally:
-        fetch_data.PROCESSED = original_processed_dir
+    # 默认只读入库的版本化快照（v4.1），不读上次产物 data/processed/models.csv
     assert fetch_data.VERSIONED_COST_AND_OUTPUT_TOKEN_FALLBACK_SNAPSHOT.exists()
-    assert len(fallback_cost_by_model_id) >= 250
-    assert len(fallback_intel_per_m_by_model_id) >= 300
+    fallback_values = fetch_data.load_cost_and_output_token_fallbacks()
+    assert (
+        len(fallback_values.cost_to_run_fallback_value_by_model_id)
+        == EXPECTED_VERSIONED_FALLBACK_SNAPSHOT_COST_TO_RUN_MODEL_COUNT
+    )
+    assert (
+        len(fallback_values.canonical_output_token_count_fallback_value_by_model_id)
+        == EXPECTED_VERSIONED_FALLBACK_SNAPSHOT_CANONICAL_OUTPUT_TOKEN_COUNT_MODEL_COUNT
+    )
+    assert all(
+        fallback_value.value_source == fetch_data.COST_TO_RUN_VALUE_SOURCE_VERSIONED_NON_CURRENT_FALLBACK_SNAPSHOT
+        and fallback_value.intelligence_index_version == "4.1"
+        for fallback_value in fallback_values.cost_to_run_fallback_value_by_model_id.values()
+    )
 
     requested_urls = []
     original_get = fetch_data.requests.get
@@ -347,9 +524,12 @@ def main() -> None:
     assert selected_api_url == fetch_data.API_LANGUAGE_MODELS_FREE_URL
     print("✅ 指标口径验证通过")
 
-    _verify_artificial_analysis_model_detail_page_output_token_fallback()
+    _verify_artificial_analysis_model_detail_page_output_token_parsing()
+    _verify_website_page_fetch_paused_by_default_sends_no_request()
     _verify_standout_metrics()
     _verify_achievable_frontier_step_mesh()
+    _verify_frontier_mesh_is_not_encoded_as_plotly_bdata()
+    _verify_dataset_validation_positive_and_negative_examples()
 
 
 if __name__ == "__main__":

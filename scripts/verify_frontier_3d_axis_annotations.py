@@ -1,6 +1,7 @@
 """验证三维坐标轴刻度、标题以及相机操作后的投影位置。"""
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -12,6 +13,11 @@ from frontier_3d_playwright_verification_support import (
 )
 
 HTML_PATH = Path(sys.argv[1] if len(sys.argv) > 1 else "output/frontier_3d.html").resolve()
+# 截图目录：缺省与 HTML 同目录（旧行为）；run_all 会设成临时目录，免得往共享的 output/ 写截图（R3-F11）
+AXIS_ANNOTATION_SCREENSHOT_DIRECTORY = Path(
+    os.environ.get("FRONTIER_3D_AXIS_ANNOTATION_SCREENSHOT_DIRECTORY") or HTML_PATH.parent
+).resolve()
+AXIS_ANNOTATION_SCREENSHOT_DIRECTORY.mkdir(parents=True, exist_ok=True)
 
 
 def verify_projected_axis_annotations(page, variant_key):
@@ -182,7 +188,7 @@ def main():
         variant_keys = page.evaluate("() => Object.keys(window.FRONTIER_3D_VISUALIZATION_DATASET.metric_variants)")
         initial_variant = page.evaluate("() => window.FRONTIER_3D_VISUALIZATION_DATASET.initial_variant_key")
         verify_projected_axis_annotations(page, initial_variant)
-        page.screenshot(path=str(HTML_PATH.with_name("axis-annotations-default.png")))
+        page.screenshot(path=str(AXIS_ANNOTATION_SCREENSHOT_DIRECTORY / "axis-annotations-default.png"))
         for variant_key in variant_keys:
             page.evaluate("key => window.setFrontierMetricCombination(...key.split('__'))", variant_key)
             verify_projected_axis_annotations(page, variant_key)
@@ -201,7 +207,7 @@ def main():
         page.evaluate("() => window.setFrontierSidePanelExpanded(false)")
         page.wait_for_timeout(300)
         verify_projected_axis_annotations(page, variant_keys[-1])
-        page.screenshot(path=str(HTML_PATH.with_name("axis-annotations-rotated.png")))
+        page.screenshot(path=str(AXIS_ANNOTATION_SCREENSHOT_DIRECTORY / "axis-annotations-rotated.png"))
         page.set_viewport_size({'width': 900, 'height': 700})
         verify_projected_axis_annotations(page, variant_keys[-1])
 
@@ -212,7 +218,7 @@ def main():
         for variant_key in variant_keys:
             constrained_page.evaluate("key => window.setFrontierMetricCombination(...key.split('__'))", variant_key)
             verify_constrained_axis_annotations(constrained_page, variant_key, True)
-        constrained_page.screenshot(path=str(HTML_PATH.with_name("axis-annotations-320px.png")))
+        constrained_page.screenshot(path=str(AXIS_ANNOTATION_SCREENSHOT_DIRECTORY / "axis-annotations-320px.png"))
 
         constrained_page.set_viewport_size({'width': 1400, 'height': 900})
         constrained_page.reload()
@@ -224,12 +230,12 @@ def main():
         constrained_page.wait_for_timeout(150)
         assert constrained_page.evaluate("() => window.frontierThreeDimensionalRendererDiagnostics.controls.getDistance()") < original_distance
         verify_constrained_axis_annotations(constrained_page, initial_variant, True)
-        constrained_page.screenshot(path=str(HTML_PATH.with_name("axis-annotations-zoom-in.png")))
+        constrained_page.screenshot(path=str(AXIS_ANNOTATION_SCREENSHOT_DIRECTORY / "axis-annotations-zoom-in.png"))
         constrained_page.mouse.wheel(0, -3000)
         constrained_page.wait_for_timeout(150)
         assert constrained_page.evaluate("() => Math.abs(window.frontierThreeDimensionalRendererDiagnostics.controls.getDistance() - window.frontierThreeDimensionalRendererDiagnostics.controls.minDistance) < 0.01")
         assert verify_constrained_axis_annotations(constrained_page, initial_variant, False)['hiddenOffscreenTicks'] > 0
-        constrained_page.screenshot(path=str(HTML_PATH.with_name("axis-annotations-minimum-distance.png")))
+        constrained_page.screenshot(path=str(AXIS_ANNOTATION_SCREENSHOT_DIRECTORY / "axis-annotations-minimum-distance.png"))
         constrained_page.mouse.wheel(0, 3000)
         constrained_page.wait_for_timeout(150)
         verify_projected_axis_annotations(constrained_page, initial_variant)

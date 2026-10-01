@@ -1,7 +1,12 @@
+# 依赖以 pyproject.toml / uv.lock 为准（推荐：uv sync / uv run --frozen）；本文件仅供不用 uv 的旧入口
+# （pip install -r requirements.txt）。下界与 pyproject.toml 保持一致，由
+# tests/python_unit/test_legacy_requirements_txt_lower_bounds_match_pyproject_dependency_declarations.py 校验。
+numpy>=1.26
 pandas>=2.0
-plotly>=5.20
+# Plotly 6 起数值数组序列化为 {"dtype","bdata"}；契约构建依赖该行为的已知边界
+plotly>=6.0
 requests>=2.31
 scipy>=1.11
 python-dotenv>=1.0
 # 静态导出（--export png/svg）才需要；交互式 HTML 不依赖它
-kaleido>=0.2.1
+kaleido>=1.0
