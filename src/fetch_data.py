@@ -337,6 +337,13 @@ _GUARDRAIL_PASSED_API_LANGUAGE_MODELS_RESPONSE_HISTORY_FILE_NAME_PATTERN = re.co
     r"^artificial_analysis_api_language_models_response_fetched_at_(?P<fetched_at_compact_utc>\d{8}T\d{6}Z)"
     r"(?:_inferred_from_cache_file_modification_time)?\.json$"
 )
+# 每次刷新独有的文件名标记（进程号 + 随机串）：暂存文件、「待护栏校验 / 被护栏拒绝」历史文件都带它，
+# 抓取时间落在同一秒的两次刷新也不会写到同一个文件（RVF-001 及其残留加固）
+_REFRESH_ATTEMPT_UNIQUE_FILE_NAME_TOKEN_PATTERN = re.compile(r"_by_process_\d+_refresh_attempt_[0-9a-f]{12}$")
+
+
+def _new_refresh_attempt_unique_file_name_token() -> str:
+    return f"_by_process_{os.getpid()}_refresh_attempt_{uuid.uuid4().hex[:12]}"
 
 
 def _api_language_models_response_history_file_name(
@@ -362,16 +369,28 @@ def _api_language_models_response_history_file_path_with_guardrail_status_suffix
     pending_response_history_file_path: Path,
     replacement_file_name_suffix: str,
 ) -> Path:
-    """把「待护栏校验」后缀换成 replacement_file_name_suffix（通过时为空串，失败时为「被拒绝」后缀）。"""
+    """把「待护栏校验」后缀换成 replacement_file_name_suffix（通过时为空串，失败时为「被拒绝」后缀）。
+
+    通过时连本次刷新的独有标记一起去掉：通过护栏的历史必须是纯时间戳名，才会被当作后续骤降护栏的
+    基线，也才能与下次刷新归档旧缓存时的同名副本去重（同一秒两次都通过时后者覆盖前者，二者都是
+    通过护栏的响应）。被拒的历史保留标记，同一秒的多次被拒互不覆盖。
+    """
     pending_suffix_with_extension = (
         API_LANGUAGE_MODELS_RESPONSE_HISTORY_FILE_NAME_SUFFIX_PENDING_DATA_QUALITY_GUARDRAIL_VALIDATION + ".json"
     )
     if not pending_response_history_file_path.name.endswith(pending_suffix_with_extension):
         raise ValueError(f"不是待护栏校验的响应历史文件：{pending_response_history_file_path}")
+    response_history_file_name_stem_without_pending_suffix = pending_response_history_file_path.name[
+        : -len(pending_suffix_with_extension)
+    ]
+    if not replacement_file_name_suffix:
+        response_history_file_name_stem_without_pending_suffix = (
+            _REFRESH_ATTEMPT_UNIQUE_FILE_NAME_TOKEN_PATTERN.sub(
+                "", response_history_file_name_stem_without_pending_suffix
+            )
+        )
     return pending_response_history_file_path.with_name(
-        pending_response_history_file_path.name[: -len(pending_suffix_with_extension)]
-        + replacement_file_name_suffix
-        + ".json"
+        response_history_file_name_stem_without_pending_suffix + replacement_file_name_suffix + ".json"
     )
 
 
@@ -486,6 +505,8 @@ def _archive_existing_api_language_models_cache_into_response_history(
 def refreshed_api_language_models_response_pending_cache_replacement_path(
     api_language_models_cache_path: Path,
     refreshed_response_fetched_at_datetime_utc: datetime,
+    *,
+    refresh_attempt_unique_file_name_token: str | None = None,
 ) -> Path:
     """刷新得到、尚未通过数据质量护栏的新响应暂存在缓存旁的这个文件里——每次刷新各用一个。
 
@@ -497,7 +518,7 @@ def refreshed_api_language_models_response_pending_cache_replacement_path(
         api_language_models_cache_path.stem
         + ".refreshed_response_fetched_at_"
         + refreshed_response_fetched_at_datetime_utc.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        + f"_by_process_{os.getpid()}_refresh_attempt_{uuid.uuid4().hex[:12]}"
+        + (refresh_attempt_unique_file_name_token or _new_refresh_attempt_unique_file_name_token())
         + "_pending_data_quality_guardrail_validation.json"
     )
 
@@ -587,11 +608,14 @@ def load_artificial_analysis_api_language_models_with_response_metadata(
     _archive_existing_api_language_models_cache_into_response_history(
         api_language_models_cache_path, response_history_directory
     )
-    # 延后替换缓存时，新响应在历史里先带「待护栏校验」后缀，护栏有结论后由调用方改名（R1-04）
+    # 延后替换缓存时，新响应在历史里先带「本次刷新独有标记 + 待护栏校验」后缀，护栏有结论后由调用方
+    # 改名（R1-04）；暂存文件用同一个标记，便于对照同一次刷新的两份文件
+    refresh_attempt_unique_file_name_token = _new_refresh_attempt_unique_file_name_token()
     refreshed_response_history_file_path = response_history_directory / _api_language_models_response_history_file_name(
         fetched_at_datetime_utc,
         data_quality_guardrail_status_file_name_suffix=(
-            API_LANGUAGE_MODELS_RESPONSE_HISTORY_FILE_NAME_SUFFIX_PENDING_DATA_QUALITY_GUARDRAIL_VALIDATION
+            refresh_attempt_unique_file_name_token
+            + API_LANGUAGE_MODELS_RESPONSE_HISTORY_FILE_NAME_SUFFIX_PENDING_DATA_QUALITY_GUARDRAIL_VALIDATION
             if defer_api_language_models_cache_replacement_until_guardrails_pass
             else ""
         ),
@@ -601,7 +625,9 @@ def load_artificial_analysis_api_language_models_with_response_metadata(
     if defer_api_language_models_cache_replacement_until_guardrails_pass:
         refreshed_response_pending_cache_replacement_path = (
             refreshed_api_language_models_response_pending_cache_replacement_path(
-                api_language_models_cache_path, fetched_at_datetime_utc
+                api_language_models_cache_path,
+                fetched_at_datetime_utc,
+                refresh_attempt_unique_file_name_token=refresh_attempt_unique_file_name_token,
             )
         )
         _write_text_file_atomically(

@@ -9,6 +9,7 @@ import dataclasses
 import json
 import math
 import os
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -1529,7 +1530,7 @@ def test_interleaved_refresh_rejected_by_guardrails_cannot_be_promoted_by_concur
             next(successive_refresh_api_model_row_counts)
         )(api_key)
 
-    # 两次刷新的抓取时间落在不同秒，避免响应历史文件名相撞（本用例只考察缓存暂存文件）
+    # 两次刷新的抓取时间落在不同秒（同一秒的情形见下一个用例）
     successive_refresh_fetched_at_datetimes_utc = iter(
         [
             datetime(2026, 9, 24, 0, 0, 0, tzinfo=timezone.utc),
@@ -1578,8 +1579,11 @@ def test_interleaved_refresh_rejected_by_guardrails_cannot_be_promoted_by_concur
     response_history_json_texts = _api_language_models_response_history_json_texts(
         synthetic_artificial_analysis_cache_layout
     )
+    # 被拒的历史文件名带刷新 B 独有的标记（进程号 + 随机串），按模式匹配后归一成固定键再比较
     assert {
-        history_file_name: len(json.loads(history_json_text)["data"])
+        re.sub(r"_by_process_\d+_refresh_attempt_[0-9a-f]{12}_", "_<refresh_attempt_token>_", history_file_name): len(
+            json.loads(history_json_text)["data"]
+        )
         for history_file_name, history_json_text in response_history_json_texts.items()
     } == {
         "artificial_analysis_api_language_models_response_fetched_at_20260923T055032Z.json": (
@@ -1589,7 +1593,9 @@ def test_interleaved_refresh_rejected_by_guardrails_cannot_be_promoted_by_concur
             refresh_a_api_model_row_count_that_passes_guardrails
         ),
         "artificial_analysis_api_language_models_response_fetched_at_20260924T000005Z"
-        "_rejected_by_data_quality_guardrails.json": refresh_b_api_model_row_count_rejected_by_guardrails,
+        "_<refresh_attempt_token>_rejected_by_data_quality_guardrails.json": (
+            refresh_b_api_model_row_count_rejected_by_guardrails
+        ),
     }
     leftover_cache_sibling_file_names = sorted(
         cache_directory_entry.name
@@ -1598,6 +1604,114 @@ def test_interleaved_refresh_rejected_by_guardrails_cannot_be_promoted_by_concur
         and cache_directory_entry.name != api_language_models_cache_path.name
     )
     assert leftover_cache_sibling_file_names == [], "各次刷新的暂存文件在晋升或被拒后都不应残留"
+
+
+def test_same_second_interleaved_refreshes_keep_separate_response_history_files_and_guardrail_outcomes(
+    synthetic_artificial_analysis_cache_layout: SyntheticArtificialAnalysisCacheLayout,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """RVF-001 残留加固：两次交错的 `--refresh` 抓取时间落在同一秒时，响应历史也不能互相覆盖。
+
+    「待护栏校验」历史文件名若只带抓取时间（精确到秒），刷新 B 会覆盖刷新 A 的待校验历史，
+    B 被拒时把它改名带走，A 护栏通过后再改名就找不到自己的文件。每次刷新的待校验 / 被拒历史
+    文件名都要带本次刷新独有的标记；通过护栏的历史仍用纯时间戳名，才能当后续骤降护栏的基线。
+    """
+    api_language_models_cache_path = (
+        synthetic_artificial_analysis_cache_layout.api_language_models_cache_path
+    )
+    refresh_a_api_model_row_count_that_passes_guardrails = SYNTHETIC_API_MODEL_ROW_COUNT + 1
+    # 100 个模型 → 「API 模型数 ≥ 500」护栏失败
+    refresh_b_api_model_row_count_rejected_by_guardrails = 100
+    successive_refresh_api_model_row_counts = iter(
+        [
+            refresh_a_api_model_row_count_that_passes_guardrails,
+            refresh_b_api_model_row_count_rejected_by_guardrails,
+        ]
+    )
+
+    def fetch_refresh_a_then_refresh_b_api_response(api_key):
+        return _fake_refreshed_api_response_rows_and_metadata(
+            next(successive_refresh_api_model_row_counts)
+        )(api_key)
+
+    same_second_refresh_fetched_at_datetime_utc = datetime(2026, 9, 24, 0, 0, 0, tzinfo=timezone.utc)
+
+    class _DatetimeWithSameSecondRefreshFetchedAtTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return same_second_refresh_fetched_at_datetime_utc
+
+    real_validate = fetch_data._validate
+    refresh_b_guardrail_violation_errors: list[Exception] = []
+
+    def validate_with_refresh_b_running_to_completion_inside_refresh_a_validation(
+        models_dataframe, **keyword_arguments
+    ):
+        if len(models_dataframe) == refresh_a_api_model_row_count_that_passes_guardrails:
+            try:
+                fetch_data.build_dataframe(refresh=True)
+            except fetch_data.ArtificialAnalysisDataQualityGuardrailViolationError as guardrail_violation_error:
+                refresh_b_guardrail_violation_errors.append(guardrail_violation_error)
+        return real_validate(models_dataframe, **keyword_arguments)
+
+    monkeypatch.setattr(fetch_data, "datetime", _DatetimeWithSameSecondRefreshFetchedAtTime)
+    monkeypatch.setattr(fetch_data, "get_api_key", lambda: "synthetic-test-key")
+    monkeypatch.setattr(
+        fetch_data,
+        "_fetch_paginated_language_models_with_response_top_level_metadata",
+        fetch_refresh_a_then_refresh_b_api_response,
+    )
+    monkeypatch.setattr(
+        fetch_data, "_validate", validate_with_refresh_b_running_to_completion_inside_refresh_a_validation
+    )
+
+    refresh_a_models_dataframe = fetch_data.build_dataframe(refresh=True)
+
+    assert len(refresh_b_guardrail_violation_errors) == 1, "刷新 B 应被护栏拒绝"
+    assert len(refresh_a_models_dataframe) == refresh_a_api_model_row_count_that_passes_guardrails
+    promoted_api_cache = json.loads(api_language_models_cache_path.read_text(encoding="utf-8"))
+    assert len(promoted_api_cache["data"]) == refresh_a_api_model_row_count_that_passes_guardrails
+    response_history_api_model_row_counts_by_file_name = {
+        history_file_name: len(json.loads(history_json_text)["data"])
+        for history_file_name, history_json_text in _api_language_models_response_history_json_texts(
+            synthetic_artificial_analysis_cache_layout
+        ).items()
+    }
+    rejected_history_file_names = [
+        history_file_name
+        for history_file_name in response_history_api_model_row_counts_by_file_name
+        if history_file_name.endswith("_rejected_by_data_quality_guardrails.json")
+    ]
+    assert len(rejected_history_file_names) == 1
+    assert re.fullmatch(
+        r"artificial_analysis_api_language_models_response_fetched_at_20260924T000000Z"
+        r"_by_process_\d+_refresh_attempt_[0-9a-f]{12}_rejected_by_data_quality_guardrails\.json",
+        rejected_history_file_names[0],
+    )
+    assert response_history_api_model_row_counts_by_file_name == {
+        "artificial_analysis_api_language_models_response_fetched_at_20260923T055032Z.json": (
+            SYNTHETIC_API_MODEL_ROW_COUNT
+        ),
+        # 通过护栏的历史用纯时间戳名，才会被当作「上一份通过护栏的响应」
+        "artificial_analysis_api_language_models_response_fetched_at_20260924T000000Z.json": (
+            refresh_a_api_model_row_count_that_passes_guardrails
+        ),
+        rejected_history_file_names[0]: refresh_b_api_model_row_count_rejected_by_guardrails,
+    }
+    # 下一次刷新的骤降护栏基线 = 刷新 A 的响应，而不是刷新 B 被拒的响应
+    response_history_directory_path = (
+        synthetic_artificial_analysis_cache_layout.raw_directory_path
+        / "artificial_analysis_api_language_models_response_history"
+    )
+    assert fetch_data.find_previous_guardrail_passed_api_language_models_response_in_history(
+        response_history_directory_path, "2026-09-25T00:00:00Z"
+    ) == (
+        response_history_directory_path
+        / "artificial_analysis_api_language_models_response_fetched_at_20260924T000000Z.json",
+        fetch_data._current_api_cost_to_run_value_count_in_api_language_models_response_rows(
+            promoted_api_cache["data"]
+        ),
+    )
 
 
 # ----------------------------------------------------------------------------- 列表页不再随开关联网（R3-F3）

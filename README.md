@@ -211,8 +211,10 @@ AA《Website Terms of Use》第 3.3(b)(vi) 条禁止用脚本抓取站点数据�
 - `--refresh` 只刷新 AA API。刷新得到的新响应先暂存，**数据质量护栏全部通过后才替换** `data/raw/api_language_models.json`；
   替换前旧缓存会原样归档进 `data/raw/artificial_analysis_api_language_models_response_history/`（旧缓存没有记录抓取时间时，
   文件名按 mtime 推断并注明 `_inferred_from_cache_file_modification_time`）。护栏失败时共享缓存保持原样，离线重跑不受影响；
-  新响应在响应历史里先带 `_pending_data_quality_guardrail_validation` 后缀，护栏通过后去掉后缀，失败则改为
-  `_rejected_by_data_quality_guardrails` 后缀——带这两种后缀的文件不会被当作下面「上一份通过护栏的响应」基线；
+  新响应在响应历史里先带「本次刷新独有标记（`_by_process_<进程号>_refresh_attempt_<随机串>`）+
+  `_pending_data_quality_guardrail_validation`」后缀，护栏通过后连标记一起去掉（只剩抓取时间），失败则改为
+  「标记 + `_rejected_by_data_quality_guardrails`」后缀——带这两种后缀的文件不会被当作下面「上一份通过护栏的响应」基线；
+  有了独有标记，抓取时间落在同一秒的两次刷新也不会互相覆盖暂存文件或待校验的历史文件；
 - 按模型拆分的输出 token 数与 time per task 只存在于网页。因此暂停期间，9/23 之后上架的新模型没有当期 token 数，
   会在两个有效速度口径中缺席。CLI 结尾会单列这类模型（V-3）；
 - 只有显式加 `--allow-artificial-analysis-website-page-fetch` 才会按需抓取「缺当期 token 数」的详情页。列表页 `/models`
