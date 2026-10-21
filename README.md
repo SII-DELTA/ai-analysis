@@ -23,14 +23,14 @@ Artificial Analysis（AA）官网的模型对比图基本都是二维，唯独�
 | 维度 | 来源 | 版本 | 回退策略 | 字段 |
 |---|---|---|---|---|
 | **智能**（z 轴） | AA API | 当期（z 轴标题写明版本，如 `AA Intelligence Index v4.3.2`） | 无回退；缺失即不上图 | `evaluations.artificial_analysis_intelligence_index` → `intelligence` |
-| **有效运行成本**（x 轴，默认） | AA API `artificial_analysis_intelligence_index_cost.total_cost` | API 值一律为当期 | 版本化快照（v4.1，2026-07-01 采集，**非当期**）；上次 `data/processed/models.csv` 仅在显式开关 `--use-previous-run-processed-models-csv-as-fallback` 时读取（版本未知，按非当期处理） | `cost_to_run`，溯源列 `cost_to_run_value_source` / `…_intelligence_index_version` / `…_fetched_at_utc` / `…_is_from_current_intelligence_index_version` |
+| **有效运行成本**（x 轴，默认） | AA API `artificial_analysis_intelligence_index_cost.total_cost` | API 值一律为当期 | 版本化快照（v4.1，2026-08-04 缓存单批提取，**非当期**）；上次 `data/processed/models.csv` 仅在显式开关 `--use-previous-run-processed-models-csv-as-fallback` 时读取（版本未知，按非当期处理） | `cost_to_run`，溯源列 `cost_to_run_value_source` / `…_intelligence_index_version` / `…_fetched_at_utc` / `…_is_from_current_intelligence_index_version` |
 | **7:2:1 混合单价**（x 轴，可选） | AA API 分项单价计算 | 与指数版本无关 | 缺 cache-hit 价时按 AA 惯例用 input 价代替；缺 input 或 output 则缺失 | `blended_price_cache_input_output_7_to_2_to_1`，来源列 `blended_price_cache_hit_price_source` |
 | **有效速度**（y 轴，默认） | 原始速度取 AA API；输出 token 数取详情页内嵌模型目录（被接受的分区） | token 数按其所属版本分别归一 | token 数回退到版本化快照（v4.1，非当期）；同上的显式开关 | `eff_speed`，由 `output_speed` 与 `intelligence_index_canonical_output_token_count` 派生；溯源列 `output_token_count_value_*` |
 | **原始速度**（y 轴，可选） | AA API | 与指数版本无关 | 无回退 | `performance.median_output_tokens_per_second` → `output_speed` |
 
 - 成本与 token 数的回退快照：
-  `data/reference/artificial_analysis_intelligence_index_v4_1_cost_to_run_and_canonical_output_token_count_fallback_snapshot_captured_2026_07_01.csv`
-  （v4.1 口径，存原始 token 数；由 `scripts/convert_legacy_intelligence_per_million_output_token_fallback_snapshot_to_raw_token_counts.py` 从旧比值快照可复现地转换而来）。
+  `data/reference/artificial_analysis_intelligence_index_v4_1_single_batch_cost_and_output_token_fallback_snapshot_captured_2026_08_04.csv`
+  （v4.1 口径，存原始 token 数；从 8/4 的无冲突完整批次提取，时间按缓存 mtime 推断。7/1 旧快照保留供追溯，不再默认使用）。
 - 回退值**照常显示，但不参与该口径的分析**，见下「显示但不参与分析（D-1）」。
 - 非正的成本、速度或混合价一律视为缺失，排除出三维前沿。例如无托管定价的开源权重模型，AA 把价格占位为 0，既不是真「免费」，也无法在对数轴上表示。
 - `/models` 列表页**不再是值来源**：其 payload 已改为 camelCase，旧的 snake_case 解析 0 命中，只在护栏里醒目告警。
@@ -203,22 +203,17 @@ uv run python -m src.cli
 > 主 checkout 的环境。请先把 `UV_PROJECT_ENVIRONMENT` 指向该 worktree 独立的环境目录，并用 `--frozen` 禁止改锁：
 > `UV_PROJECT_ENVIRONMENT=<独立目录> uv run --frozen python -m src.cli …`。两个一键脚本在「`.venv` 是符号链接且未设该变量」时会拒绝运行。
 
-### 暂停网页抓取（D-12）
+### 最小化网页目录刷新与异常诊断（D-12）
 
-AA《Website Terms of Use》第 3.3(b)(vi) 条禁止用脚本抓取站点数据，因此**默认暂停网页抓取**：
+- 普通运行只读缓存；`--refresh` 刷新 API，并在冷却期结束后自动抓取 2–3 个详情页，从每页内嵌目录提取数值 JSON。不是逐模型抓取；新 HTML 不落盘。
+- 网页目录最多每 24 小时一批，失败也进入冷却期；API 可独立刷新。用 `--disable-artificial-analysis-website-page-fetch` 禁止本次网页请求；原 `--allow-artificial-analysis-website-page-fetch` 保留，但不能绕过限额。
+- 使用项目真实 UA，页间至少 10 秒；重试与 TLS 的系统 curl 回退共用每批六次尝试上限。403、429 或验证挑战立即停止；不关闭 TLS 校验、不跟随重定向。
+- 新目录沿用 API 的唯一暂存、响应历史、护栏后原子替换机制。版本 family、≥50 条带 token 的 API UUID 交集及逐 UUID 当期判定保持；新批次要求两页完整且精确版本相同，UUID 冲突或覆盖骤降则拒绝。
+- 失败复用已验证旧目录，并记录真实日期。连续封禁或结构异常只创建并启动一个诊断 Task；跨重启、跨工作树去重。只有新目录通过完整校验并晋升后才 resolve。
+- 默认 `--report-deployment-environment development`：故障未恢复时，每次新生成 HTML（包括已有契约重渲染）都会显示醒目开发告警。`production` 隐藏开发诊断标记，数据新鲜度说明仍保留。
+- 已有 HTML 原位保留；归档脚本只读源文件，生成压缩备份、SHA256 清单和逐批数值目录。历史回退默认改为 8/4 单批 v4.1，仍不参与分析。
 
-- 列表页与详情页只读 `data/raw/` 已有缓存，缺失即跳过，不发网页请求（运行时只提示一次「已暂停网页抓取（D-12）」）；
-- `--refresh` 只刷新 AA API。刷新得到的新响应先暂存，**数据质量护栏全部通过后才替换** `data/raw/api_language_models.json`；
-  替换前旧缓存会原样归档进 `data/raw/artificial_analysis_api_language_models_response_history/`（旧缓存没有记录抓取时间时，
-  文件名按 mtime 推断并注明 `_inferred_from_cache_file_modification_time`）。护栏失败时共享缓存保持原样，离线重跑不受影响；
-  新响应在响应历史里先带「本次刷新独有标记（`_by_process_<进程号>_refresh_attempt_<随机串>`）+
-  `_pending_data_quality_guardrail_validation`」后缀，护栏通过后连标记一起去掉（只剩抓取时间），失败则改为
-  「标记 + `_rejected_by_data_quality_guardrails`」后缀——带这两种后缀的文件不会被当作下面「上一份通过护栏的响应」基线；
-  有了独有标记，抓取时间落在同一秒的两次刷新也不会互相覆盖暂存文件或待校验的历史文件；
-- 按模型拆分的输出 token 数与 time per task 只存在于网页。因此暂停期间，9/23 之后上架的新模型没有当期 token 数，
-  会在两个有效速度口径中缺席。CLI 结尾会单列这类模型（V-3）；
-- 只有显式加 `--allow-artificial-analysis-website-page-fetch` 才会按需抓取「缺当期 token 数」的详情页。列表页 `/models`
-  已不是值来源，无论是否开启都只读缓存、从不为它联网。长期的「最小化抓取」方案另有独立任务。
+AA 条款风险沿用审计记录；降低频率与只存 JSON 不等于已取得许可。详细状态、诊断配置与归档方法见 [D-12 实施说明](docs/artificial-analysis-minimal-website-catalog-refresh-and-diagnostics.md)。
 
 ### 参数
 
@@ -232,7 +227,9 @@ AA《Website Terms of Use》第 3.3(b)(vi) 条禁止用脚本抓取站点数据�
 | `--speed-metric` | `effective` | HTML 初始速度口径：`effective` / `raw`；页面内仍可切换 |
 | `--cost-metric` | `effective` | HTML 初始成本口径：`effective` / `blended`；页面内仍可切换 |
 | `--refresh` | 关 | 忽略 API 缓存重新拉取（网页抓取暂停时只刷新 API） |
-| `--allow-artificial-analysis-website-page-fetch` | 关 | 显式开启 AA 网页抓取（D-12，默认暂停） |
+| `--allow-artificial-analysis-website-page-fetch` | `--refresh` 时自动 | 显式请求受限目录刷新，不能绕过冷却期 |
+| `--disable-artificial-analysis-website-page-fetch` | 关 | 禁止本次网页请求，只用 API 与已有目录 |
+| `--report-deployment-environment` | `development` | `production` 隐藏开发诊断标记，保留新鲜度说明 |
 | `--use-previous-run-processed-models-csv-as-fallback` | 关 | 把上次产物 models.csv 作为非当期回退源（版本未知） |
 | `--processed-models-csv-out` | `data/processed/models.csv` | 模型表输出路径 |
 | `--previous-run-processed-models-csv-in` | 同 `--processed-models-csv-out` | 上一个开关读取的「上次 models.csv」路径 |
