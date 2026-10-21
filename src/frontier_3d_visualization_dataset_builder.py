@@ -334,6 +334,9 @@ def build_frontier_3d_visualization_dataset(
     data_date: str | None = None,
     pruning_reference_date: object | None = None,
     artificial_analysis_data_provenance: dict | None = None,
+    recent_release_frontier_distance_grace_period_months: int = (
+        frontier.DEFAULT_RECENT_RELEASE_FRONTIER_DISTANCE_GRACE_PERIOD_MONTHS
+    ),
 ) -> dict[str, Any]:
     """把已合并的 AA DataFrame 转成前端可直接渲染的数据契约。
 
@@ -363,6 +366,9 @@ def build_frontier_3d_visualization_dataset(
         )
     data_date = data_date or api_response_fetched_at_calendar_date_text or pruning_reference_date_text
     artificial_analysis_data_provenance["pruning_reference_date"] = pruning_reference_date_text
+    artificial_analysis_data_provenance["recent_release_frontier_distance_grace_period_months"] = (
+        recent_release_frontier_distance_grace_period_months
+    )
     for specification_5_1_provenance_key in (
         "artificial_analysis_api_response_fetched_at_utc",
         "artificial_analysis_api_response_fetched_at_utc_source",
@@ -397,6 +403,9 @@ def build_frontier_3d_visualization_dataset(
                 cost_metric_column_name=cost_metric_column_name,
                 speed_metric_column_name=speed_metric_column_name,
                 pruning_reference_date=pruning_reference_date_text,
+                recent_release_frontier_distance_grace_period_months=(
+                    recent_release_frontier_distance_grace_period_months
+                ),
             )
             variant_df = frontier.add_standout_metrics(
                 variant_df,
@@ -424,6 +433,22 @@ def build_frontier_3d_visualization_dataset(
                 ),
             )
             figure_json = figure.to_plotly_json()
+            recent_release_grace_period_only_model_count = int(
+                variant_df[frontier.DISPLAYED_ONLY_BECAUSE_OF_RECENT_RELEASE_GRACE_PERIOD_COLUMN_NAME].sum()
+            )
+            recent_release_grace_period_counts = {
+                "recent_release_grace_period_only_model_count": recent_release_grace_period_only_model_count,
+                "kept_model_count_without_recent_release_grace_period": (
+                    len(interaction_payload["models"]) - recent_release_grace_period_only_model_count
+                ),
+            }
+            interaction_payload["current_view"].update(
+                recent_release_frontier_distance_grace_period_months=(
+                    recent_release_frontier_distance_grace_period_months
+                ),
+                pruning_reference_date=pruning_reference_date_text,
+                **recent_release_grace_period_counts,
+            )
             three_dimensional_scene = (
                 _three_dimensional_scene_from_plotly_figure_and_interaction_payload(
                     figure_json["data"],
@@ -440,6 +465,7 @@ def build_frontier_3d_visualization_dataset(
                 "plotly_static_export_trace_data": figure_json["data"],
                 "plotly_static_export_layout": figure_json["layout"],
                 "kept_model_count": len(interaction_payload["models"]),
+                **recent_release_grace_period_counts,
                 # 分析层 Pareto（非 eligible 点 layer 为 null，不计入）
                 "pareto_model_count": sum(
                     1
@@ -638,6 +664,48 @@ def _validate_three_dimensional_scene(three_dimensional_scene: object, variant_k
         raise ValueError(f"{field_path}.three_dimensional_axis_configuration 应为对象")
 
 
+def _validate_recent_release_grace_period_metadata(dataset: dict[str, Any]) -> None:
+    """兼容无宽限字段的旧 v2；新契约的标记、设置与统计必须彼此一致。"""
+    provenance = dataset.get("artificial_analysis_data_provenance") or {}
+    months_key = "recent_release_frontier_distance_grace_period_months"
+    metadata_recorded = months_key in provenance
+    months = provenance.get(months_key)
+    if metadata_recorded and (not _is_json_integer(months) or months < 0):
+        raise ValueError("近期发布宽限月数必须是非负整数")
+    marker_key = frontier.DISPLAYED_ONLY_BECAUSE_OF_RECENT_RELEASE_GRACE_PERIOD_COLUMN_NAME
+    for variant_key, variant in dataset["metric_variants"].items():
+        scene = variant["three_dimensional_scene"]
+        markers = scene["displayed_model_markers"]
+        for marker in markers:
+            if (metadata_recorded or marker_key in marker) and not isinstance(marker.get(marker_key), bool):
+                raise ValueError(f"{variant_key}.{marker_key} 宽限标记必须是布尔值")
+        grace_count = sum(marker.get(marker_key) is True for marker in markers)
+        if grace_count and (not metadata_recorded or months == 0):
+            raise ValueError(f"{variant_key} 宽限关闭或未记录时不能含宽限专属点")
+        if not metadata_recorded:
+            continue
+        counts = {
+            "recent_release_grace_period_only_model_count": grace_count,
+            "kept_model_count_without_recent_release_grace_period": len(markers) - grace_count,
+        }
+        current_view = scene.get("current_view")
+        if not isinstance(current_view, dict):
+            raise ValueError(f"{variant_key} 宽限契约缺少 current_view")
+        if (
+            not _is_json_integer(current_view.get(months_key))
+            or current_view[months_key] != months
+            or current_view.get("pruning_reference_date") != provenance.get("pruning_reference_date")
+        ):
+            raise ValueError(f"{variant_key} 宽限设置或剪枝参考日与 provenance 不一致")
+        for count_key, expected in counts.items():
+            if not _is_json_integer(variant.get(count_key)) or variant[count_key] != expected:
+                raise ValueError(f"{variant_key}.{count_key} 宽限计数与标记不一致")
+            if not _is_json_integer(current_view.get(count_key)) or current_view[count_key] != expected:
+                raise ValueError(f"{variant_key}.current_view.{count_key} 宽限计数不一致")
+        if not _is_json_integer(variant.get("kept_model_count")) or variant["kept_model_count"] != len(markers):
+            raise ValueError(f"{variant_key} 宽限契约的保留总数与标记不一致")
+
+
 def validate_frontier_3d_visualization_dataset(dataset: dict[str, Any]) -> None:
     """验证 renderer 依赖的契约结构与数值语义（规格 5.4），避免生成半坏 HTML。
 
@@ -676,6 +744,7 @@ def validate_frontier_3d_visualization_dataset(dataset: dict[str, Any]) -> None:
             if required_key not in variant:
                 raise ValueError(f"{variant_key} 缺少 {required_key}")
         _validate_three_dimensional_scene(variant["three_dimensional_scene"], variant_key)
+    _validate_recent_release_grace_period_metadata(dataset)
     organization_identity_metadata = dataset.get(
         "organization_identity_metadata_by_creator_name"
     )

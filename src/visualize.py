@@ -273,6 +273,9 @@ def _build_lineage_payload(
             "x": float(r[cost_metric_column_name]),
             "y": float(r[speed_metric_column_name]),
             "z": float(r["intelligence"]),
+            "displayed_only_because_of_recent_release_grace_period": bool(
+                r.get(frontier.DISPLAYED_ONLY_BECAUSE_OF_RECENT_RELEASE_GRACE_PERIOD_COLUMN_NAME, False)
+            ),
             # panel 里可能缺失的数值（跨口径列、非 eligible 点的分析层号）一律输出 None（规格 5.3）
             "panel": {
                 "release_date": rd.strftime("%Y-%m-%d") if pd.notna(rd) else "?",
