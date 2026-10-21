@@ -172,7 +172,7 @@ def test_command_line_prints_freshness_summary_missing_dimension_warning_and_v3_
 
     assert "智能前 20 中未上图" in standard_output
     assert "Speedless Genius (Max Effort)（70.0）：缺维度：速度" in standard_output
-    assert "1 个模型因暂停抓取缺当期 token（不在目录分区中），在有效速度口径缺席" in standard_output
+    assert "1 个模型缺当期 token（不在目录分区中），在有效速度口径缺席" in standard_output
     assert "Brand New Model (V-3)" in standard_output
 
 
@@ -392,7 +392,7 @@ def test_v3_list_keeps_only_models_without_any_effective_speed_and_counts_histor
         capsys, ["--out", str(tmp_path / "frontier_3d.html")]
     )
     v3_section_text = standard_output[standard_output.index("V-3") :]
-    assert "1 个模型因暂停抓取缺当期 token（不在目录分区中），在有效速度口径缺席" in v3_section_text
+    assert "1 个模型缺当期 token（不在目录分区中），在有效速度口径缺席" in v3_section_text
     assert "Brand New Model (V-3)" in v3_section_text
     assert "另有 1 个不在目录分区的模型以 v4.1 等历史口径 token 显示" in v3_section_text
     assert "  - Kimi K3" not in v3_section_text

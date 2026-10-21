@@ -1,7 +1,7 @@
 """生成 AA 智能指数 × 冗长度（verbosity）排名报告。
 
 数据来自 `fetch_data.build_dataframe`：智能分取 AA API，冗长度取被接受的内嵌模型目录分区里的
-当期输出 token 数（不再解析列表页）。默认暂停网页抓取（D-12），只离线解析已有缓存。
+当期输出 token 数（不再解析列表页）。默认读取缓存；`--refresh` 按 D-12 冷却与请求预算刷新目录。
 
 冗长度阈值缺省跟随当期中位数：阈值 = （v4.1 时期旧阈值 30M ÷ v4.1 快照中位数 21.24M）× 当期中位数；
 `--output-token-limit-multiple-of-current-median` 改倍数，`--output-token-limit-millions` 显式指定绝对阈值（二者互斥）。
@@ -37,13 +37,10 @@ def main(command_line_arguments: list[str] | None = None) -> int:
     parser.add_argument(
         "--refresh",
         action="store_true",
-        help="忽略 API 缓存重新拉取 AA API（网页抓取默认暂停，只刷新 API）",
+        help="重新拉取 API，并在冷却期结束后受限刷新目录",
     )
-    parser.add_argument(
-        "--allow-artificial-analysis-website-page-fetch",
-        action="store_true",
-        help="显式允许按需抓取缺当期 token 的 AA 详情页（默认暂停，D-12）",
-    )
+    from src.artificial_analysis_minimal_model_catalog_refresh import add_website_catalog_fetch_policy_arguments
+    add_website_catalog_fetch_policy_arguments(parser)
     output_token_limit_argument_group = parser.add_mutually_exclusive_group()
     output_token_limit_argument_group.add_argument(
         "--output-token-limit-multiple-of-current-median",

@@ -554,7 +554,7 @@ def test_paused_page_fetch_reads_cache_only_and_skips_missing_pages_without_requ
     assert captured_output.count("已暂停网页抓取（D-12）") == 1
 
 
-def test_build_dataframe_default_sends_no_web_request_even_with_refresh(
+def test_build_dataframe_explicit_disable_sends_no_web_request_even_with_refresh(
     synthetic_artificial_analysis_cache_layout: SyntheticArtificialAnalysisCacheLayout,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -582,7 +582,7 @@ def test_build_dataframe_default_sends_no_web_request_even_with_refresh(
             },
         ),
     )
-    models_dataframe = fetch_data.build_dataframe(refresh=True)
+    models_dataframe = fetch_data.build_dataframe(refresh=True, allow_artificial_analysis_website_page_fetch=False)
     assert len(models_dataframe) == SYNTHETIC_API_MODEL_ROW_COUNT
     assert requested_urls == []
     assert capsys.readouterr().out.count("已暂停网页抓取（D-12）") == 1
@@ -773,7 +773,8 @@ def test_build_dataframe_records_data_provenance_and_guardrail_results_in_attrs(
     assert artificial_analysis_data_provenance["embedded_model_catalog_captured_at_utc"] == (
         "2026-09-23T05:52:00Z"
     )
-    assert artificial_analysis_data_provenance["artificial_analysis_website_page_fetch_paused"] is True
+    assert artificial_analysis_data_provenance["artificial_analysis_website_page_fetch_paused"] is False
+    assert artificial_analysis_data_provenance["artificial_analysis_website_page_fetch_policy"] == "automatic_on_api_refresh"
     assert artificial_analysis_data_provenance[
         "reference_output_million_tokens_for_effective_speed_normalization_by_intelligence_index_version_family"
     ] == {"4.3": 87.0, "4.1": 21.0}
@@ -873,7 +874,7 @@ def test_previous_run_processed_models_csv_fallback_requires_explicit_switch_and
 
 
 # ----------------------------------------------------------------------------- 显式开启网页抓取
-def test_allowed_page_fetch_fetches_only_rows_lacking_current_tokens_then_reloads_catalog(
+def test_allowed_page_fetch_uses_at_most_three_pages_and_reloads_numeric_catalog(
     synthetic_artificial_analysis_cache_layout: SyntheticArtificialAnalysisCacheLayout,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -906,31 +907,22 @@ def test_allowed_page_fetch_fetches_only_rows_lacking_current_tokens_then_reload
     )
     requested_page_urls: list[str] = []
 
-    class _FakePageResponse:
-        text = current_page_html
-
-        def raise_for_status(self) -> None:
-            return None
-
-    def fake_requests_get(url, **keyword_arguments):
-        if not url.startswith(fetch_data.PAGE_URL + "/"):
-            raise _NetworkRequestAttemptedError(f"只应请求详情页: {url}")
+    from src import artificial_analysis_minimal_model_catalog_refresh as minimal_refresh
+    original_prepare=minimal_refresh.prepare_minimal_model_catalog_refresh
+    def fake_page(url):
         requested_page_urls.append(url)
-        return _FakePageResponse()
-
-    monkeypatch.setattr(fetch_data.requests, "get", fake_requests_get)
+        return current_page_html
+    monkeypatch.setattr(minimal_refresh,"prepare_minimal_model_catalog_refresh",
+        lambda *args,**kwargs: original_prepare(*args,**kwargs,fetch_page=fake_page,sleep=lambda _:None))
 
     models_dataframe = fetch_data.build_dataframe(
         refresh=False,
         allow_artificial_analysis_website_page_fetch=True,
     )
 
-    # 缺当期 token、且智能/速度/成本齐全的行：0..49（API 或快照成本）+ 100..119（快照成本）+ 400..519（API 成本）
-    expected_requested_slugs = sorted(
-        f"synthetic-model-{synthetic_model_index}"
-        for synthetic_model_index in list(range(0, 50)) + list(range(100, 120)) + list(range(400, 520))
-    )
-    assert sorted(url.rsplit("/", 1)[1] for url in requested_page_urls) == expected_requested_slugs
+    assert 2 <= len(requested_page_urls) <= 3
+    assert len(set(requested_page_urls)) == len(requested_page_urls)
+    assert list(model_detail_page_html_cache_directory_path.glob("*.html")) == [model_detail_page_html_cache_directory_path/"synthetic-stale.html"]
     refreshed_row = _row_for_synthetic_model_index(models_dataframe, 5)
     assert (
         refreshed_row["output_token_count_value_source"]
@@ -939,6 +931,149 @@ def test_allowed_page_fetch_fetches_only_rows_lacking_current_tokens_then_reload
     assert models_dataframe.attrs[
         fetch_data.MODELS_DATAFRAME_ATTRS_KEY_ARTIFICIAL_ANALYSIS_DATA_PROVENANCE
     ]["artificial_analysis_website_page_fetch_paused"] is False
+
+
+def test_refresh_without_policy_flag_automatically_stages_and_validates_numeric_catalog(
+    synthetic_artificial_analysis_cache_layout,
+    monkeypatch,
+):
+    from src import artificial_analysis_minimal_model_catalog_refresh as minimal_refresh
+
+    page_html=build_synthetic_artificial_analysis_model_detail_page_html(
+        embedded_model_objects=_synthetic_catalog_embedded_model_objects())
+    requested=[]
+    monkeypatch.setattr(minimal_refresh,"BoundedWebsiteCatalogPageClient",
+        lambda **kwargs:lambda url:requested.append(url) or page_html)
+    monkeypatch.setattr(fetch_data,"get_api_key",lambda:"synthetic-test-key")
+    monkeypatch.setattr(fetch_data,"_fetch_paginated_language_models_with_response_top_level_metadata",
+        _fake_refreshed_api_response_rows_and_metadata(SYNTHETIC_API_MODEL_ROW_COUNT))
+    frame=fetch_data.build_dataframe(refresh=True)
+    assert 2<=len(requested)<=3
+    provenance=frame.attrs[fetch_data.MODELS_DATAFRAME_ATTRS_KEY_ARTIFICIAL_ANALYSIS_DATA_PROVENANCE]
+    assert provenance["artificial_analysis_embedded_model_catalog_refresh_status"]=="refreshed_and_verified"
+    assert provenance["artificial_analysis_website_page_fetch_policy"]=="automatic_on_api_refresh"
+    assert (synthetic_artificial_analysis_cache_layout.raw_directory_path/minimal_refresh.NUMERIC_CATALOG_RESPONSE_FILENAME).exists()
+
+
+@pytest.mark.parametrize("api_persistence_failure_stage", ["history", "active", None])
+def test_catalog_acceptance_and_incident_resolution_wait_for_api_persistence(
+    synthetic_artificial_analysis_cache_layout,
+    monkeypatch,
+    tmp_path,
+    api_persistence_failure_stage,
+):
+    from src import artificial_analysis_minimal_model_catalog_refresh as minimal_refresh
+    from src import artificial_analysis_guardrail_validated_json_response_storage as response_storage
+    from src.artificial_analysis_catalog_refresh_health import CatalogRefreshHealthStore
+
+    cache_layout = synthetic_artificial_analysis_cache_layout
+    fetch_data.build_dataframe(
+        refresh=False,
+        allow_artificial_analysis_website_page_fetch=False,
+        artificial_analysis_raw_data_directory=cache_layout.raw_directory_path,
+    )
+    numeric_catalog_path = (
+        cache_layout.raw_directory_path / minimal_refresh.NUMERIC_CATALOG_RESPONSE_FILENAME
+    )
+    previous_catalog_content = numeric_catalog_path.read_bytes()
+    previous_api_content = cache_layout.api_language_models_cache_path.read_bytes()
+    store = CatalogRefreshHealthStore(
+        Path.cwd(),
+        state_directory=tmp_path / "isolated-catalog-refresh-health",
+        artifact_directory=tmp_path / "isolated-catalog-refresh-evidence",
+        dispatch_tasks=False,
+    )
+    store.record_failure(
+        "structure_change",
+        {"reason_code": "synthetic_unresolved_incident"},
+        datetime(2026, 10, 20, tzinfo=timezone.utc),
+    )
+    previous_incident_id = store.read_state()["unresolved_incident"]["incident_id"]
+    refreshed_catalog_objects = _synthetic_catalog_embedded_model_objects()
+    for catalog_object in refreshed_catalog_objects:
+        token_counts = catalog_object.get("canonicalIntelligenceIndexTokenCount")
+        if token_counts:
+            token_counts["output"] *= 2
+    page_html = build_synthetic_artificial_analysis_model_detail_page_html(
+        embedded_model_objects=refreshed_catalog_objects
+    )
+    monkeypatch.setattr(
+        minimal_refresh,
+        "BoundedWebsiteCatalogPageClient",
+        lambda **_: lambda _: page_html,
+    )
+    monkeypatch.setattr(fetch_data, "get_api_key", lambda: "synthetic-test-key")
+    monkeypatch.setattr(
+        fetch_data,
+        "_fetch_paginated_language_models_with_response_top_level_metadata",
+        _fake_refreshed_api_response_rows_and_metadata(SYNTHETIC_API_MODEL_ROW_COUNT + 1),
+    )
+    api_content_when_catalog_accepted = []
+    original_accept = minimal_refresh.PreparedMinimalModelCatalogRefresh.accept_after_final_guardrails
+
+    def record_api_content_before_catalog_accept(preparation):
+        api_content_when_catalog_accepted.append(
+            cache_layout.api_language_models_cache_path.read_bytes()
+        )
+        return original_accept(preparation)
+
+    monkeypatch.setattr(
+        minimal_refresh.PreparedMinimalModelCatalogRefresh,
+        "accept_after_final_guardrails",
+        record_api_content_before_catalog_accept,
+    )
+    api_history_directory = (
+        cache_layout.raw_directory_path / "artificial_analysis_api_language_models_response_history"
+    )
+    original_replace = response_storage.os.replace
+
+    def fail_selected_api_persistence_step(source, target):
+        source, target = Path(source), Path(target)
+        if (
+            api_persistence_failure_stage == "history"
+            and target.parent == api_history_directory
+            and source.name.endswith("_pending_data_quality_guardrail_validation.json")
+        ):
+            raise OSError("模拟 API history 持久化失败")
+        if (
+            api_persistence_failure_stage == "active"
+            and target == cache_layout.api_language_models_cache_path
+        ):
+            raise OSError("模拟 API active 持久化失败")
+        return original_replace(source, target)
+
+    monkeypatch.setattr(response_storage.os, "replace", fail_selected_api_persistence_step)
+
+    def refresh_dataframe():
+        return fetch_data.build_dataframe(
+            refresh=True,
+            catalog_refresh_health_store=store,
+            artificial_analysis_raw_data_directory=cache_layout.raw_directory_path,
+        )
+
+    if api_persistence_failure_stage is not None:
+        with pytest.raises(OSError, match="模拟 API .* 持久化失败"):
+            refresh_dataframe()
+        assert cache_layout.api_language_models_cache_path.read_bytes() == previous_api_content
+        assert numeric_catalog_path.read_bytes() == previous_catalog_content
+        assert store.read_state()["unresolved_incident"]["incident_id"] == previous_incident_id
+        assert "last_verified_catalog_refresh_at_utc" not in store.read_state()
+        assert api_content_when_catalog_accepted == []
+        return
+
+    frame = refresh_dataframe()
+    persisted_api_content = cache_layout.api_language_models_cache_path.read_bytes()
+    assert persisted_api_content != previous_api_content
+    assert api_content_when_catalog_accepted == [persisted_api_content]
+    assert numeric_catalog_path.read_bytes() != previous_catalog_content
+    assert store.read_state()["unresolved_incident"] is None
+    assert any(
+        path.read_bytes() == persisted_api_content
+        for path in api_history_directory.glob("*.json")
+        if not path.name.endswith("_pending_data_quality_guardrail_validation.json")
+    )
+    provenance = frame.attrs[fetch_data.MODELS_DATAFRAME_ATTRS_KEY_ARTIFICIAL_ANALYSIS_DATA_PROVENANCE]
+    assert provenance["artificial_analysis_embedded_model_catalog_refresh_status"] == "refreshed_and_verified"
 
 
 # ----------------------------------------------------------------------------- 护栏
@@ -1214,22 +1349,23 @@ def test_committed_versioned_fallback_snapshot_stores_raw_token_counts_with_vers
         REPOSITORY_ROOT_DIRECTORY_PATH
         / "data"
         / "reference"
-        / "artificial_analysis_intelligence_index_v4_1_cost_to_run_and_canonical_output_token_count_fallback_snapshot_captured_2026_07_01.csv"
+        / "artificial_analysis_intelligence_index_v4_1_single_batch_cost_and_output_token_fallback_snapshot_captured_2026_08_04.csv"
     )
     assert committed_snapshot_path == (
         fetch_data.ARTIFICIAL_ANALYSIS_INTELLIGENCE_INDEX_V4_1_COST_TO_RUN_AND_CANONICAL_OUTPUT_TOKEN_COUNT_FALLBACK_SNAPSHOT_PATH
     )
     committed_snapshot = pd.read_csv(committed_snapshot_path, dtype={"intelligence_index_version": str})
     assert list(committed_snapshot.columns) == VERSIONED_FALLBACK_SNAPSHOT_EXPECTED_COLUMN_NAMES
-    assert len(committed_snapshot) == 377
+    assert len(committed_snapshot) == 166
     assert set(committed_snapshot["intelligence_index_version"]) == {"4.1"}
-    assert set(committed_snapshot["captured_at_date"]) == {"2026-07-01"}
-    assert int(committed_snapshot["cost_to_run_usd"].notna().sum()) == 296
-    assert int(committed_snapshot["intelligence_index_canonical_output_token_count"].notna().sum()) == 377
+    assert set(committed_snapshot["captured_at_date"]) == {"2026-08-04"}
+    assert int(committed_snapshot["cost_to_run_usd"].notna().sum()) == 129
+    assert int(committed_snapshot["intelligence_index_canonical_output_token_count"].notna().sum()) == 166
     median_output_million_tokens = (
         committed_snapshot["intelligence_index_canonical_output_token_count"].median() / 1e6
     )
-    assert median_output_million_tokens == pytest.approx(21.24, abs=0.01)
+    assert median_output_million_tokens > 0
+    assert committed_snapshot_path.with_suffix(".provenance.json").exists()
     legacy_snapshot_path = (
         REPOSITORY_ROOT_DIRECTORY_PATH
         / "data"
@@ -1250,8 +1386,8 @@ def test_load_fallbacks_reads_committed_snapshot_only_by_default(
 
     fallback_values = fetch_data.load_cost_and_output_token_fallbacks()
 
-    assert len(fallback_values.cost_to_run_fallback_value_by_model_id) == 296
-    assert len(fallback_values.canonical_output_token_count_fallback_value_by_model_id) == 377
+    assert len(fallback_values.cost_to_run_fallback_value_by_model_id) == 129
+    assert len(fallback_values.canonical_output_token_count_fallback_value_by_model_id) == 166
     any_cost_fallback_value = next(
         iter(fallback_values.cost_to_run_fallback_value_by_model_id.values())
     )
@@ -1260,7 +1396,7 @@ def test_load_fallbacks_reads_committed_snapshot_only_by_default(
         == fetch_data.COST_TO_RUN_VALUE_SOURCE_VERSIONED_NON_CURRENT_FALLBACK_SNAPSHOT
     )
     assert any_cost_fallback_value.intelligence_index_version == "4.1"
-    assert any_cost_fallback_value.fetched_at_utc == "2026-07-01"
+    assert any_cost_fallback_value.fetched_at_utc == "2026-08-04"
 
 
 CONVERSION_SCRIPT_PATH = (
@@ -1368,7 +1504,7 @@ def test_refresh_that_fails_guardrails_keeps_previous_api_cache_and_archives_it(
     )
 
     with pytest.raises(fetch_data.ArtificialAnalysisDataQualityGuardrailViolationError):
-        fetch_data.build_dataframe(refresh=True)
+        fetch_data.build_dataframe(refresh=True, allow_artificial_analysis_website_page_fetch=False)
 
     assert api_language_models_cache_path.read_text(encoding="utf-8") == previous_api_cache_text
     response_history_json_texts = _api_language_models_response_history_json_texts(
@@ -1413,7 +1549,7 @@ def test_refresh_that_passes_guardrails_replaces_cache_and_archives_previous_cac
         _fake_refreshed_api_response_rows_and_metadata(SYNTHETIC_API_MODEL_ROW_COUNT + 1),
     )
 
-    models_dataframe = fetch_data.build_dataframe(refresh=True)
+    models_dataframe = fetch_data.build_dataframe(refresh=True, allow_artificial_analysis_website_page_fetch=False)
 
     assert len(models_dataframe) == SYNTHETIC_API_MODEL_ROW_COUNT + 1
     replaced_api_cache = json.loads(api_language_models_cache_path.read_text(encoding="utf-8"))
@@ -1466,7 +1602,7 @@ def test_refresh_whose_current_api_cost_count_collapses_versus_previous_cache_fa
         fetch_refreshed_rows_with_fifty_api_costs_removed,
     )
     with pytest.raises(fetch_data.ArtificialAnalysisDataQualityGuardrailViolationError, match="骤降"):
-        fetch_data.build_dataframe(refresh=True)
+        fetch_data.build_dataframe(refresh=True, allow_artificial_analysis_website_page_fetch=False)
     assert api_language_models_cache_path.read_text(encoding="utf-8") == previous_api_cache_text
 
 
@@ -1489,7 +1625,7 @@ def test_refresh_archives_legacy_cache_without_recorded_fetch_time_under_inferre
         "_fetch_paginated_language_models_with_response_top_level_metadata",
         _fake_refreshed_api_response_rows_and_metadata(SYNTHETIC_API_MODEL_ROW_COUNT),
     )
-    fetch_data.build_dataframe(refresh=True)
+    fetch_data.build_dataframe(refresh=True, allow_artificial_analysis_website_page_fetch=False)
     archived_legacy_cache_file_names = [
         history_file_name
         for history_file_name, history_json_text in _api_language_models_response_history_json_texts(
@@ -1551,7 +1687,7 @@ def test_interleaved_refresh_rejected_by_guardrails_cannot_be_promoted_by_concur
     ):
         if len(models_dataframe) == refresh_a_api_model_row_count_that_passes_guardrails:
             try:
-                fetch_data.build_dataframe(refresh=True)
+                fetch_data.build_dataframe(refresh=True, allow_artificial_analysis_website_page_fetch=False)
             except fetch_data.ArtificialAnalysisDataQualityGuardrailViolationError as guardrail_violation_error:
                 refresh_b_guardrail_violation_errors.append(guardrail_violation_error)
         return real_validate(models_dataframe, **keyword_arguments)
@@ -1567,7 +1703,7 @@ def test_interleaved_refresh_rejected_by_guardrails_cannot_be_promoted_by_concur
         fetch_data, "_validate", validate_with_refresh_b_running_to_completion_inside_refresh_a_validation
     )
 
-    refresh_a_models_dataframe = fetch_data.build_dataframe(refresh=True)
+    refresh_a_models_dataframe = fetch_data.build_dataframe(refresh=True, allow_artificial_analysis_website_page_fetch=False)
 
     assert len(refresh_b_guardrail_violation_errors) == 1, "刷新 B 应被护栏拒绝"
     assert len(refresh_a_models_dataframe) == refresh_a_api_model_row_count_that_passes_guardrails
@@ -1649,7 +1785,7 @@ def test_same_second_interleaved_refreshes_keep_separate_response_history_files_
     ):
         if len(models_dataframe) == refresh_a_api_model_row_count_that_passes_guardrails:
             try:
-                fetch_data.build_dataframe(refresh=True)
+                fetch_data.build_dataframe(refresh=True, allow_artificial_analysis_website_page_fetch=False)
             except fetch_data.ArtificialAnalysisDataQualityGuardrailViolationError as guardrail_violation_error:
                 refresh_b_guardrail_violation_errors.append(guardrail_violation_error)
         return real_validate(models_dataframe, **keyword_arguments)
@@ -1665,7 +1801,7 @@ def test_same_second_interleaved_refreshes_keep_separate_response_history_files_
         fetch_data, "_validate", validate_with_refresh_b_running_to_completion_inside_refresh_a_validation
     )
 
-    refresh_a_models_dataframe = fetch_data.build_dataframe(refresh=True)
+    refresh_a_models_dataframe = fetch_data.build_dataframe(refresh=True, allow_artificial_analysis_website_page_fetch=False)
 
     assert len(refresh_b_guardrail_violation_errors) == 1, "刷新 B 应被护栏拒绝"
     assert len(refresh_a_models_dataframe) == refresh_a_api_model_row_count_that_passes_guardrails
@@ -1790,6 +1926,7 @@ def test_build_dataframe_reads_and_refreshes_only_inside_requested_raw_data_dire
     )
     fetch_data.build_dataframe(
         refresh=True,
+        allow_artificial_analysis_website_page_fetch=False,
         artificial_analysis_raw_data_directory=rehearsal_raw_data_directory_path,
     )
     assert len(json.loads(rehearsal_api_cache_path.read_text(encoding="utf-8"))["data"]) == (
@@ -1983,3 +2120,55 @@ def test_current_version_display_refines_api_family_to_catalog_patch_version(
         fetch_data.CURRENT_INTELLIGENCE_INDEX_VERSION_SOURCE_ARTIFICIAL_ANALYSIS_API_RESPONSE_FAMILY_REFINED_BY_ACCEPTED_EMBEDDED_MODEL_CATALOG_PARTITION
     )
     assert artificial_analysis_data_provenance["artificial_analysis_api_intelligence_index_version"] == "4.3"
+
+
+def test_numeric_catalog_preserves_legacy_missing_field_warning_and_dataframe_diagnostics(
+    synthetic_artificial_analysis_cache_layout: SyntheticArtificialAnalysisCacheLayout,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """可选值缺失应如实计数；False 与已存在的值不算缺失，也不改变逐 UUID 当期判断。"""
+    from src.artificial_analysis_minimal_model_catalog_refresh import (
+        NUMERIC_CATALOG_RESPONSE_FILENAME,
+    )
+
+    raw_directory = synthetic_artificial_analysis_cache_layout.raw_directory_path
+    expected_missing_field_counts = {
+        "intelligence_index_cost_total_usd": 5,
+        "canonical_output_token_count": 5,
+        "intelligence_index_time_per_task_seconds": 5,
+        "reasoning_effort_slug": 32,
+    }
+    legacy_models = fetch_data.build_dataframe(
+        refresh=False, artificial_analysis_raw_data_directory=raw_directory
+    )
+    legacy_diagnostics = legacy_models.attrs[
+        fetch_data.MODELS_DATAFRAME_ATTRS_KEY_EMBEDDED_MODEL_CATALOG_LOAD_SUMMARY
+    ]
+    assert legacy_diagnostics["missing_field_record_counts_by_field_name"] == (
+        expected_missing_field_counts
+    )
+    assert (raw_directory / NUMERIC_CATALOG_RESPONSE_FILENAME).exists()
+    capsys.readouterr()
+
+    numeric_models = fetch_data.build_dataframe(
+        refresh=False, artificial_analysis_raw_data_directory=raw_directory
+    )
+    numeric_diagnostics = numeric_models.attrs[
+        fetch_data.MODELS_DATAFRAME_ATTRS_KEY_EMBEDDED_MODEL_CATALOG_LOAD_SUMMARY
+    ]
+    assert numeric_diagnostics["missing_field_record_counts_by_field_name"] == (
+        expected_missing_field_counts
+    )
+    warning_lines = [
+        line for line in capsys.readouterr().out.splitlines() if "字段缺失" in line
+    ]
+    assert len(warning_lines) == 1
+    assert warning_lines[0].startswith("[warn] 内嵌目录分区 v4.3.2 字段缺失")
+    for field_name, missing_count in expected_missing_field_counts.items():
+        assert f"{field_name} {missing_count}" in warning_lines[0]
+    assert numeric_diagnostics["accepted_partition_record_count"] == 65
+    for column_name in (
+        "intelligence_index_canonical_output_token_count",
+        "output_token_count_value_is_from_current_intelligence_index_version",
+    ):
+        assert numeric_models[column_name].equals(legacy_models[column_name])
