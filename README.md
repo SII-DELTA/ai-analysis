@@ -234,14 +234,14 @@ AA 条款风险沿用审计记录；降低频率与只存 JSON 不等于已取�
 | `--pruning-reference-date` | API 抓取日期 | 剪枝参考日期 `YYYY-MM-DD`；不再用运行当天 |
 | `--speed-metric` | `effective` | HTML 初始速度口径：`effective` / `raw`；页面内仍可切换 |
 | `--cost-metric` | `effective` | HTML 初始成本口径：`effective` / `blended`；页面内仍可切换 |
-| `--refresh` | 关 | 忽略 API 缓存重新拉取（网页抓取暂停时只刷新 API） |
+| `--refresh` | 关 | 刷新 API，并在冷却期允许时受限更新网页目录；只刷新 API 时同时传入 `--disable-artificial-analysis-website-page-fetch` |
 | `--allow-artificial-analysis-website-page-fetch` | `--refresh` 时自动 | 显式请求受限目录刷新，不能绕过冷却期 |
 | `--disable-artificial-analysis-website-page-fetch` | 关 | 禁止本次网页请求，只用 API 与已有目录 |
 | `--report-deployment-environment` | `development` | `production` 隐藏开发诊断标记，保留新鲜度说明 |
 | `--use-previous-run-processed-models-csv-as-fallback` | 关 | 把上次产物 models.csv 作为非当期回退源（版本未知） |
 | `--processed-models-csv-out` | `data/processed/models.csv` | 模型表输出路径 |
 | `--previous-run-processed-models-csv-in` | 同 `--processed-models-csv-out` | 上一个开关读取的「上次 models.csv」路径 |
-| `--artificial-analysis-raw-data-directory` | `data/raw` | 原始数据目录：API 缓存、API 响应历史、列表页与详情页缓存都在其下读写。指向 scratch 副本即可彩排 `--refresh`，不碰共享目录 |
+| `--artificial-analysis-raw-data-directory` | `data/raw` | 原始数据目录：读写 API 与数值目录 JSON 及响应历史，旧 HTML 缓存只读。指向隔离副本即可彩排 `--refresh`，不碰共享目录 |
 | `--export` | 无 | 另存静态图 `png` / `svg`（需 extra `static-image-export`，即 kaleido）；失败时以非零码退出 |
 | `--out` | `output/frontier_3d.html` | 输出路径；所有指标组合统一在同一个 HTML 内 |
 | `--frontier-3d-visualization-dataset-out` | HTML 同目录的 `frontier_3d_visualization_dataset.json` | 输出前端可渲染的数据契约 |
@@ -253,7 +253,7 @@ uv run python -m src.cli --since-months 12 --layers 2
 # 初始显示原始速度 × 7:2:1 混合单价（页面内仍可切换）
 uv run python -m src.cli --speed-metric raw --cost-metric blended
 # 重新拉取 API（不抓网页）+ 导出静态图
-uv run --extra static-image-export python -m src.cli --refresh --export png
+uv run --extra static-image-export python -m src.cli --refresh --disable-artificial-analysis-website-page-fetch --export png
 # 前端迭代：复用上次数据契约重渲染 HTML（无需 API key / 网络）
 uv run python -m src.cli \
   --frontier-3d-visualization-dataset-in output/frontier_3d_visualization_dataset.json
@@ -472,5 +472,5 @@ tests/fixtures/     # 合成详情页与合成模型表 fixture、golden 投影
 
 - 智能分一律取自 API；有效运行成本取 API，缺失时用带版本号的回退快照，且回退值不参与分析。
   页头与 z 轴标题标注数据抓取日期与智能指数版本。
-- AA API 免费、限 1000 次/天；`data/raw/` 会缓存原始 API JSON 与网页，默认复用，`--refresh` 只重拉 API。
+- AA API 免费、限 1000 次/天；`data/raw/` 保存 API 与数值目录 JSON，旧网页缓存只读。默认复用，`--refresh` 刷新 API，并在冷却期允许时受限更新目录，不新增 HTML 缓存。
 - `.env` 含真实密钥、已被 `.gitignore` 排除，请勿提交；如密钥外泄可在 AA 平台轮换。
