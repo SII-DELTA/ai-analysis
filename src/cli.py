@@ -71,6 +71,7 @@ PRUNING_AND_METRIC_COMPUTATION_ARGUMENT_FLAG_BY_ATTRIBUTE_NAME = {
     "hard_age_cutoff_months": "--hard-age-cutoff-months",
     "speed_scale": "--speed-scale",
     "pruning_reference_date": "--pruning-reference-date",
+    "recent_release_frontier_distance_grace_period_months": "--recent-release-grace-period-months",
 }
 # 读取已有契约时同样不起作用的取数参数（R1-09）：不提示会让人误以为已经刷新过数据
 DATA_FETCH_ARGUMENT_FLAG_BY_ATTRIBUTE_NAME = {
@@ -139,8 +140,26 @@ def _iso_calendar_date_command_line_argument(argument_text: str) -> str:
         ) from invalid_date_error
 
 
+def _non_negative_calendar_month_count_command_line_argument(argument_text: str) -> int:
+    try:
+        months = int(argument_text)
+        if months < 0:
+            raise ValueError
+        return months
+    except ValueError as invalid_months:
+        raise argparse.ArgumentTypeError("近期发布宽限月数必须是非负整数") from invalid_months
+
+
 def _build_command_line_argument_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="AA 三维前沿可视化")
+    p.add_argument(
+        "--recent-release-grace-period-months",
+        dest="recent_release_frontier_distance_grace_period_months",
+        type=_non_negative_calendar_month_count_command_line_argument,
+        default=None,
+        help=("近期发布模型免于层数限制的日历月数；0 关闭（缺省 "
+              f"{frontier.DEFAULT_RECENT_RELEASE_FRONTIER_DISTANCE_GRACE_PERIOD_MONTHS}）"),
+    )
     # 剪枝/口径参数缺省为 None：读取已有契约时据此判断用户是否显式给了会被忽略的参数
     p.add_argument(
         "--since-months", type=int, default=None,
@@ -501,6 +520,9 @@ def _freshness_summary_lines_for_dataset(
         "剪枝参考日期："
         + f"{artificial_analysis_data_provenance.get('pruning_reference_date') or '未记录'}"
         + f"（{pruning_reference_date_source_text}）",
+        "近期发布宽限："
+        + str(artificial_analysis_data_provenance.get("recent_release_frontier_distance_grace_period_months", "未记录"))
+        + " 个月（只放宽离前沿距离；页面开关不重算分析）",
         "各口径（显示 / 分析 Pareto / 参与分析 / 历史口径）：",
     ]
     refresh_status=artificial_analysis_data_provenance.get("artificial_analysis_embedded_model_catalog_refresh_status")
@@ -748,6 +770,11 @@ def main(command_line_arguments: list[str] | None = None) -> None:
             initial_cost_metric_name=args.cost_metric or DEFAULT_COST_METRIC_NAME,
             initial_speed_metric_name=args.speed_metric or DEFAULT_SPEED_METRIC_NAME,
             pruning_reference_date=args.pruning_reference_date,
+            recent_release_frontier_distance_grace_period_months=(
+                args.recent_release_frontier_distance_grace_period_months
+                if args.recent_release_frontier_distance_grace_period_months is not None
+                else frontier.DEFAULT_RECENT_RELEASE_FRONTIER_DISTANCE_GRACE_PERIOD_MONTHS
+            ),
         )
         write_frontier_3d_visualization_dataset(dataset, dataset_output_path)
         print(f"可视化数据契约: {dataset_output_path}")

@@ -42,6 +42,9 @@ import {
   // 契约顶层数据来源（W1-8 起提供）；旧契约缺该字段时页头降级为「抓取时间未知」等文案，不报错。
   const artificialAnalysisDataProvenance =
     visualizationDataset.artificial_analysis_data_provenance || {};
+  const recentReleaseFrontierDistanceGracePeriodMonths = Number.isInteger(
+    artificialAnalysisDataProvenance.recent_release_frontier_distance_grace_period_months,
+  ) ? artificialAnalysisDataProvenance.recent_release_frontier_distance_grace_period_months : null;
   // 署名链接固定指向 AA 首页，不取契约中的 URL，避免契约字符串变成可点击的任意链接。
   const ARTIFICIAL_ANALYSIS_ATTRIBUTION_URL = "https://artificialanalysis.ai/";
   const HISTORICAL_INTELLIGENCE_INDEX_VERSION_FALLBACK_REASON_TEXT =
@@ -130,6 +133,9 @@ import {
   let countryRegionMarkerVisible = false;
   // 「仅当期可比」：开启时隐藏历史口径点（W1-6 / D-1），隐藏的点也不可拾取；跨口径切换时保持。
   let showOnlyCurrentIntelligenceIndexVersionComparableModels = false;
+  let showModelsDisplayedOnlyBecauseOfRecentReleaseGracePeriod =
+    recentReleaseFrontierDistanceGracePeriodMonths > 0;
+  let recentReleaseGracePeriodModelVisibilityToggle;
   // 当前口径载入时统计的契约数值问题（W1-10 前端兜底）：非有限坐标/索引、越界索引与因此未建的几何。
   let nonFiniteContractCoordinateCount = 0;
   let outOfRangeContractTriangleVertexIndexCount = 0;
@@ -774,11 +780,24 @@ import {
     const model = displayedModelMarkers[modelIndex];
     const visualObjects = modelVisualObjectsByModelIndex[modelIndex];
     if (!model || !visualObjects || visualObjects.hasNonFiniteContractCoordinate) return false;
-    if (!currentOrganizationVisibility(model.creator)) return false;
-    return !(
-      showOnlyCurrentIntelligenceIndexVersionComparableModels &&
-      !modelIsAnalysisEligibleForActiveMetricVariant(model)
-    );
+    return modelMarkerHiddenReasonTexts(modelIndex).length === 0;
+  }
+
+  function modelMarkerHiddenReasonTexts(modelIndex) {
+    const model = displayedModelMarkers[modelIndex];
+    if (!model) return [];
+    const reasons = [];
+    if (!currentOrganizationVisibility(model.creator)) reasons.push("厂商筛选");
+    if (showOnlyCurrentIntelligenceIndexVersionComparableModels &&
+        !modelIsAnalysisEligibleForActiveMetricVariant(model)) reasons.push("仅当期可比");
+    if (!showModelsDisplayedOnlyBecauseOfRecentReleaseGracePeriod &&
+        model.displayed_only_because_of_recent_release_grace_period === true) {
+      reasons.push("近期发布宽限已关闭");
+    }
+    if (modelVisualObjectsByModelIndex[modelIndex]?.hasNonFiniteContractCoordinate) {
+      reasons.push("坐标无效");
+    }
+    return reasons;
   }
 
   // 历史口径点复用同一张 Logo 纹理（共享加载状态），只换一份低不透明度材质。
@@ -927,13 +946,16 @@ import {
         pinnedRingSprite,
       });
     });
-    applyOrganizationVisibilityToModelMarkers();
+    applyModelMarkerVisibilityAndRefreshDependentViews();
     applyPinnedModelVisualEncoding();
     applyStandoutVisualEncoding();
   }
 
-  // 厂商筛选、「仅当期可比」与非有限坐标共同决定标记可见性；不可见的 sprite 同时退出拾取。
-  function applyOrganizationVisibilityToModelMarkers() {
+  // 统一更新筛选及其关联视图；只改变可见性，不重建坐标轴、几何或突出度计算集合。
+  function applyModelMarkerVisibilityAndRefreshDependentViews() {
+    if (hoveredModelIndex !== null && !modelMarkerIsCurrentlyVisible(hoveredModelIndex)) {
+      setHoveredModelIndex(null);
+    }
     modelVisualObjectsByModelIndex.forEach((visualObjects, modelIndex) => {
       const model = displayedModelMarkers[modelIndex];
       const markerVisible = modelMarkerIsCurrentlyVisible(modelIndex);
@@ -947,6 +969,9 @@ import {
         markerVisible && pinnedBaseModelNames.has(model.base_model_name);
     });
     renderReportHeaderModelCountSummary();
+    renderCurrentView();
+    refreshOrganizationAndCountryRegionVisibleModelCounts();
+    renderPinnedModelsPanel();
     // 可见性变了，pin/悬停的连线、搜索结果的「已隐藏」标注都要跟着重算
     redrawHoveredAndPinnedRelationships();
     renderSearchResults();
@@ -959,12 +984,19 @@ import {
       currentIntelligenceIndexVersionComparableOnlyToggle.checked =
         showOnlyCurrentIntelligenceIndexVersionComparableModels;
     }
-    // 正在悬停的点被隐藏时同时撤掉 tooltip 与谱系，避免残留指向不可见点的状态。
-    if (hoveredModelIndex !== null && !modelMarkerIsCurrentlyVisible(hoveredModelIndex)) {
-      setHoveredModelIndex(null);
-    }
-    applyOrganizationVisibilityToModelMarkers();
+    applyModelMarkerVisibilityAndRefreshDependentViews();
     return Promise.resolve(showOnlyCurrentIntelligenceIndexVersionComparableModels);
+  }
+
+  function setShowModelsDisplayedOnlyBecauseOfRecentReleaseGracePeriod(nextValue) {
+    showModelsDisplayedOnlyBecauseOfRecentReleaseGracePeriod =
+      recentReleaseFrontierDistanceGracePeriodMonths > 0 && Boolean(nextValue);
+    if (recentReleaseGracePeriodModelVisibilityToggle) {
+      recentReleaseGracePeriodModelVisibilityToggle.checked =
+        showModelsDisplayedOnlyBecauseOfRecentReleaseGracePeriod;
+    }
+    applyModelMarkerVisibilityAndRefreshDependentViews();
+    return Promise.resolve(showModelsDisplayedOnlyBecauseOfRecentReleaseGracePeriod);
   }
 
   function setCountryRegionMarkerVisible(nextVisible) {
@@ -977,7 +1009,7 @@ import {
     if (countryRegionMarkerVisible && organizationFilterPanel) {
       organizationFilterPanel.open = true;
     }
-    applyOrganizationVisibilityToModelMarkers();
+    applyModelMarkerVisibilityAndRefreshDependentViews();
     return Promise.resolve(countryRegionMarkerVisible);
   }
 
@@ -1672,7 +1704,29 @@ import {
       currentIntelligenceIndexVersionComparableOnlyToggle,
       document.createTextNode("仅当期可比"),
     );
-    group.append(logoStatus, toggleLabel, comparableOnlyToggleLabel);
+    const graceToggleLabel = document.createElement("label");
+    graceToggleLabel.className = "aa-toggle-row";
+    graceToggleLabel.title = "仅控制只因近期发布宽限才保留的点；不重算分析、坐标范围或相机";
+    recentReleaseGracePeriodModelVisibilityToggle = document.createElement("input");
+    recentReleaseGracePeriodModelVisibilityToggle.id =
+      "aa-show-models-displayed-only-because-of-recent-release-grace-period-toggle";
+    recentReleaseGracePeriodModelVisibilityToggle.type = "checkbox";
+    recentReleaseGracePeriodModelVisibilityToggle.checked =
+      showModelsDisplayedOnlyBecauseOfRecentReleaseGracePeriod;
+    recentReleaseGracePeriodModelVisibilityToggle.disabled =
+      !(recentReleaseFrontierDistanceGracePeriodMonths > 0);
+    recentReleaseGracePeriodModelVisibilityToggle.addEventListener("change", () =>
+      setShowModelsDisplayedOnlyBecauseOfRecentReleaseGracePeriod(
+        recentReleaseGracePeriodModelVisibilityToggle.checked,
+      ),
+    );
+    const graceToggleText = recentReleaseFrontierDistanceGracePeriodMonths === null
+      ? "近期发布宽限：旧契约未记录"
+      : recentReleaseFrontierDistanceGracePeriodMonths === 0
+        ? "近期发布宽限：生成时已关闭"
+        : `显示近 ${recentReleaseFrontierDistanceGracePeriodMonths} 个月发布的远离前沿模型`;
+    graceToggleLabel.append(recentReleaseGracePeriodModelVisibilityToggle, document.createTextNode(graceToggleText));
+    group.append(logoStatus, toggleLabel, comparableOnlyToggleLabel, graceToggleLabel);
     return group;
   }
 
@@ -1785,18 +1839,20 @@ import {
         action.className = "aa-search-result-pin-button";
         action.textContent = pinnedBaseModelNames.has(baseModelName) ? "取消" : "Pin";
         const baseModelIndices = baseGroupsByBaseModelName[baseModelName] || [];
-        const everyVariantIsHiddenByComparableOnlyToggle =
-          showOnlyCurrentIntelligenceIndexVersionComparableModels &&
-          baseModelIndices.length > 0 &&
-          baseModelIndices.every(
-            (modelIndex) =>
-              !modelIsAnalysisEligibleForActiveMetricVariant(displayedModelMarkers[modelIndex]),
-          );
-        if (everyVariantIsHiddenByComparableOnlyToggle) {
-          row.classList.add("is-hidden-by-comparable-only-toggle");
-          row.title = "全部档位都是历史口径点，已被「仅当期可比」隐藏；pin 后图上看不到它们";
+        const hiddenModelIndices = baseModelIndices.filter((modelIndex) =>
+          !modelMarkerIsCurrentlyVisible(modelIndex),
+        );
+        if (hiddenModelIndices.length) {
+          const reasons = [...new Set(hiddenModelIndices.flatMap(modelMarkerHiddenReasonTexts))];
+          const hiddenNote = `（${hiddenModelIndices.length}/${baseModelIndices.length} 档位已隐藏：${reasons.join("、")}）`;
+          row.classList.add("is-hidden-by-model-visibility-filter");
+          if (showOnlyCurrentIntelligenceIndexVersionComparableModels &&
+              baseModelIndices.every((modelIndex) => !modelIsAnalysisEligibleForActiveMetricVariant(displayedModelMarkers[modelIndex]))) {
+            row.classList.add("is-hidden-by-comparable-only-toggle");
+          }
+          row.title = hiddenNote;
           name.append(
-            textElement("span", "aa-search-result-hidden-note", "（已被「仅当期可比」隐藏）"),
+            textElement("span", "aa-search-result-hidden-note", hiddenNote),
           );
         }
         row.append(name, action);
@@ -1819,10 +1875,13 @@ import {
     ].forEach(([className, label, shapeDescription]) => {
       const item = document.createElement("span");
       item.className = "aa-country-region-legend-item";
+      item.dataset.countryRegionCategory = className === "united-states" ? "united_states" : className;
+      item.dataset.visibleCountryRegionModelCount = "0";
       const swatch = document.createElement("span");
       swatch.className = `aa-country-region-swatch is-${className}`;
       swatch.setAttribute("aria-hidden", "true");
       item.append(swatch, document.createTextNode(`${label}（${shapeDescription}）`));
+      item.append(textElement("span", "aa-country-region-visible-model-count", " · 0"));
       legend.appendChild(item);
     });
     return legend;
@@ -1846,6 +1905,7 @@ import {
     });
     const summary = document.createElement("summary");
     summary.className = "aa-section-title aa-collapsible-summary";
+    summary.id = "aa-organization-filter-count-summary";
     summary.textContent = `厂商筛选（${Object.keys(organizationModelCounts).length}）`;
     const rows = Object.keys(organizationModelCounts)
       .sort((left, right) => left.localeCompare(right))
@@ -1853,13 +1913,14 @@ import {
         const identity = organizationIdentityMetadataByCreatorName[creatorName];
         const row = document.createElement("label");
         row.className = "aa-organization-filter-row";
+        row.dataset.creatorName = creatorName;
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
         checkbox.checked = !hiddenOrganizationCreatorNames.has(creatorName);
         checkbox.addEventListener("change", () => {
           if (checkbox.checked) hiddenOrganizationCreatorNames.delete(creatorName);
           else hiddenOrganizationCreatorNames.add(creatorName);
-          applyOrganizationVisibilityToModelMarkers();
+          applyModelMarkerVisibilityAndRefreshDependentViews();
         });
         const logo = document.createElement("img");
         logo.className = "aa-organization-logo-preview";
@@ -1870,6 +1931,7 @@ import {
         name.textContent = creatorName;
         const count = document.createElement("span");
         count.className = "aa-muted";
+        count.dataset.visibleOrganizationModelCount = "0";
         count.textContent = String(organizationModelCounts[creatorName]);
         row.append(checkbox, logo, name, count);
         return row;
@@ -1883,6 +1945,36 @@ import {
       rowContainer,
     );
     organizationFilterPanel.open = currentOpenState;
+    refreshOrganizationAndCountryRegionVisibleModelCounts();
+  }
+
+  function refreshOrganizationAndCountryRegionVisibleModelCounts() {
+    if (!organizationFilterPanel) return;
+    const totalsByCreator = {};
+    const visibleByCreator = {};
+    const visibleByCountry = {};
+    displayedModelMarkers.forEach((model, modelIndex) => {
+      totalsByCreator[model.creator] = (totalsByCreator[model.creator] || 0) + 1;
+      if (!modelMarkerIsCurrentlyVisible(modelIndex)) return;
+      visibleByCreator[model.creator] = (visibleByCreator[model.creator] || 0) + 1;
+      const country = ["china", "united_states"].includes(model.country_region_category)
+        ? model.country_region_category : "other";
+      visibleByCountry[country] = (visibleByCountry[country] || 0) + 1;
+    });
+    organizationFilterPanel.querySelectorAll(".aa-organization-filter-row").forEach((row) => {
+      const visibleCount = visibleByCreator[row.dataset.creatorName] || 0;
+      const totalCount = totalsByCreator[row.dataset.creatorName] || 0;
+      const count = row.querySelector("[data-visible-organization-model-count]");
+      count.dataset.visibleOrganizationModelCount = String(visibleCount);
+      count.textContent = visibleCount === totalCount ? String(totalCount) : `${visibleCount}/${totalCount}`;
+    });
+    organizationFilterPanel.querySelectorAll("[data-country-region-category]").forEach((item) => {
+      const visibleCount = visibleByCountry[item.dataset.countryRegionCategory] || 0;
+      item.dataset.visibleCountryRegionModelCount = String(visibleCount);
+      item.querySelector(".aa-country-region-visible-model-count").textContent = ` · ${visibleCount}`;
+    });
+    const summary = organizationFilterPanel.querySelector("#aa-organization-filter-count-summary");
+    if (summary) summary.textContent = `厂商筛选（${Object.keys(visibleByCreator).length}/${Object.keys(totalsByCreator).length}）`;
   }
 
   function buildPinnedModelsPanel() {
@@ -1923,6 +2015,10 @@ import {
         const variantSummary = document.createElement("div");
         variantSummary.textContent = `${model.name} · 智能 ${formatNumber(model.panel.intelligence, 1)} · ${model.reasoning_level_label}`;
         variant.appendChild(variantSummary);
+        const hiddenReasons = modelMarkerHiddenReasonTexts(modelIndex);
+        if (hiddenReasons.length) {
+          variant.appendChild(textElement("div", "aa-muted", `已隐藏：${hiddenReasons.join("、")}`));
+        }
         if (!modelIsAnalysisEligibleForActiveMetricVariant(model)) {
           variant.classList.add("is-historical-intelligence-index-version");
           const reasonNote = document.createElement("div");
@@ -2084,10 +2180,15 @@ import {
       ["智能指数", currentIntelligenceIndexVersionText()],
       ["成本口径", view.cost_metric_label || activeInteractionRelationships.cost_axis_label],
       ["速度口径", view.speed_metric_label || activeInteractionRelationships.speed_axis_label],
-      ["模型数", String(displayedModelMarkers.length)],
-      ["参与分析", String(displayedModelMarkers.length - historicalModelCount)],
+      ["可见 / 契约模型数", `${displayedModelMarkers.filter((model, modelIndex) => modelMarkerIsCurrentlyVisible(modelIndex)).length} / ${displayedModelMarkers.length}`],
+      ["参与分析（契约全集）", String(displayedModelMarkers.length - historicalModelCount)],
       ["历史口径点", String(historicalModelCount)],
       ["Pareto 数", String(frontierModels().length)],
+      ["近期发布宽限", recentReleaseFrontierDistanceGracePeriodMonths === null
+        ? "旧契约未记录"
+        : `${recentReleaseFrontierDistanceGracePeriodMonths} 个月 · ${showModelsDisplayedOnlyBecauseOfRecentReleaseGracePeriod ? "显示" : "隐藏"}宽限专属点`],
+      ["宽限专属点", String(displayedModelMarkers.filter((model) => model.displayed_only_because_of_recent_release_grace_period === true).length)],
+      ["剪枝参考日", view.pruning_reference_date || artificialAnalysisDataProvenance.pruning_reference_date || "未记录"],
       [
         "产物指纹",
         reportArtifactFingerprintSummaryText(),
@@ -2208,7 +2309,10 @@ import {
         : `显示 ${visibleModelCount}/${displayedModelCount} 个模型`,
       `Pareto ${frontierModels().length}`,
     ];
-    if (historicalModelCount) summaryParts.push(`历史口径 ${historicalModelCount}`);
+    const visibleHistoricalCount = displayedModelMarkers.filter((model, modelIndex) =>
+      !modelIsAnalysisEligibleForActiveMetricVariant(model) && modelMarkerIsCurrentlyVisible(modelIndex),
+    ).length;
+    if (historicalModelCount) summaryParts.push(`历史口径 ${visibleHistoricalCount === historicalModelCount ? historicalModelCount : `${visibleHistoricalCount}/${historicalModelCount}`}`);
     reportHeaderModelCountSummary.textContent = summaryParts.join(" · ");
   }
 
@@ -2563,9 +2667,9 @@ import {
       .filter(([model]) => !modelIsAnalysisEligibleForActiveMetricVariant(model))
       .map(([, modelIndex]) => modelIndex);
     const organizationNames = new Set(displayedModelMarkers.map((model) => model.creator));
-    const visibleOrganizationCount = [...organizationNames].filter(
-      (creatorName) => currentOrganizationVisibility(creatorName),
-    ).length;
+    const visibleOrganizationCount = new Set(displayedModelMarkers.filter(
+      (model, modelIndex) => modelMarkerIsCurrentlyVisible(modelIndex),
+    ).map((model) => model.creator)).size;
     const lineagePositionCount = transientLineageLineObject
       ? transientLineageLineObject.geometry.attributes.position.count
       : 0;
@@ -2631,6 +2735,14 @@ import {
       outOfRangeContractTriangleVertexIndexCount,
       skippedInvalidContractGeometryNames: [...skippedInvalidContractGeometryNames],
       visibleModelMarkerCount: visibleModelCount,
+      showModelsDisplayedOnlyBecauseOfRecentReleaseGracePeriod,
+      recentReleaseFrontierDistanceGracePeriodMonths,
+      recentReleaseGracePeriodOnlyModelMarkerCount: displayedModelMarkers.filter(
+        (model) => model.displayed_only_because_of_recent_release_grace_period === true,
+      ).length,
+      pickableRecentReleaseGracePeriodOnlyModelMarkerCount: displayedModelMarkers.filter(
+        (model, modelIndex) => model.displayed_only_because_of_recent_release_grace_period === true && pickableModelIndices.has(modelIndex),
+      ).length,
       showOnlyCurrentIntelligenceIndexVersionComparableModels,
       historicalIntelligenceIndexVersionModelMarkerCount: historicalModelIndices.length,
       visibleHistoricalIntelligenceIndexVersionModelMarkerCount: historicalModelIndices.filter(
@@ -2722,7 +2834,7 @@ import {
   window.togglePinnedFrontierBaseModel = togglePinnedBaseModelName;
   window.showFrontierLineageForModelName = (modelName) => {
     const modelIndex = modelIndexByModelName[modelName];
-    if (modelIndex === undefined) return false;
+    if (modelIndex === undefined || !modelMarkerIsCurrentlyVisible(modelIndex)) return false;
     setHoveredModelIndex(modelIndex);
     return true;
   };
@@ -2735,6 +2847,8 @@ import {
   window.setCountryRegionMarkerVisibility = setCountryRegionMarkerVisible;
   window.setShowOnlyCurrentIntelligenceIndexVersionComparableModels =
     setShowOnlyCurrentIntelligenceIndexVersionComparableModels;
+  window.setShowModelsDisplayedOnlyBecauseOfRecentReleaseGracePeriod =
+    setShowModelsDisplayedOnlyBecauseOfRecentReleaseGracePeriod;
   window.setFrontierHowToReadDrawerOpen = setHowToReadDrawerOpen;
   window.setFrontierSidePanelExpanded = setSidePanelExpanded;
   window.selectFrontierStandoutMetric = selectFrontierStandoutMetric;

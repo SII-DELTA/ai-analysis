@@ -116,14 +116,21 @@ token 量（**冗长度**）相差可达两个数量级，推理模型尤其冗�
 - **可达前沿曲面（可选副视图）**：`F(成本预算 c, 速度下限 s) = max{智能 | cost≤c 且 speed≥s}`，
   单调阶梯面，可从顶部工具栏独立开启。
 - **剪枝（均衡档，默认）**：剔除**过旧**与**离前沿太远**的模型：
-  `保留 = 分析 Pareto 点 ∪ 显示 Pareto 点 ∪ (近 since-months 月 ∧ (显示层号 ≤ layers ∨ 分析层号 ≤ layers))`，
+  `保留 = 三维齐全 ∧ (分析 Pareto 点 ∪ 显示 Pareto 点 ∪ (近 since-months 月 ∧ (显示层号 ≤ layers ∨ 分析层号 ≤ layers)) ∪ 发布宽限内的模型)`，
   再减去早于 `hard-age-cutoff-months` 的“远古”模型（即便 Pareto 最优）。
+  **近期发布宽限默认 6 个日历月**，包含起止日期，结束日为剪枝参考日；无日期或晚于参考日的模型不享受宽限。
+  宽限只放开离前沿距离，不能补回缺维；历史口径点同样享受显示宽限，继续退出全部分析计算。
+  `--recent-release-grace-period-months 0` 恢复原剪枝集合，且不把宽限专属点写进契约。
+  页面“模型标识”里的开关默认开启，只控制**仅因宽限才保留**的点，原本可显示的近期模型不受它影响。
+  生成时，新增的当期宽限点加入现有 `kept ∧ analysis eligible` 突出度与归一化计算集合，部分突出度数值可能变化；
+  Pareto 分层在剪枝前完成，宽限不改变层级。页面开关只筛选显示，不重算分析、坐标范围或相机。
   「分析层号 ≤ layers」一项保证参与分析的点是否上图只由参与分析的点决定（D-1：历史口径点不得把当期可比的
   近前沿点挤出显示）；对参与分析的点，显示层号 ≤ layers 蕴含分析层号 ≤ layers，所以它只会多保留、不会少保留。
   9/23 数据上默认口径因此多显示 10 个当期点（只按显示层号是 107，现为 117）。
   剪枝参考日期缺省取 **API 抓取日期**（不是运行当天），可用 `--pruning-reference-date` 指定。
   所有阈值均可调（见下）。每个未上图模型的原因写在数据契约的 `excluded_models_with_drop_reason`
   中（缺维度：成本 / 速度 / 智能、过旧(硬截断)、过旧(软窗外且非前沿)、离前沿太远、发布日期缺失且非前沿）。
+  宽限新增点的 `drop_reason` 仍为“保留”；被页面开关隐藏不等于被生成时剪枝，不进入剔除名单。
 
 ### 显示但不参与分析（D-1）
 
@@ -222,6 +229,7 @@ AA 条款风险沿用审计记录；降低频率与只存 JSON 不等于已取�
 | `--since-months` | 18 | 软窗：近 N 月内算“近期” |
 | `--layers` | 3 | 近期模型保留前 N 层：显示层号或分析层号 ≤ N 即保留（层号即离前沿的距离） |
 | `--hard-age-cutoff-months` | 36 | 早于此一律剔除（含 Pareto） |
+| `--recent-release-grace-period-months` | 6 | 发布在近 N 个日历月内的完整模型免受层数限制；非负整数，0 关闭。读取已有契约时显式传入会提示被忽略 |
 | `--speed-scale` | `log` | 速度轴 `log` 或 `linear` |
 | `--pruning-reference-date` | API 抓取日期 | 剪枝参考日期 `YYYY-MM-DD`；不再用运行当天 |
 | `--speed-metric` | `effective` | HTML 初始速度口径：`effective` / `raw`；页面内仍可切换 |
@@ -356,6 +364,8 @@ uv run python scripts/generate_model_intelligence_verbosity_report.py \
   Pareto 层，以及**四个突出度值**（趋势残差 / 智能抬升 / 加权超体积 / 到前沿垂距）。
 - 右上角可独立切换成本口径（有效运行成本 / 7:2:1 混合单价）和速度口径（有效速度 / 原始速度）；
   四种组合各自重新计算 Pareto、剪枝、前沿和轴范围。
+- “显示近 N 个月发布的远离前沿模型”默认开启，跨口径保留选择；关闭后清除被隐藏点的 hover，保留 pin 并标注隐藏原因。
+  搜索与厂商筛选保留隐藏模型的入口；页头、当前视图和图例计数随筛选更新。`0` 或旧契约没有宽限设置时开关禁用并说明原因。
 - 其下的「**突出度**」面板：指标选择器决定哪个口径驱动 **Pareto 圈的大小（越突出越大）** 与
   **前沿排行榜**；选「加权超体积」时 3 个轴权重滑杆(智能/成本/速度，各带输入框)可用，拖动即时重排
   （见上「突出度指标」节的权重语义）。
@@ -415,14 +425,17 @@ scripts/run_all_frontier_3d_verifications.sh --allow-html-renderer-bundle-differ
 - 顶层 `artificial_analysis_data_provenance`，包括：
   - API 抓取时间及其来源、API 版本与 tier；
   - 当期指数版本、目录分区版本与截至时间；
-  - 网页抓取是否暂停、剪枝参考日期；
+  - 网页抓取是否暂停、剪枝参考日期、`recent_release_frontier_distance_grace_period_months` 宽限月数；
   - 有效速度各版本归一常数、AA 署名 URL。
 - 顶层 `data_date` 取 API 抓取日期，`generated_at` 为 UTC。
 - 每个口径包括：
   - `analysis_eligible_model_count`、`historical_version_value_model_count`；
+  - `recent_release_grace_period_only_model_count`（宽限专属点数）、`kept_model_count_without_recent_release_grace_period`（关闭宽限后的保留数）；
   - `excluded_models_with_drop_reason`：有智能分但未上图的模型，写明缺哪一维与剪枝原因；
   - `current_view` 中的 `speed_axis_title_text`、`cost_metric_note`、`speed_metric_note`。
+    其中也记录宽限月数、剪枝参考日和上述宽限计数；分析计数始终指契约全集，页面筛选不会改写它们。
 - 每个显示点包括：
+  - `displayed_only_because_of_recent_release_grace_period`：仅因宽限保留时为 true，其余为 false；旧 v2 没有此字段时沿用原显示行为；
   - `analysis_eligibility`：是否参与本口径分析、原因码与原因文案；
   - `value_provenance`：成本与 token 数的来源、版本、采集时间，以及混合价来源；
   - `artificial_analysis_intelligence_index_is_estimated`。
