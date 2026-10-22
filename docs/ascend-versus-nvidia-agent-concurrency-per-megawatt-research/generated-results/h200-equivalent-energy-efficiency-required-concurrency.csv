@@ -1,0 +1,17 @@
+output_speed_p25_minimum_tokens_per_second,time_to_first_token_p95_maximum_seconds,reference_accelerator_model,reference_point_identifier,reference_agents_per_megawatt,assumed_total_accelerator_power_watts,required_continuous_concurrent_agents,minimum_integer_concurrent_agents,evidence_tier,power_grid_interpretation
+20,10,H200,aa-agentperf:deepseek-v4-pro:points:340,4751.302230976338,1000,4.751302230976338,5,conditional_break_even_threshold_not_capacity_prediction,自变量；如用 950W×N 模组规格，仅是预算情景，不是同边界实测
+20,10,H200,aa-agentperf:deepseek-v4-pro:points:340,4751.302230976338,4000,19.005208923905354,20,conditional_break_even_threshold_not_capacity_prediction,自变量；如用 950W×N 模组规格，仅是预算情景，不是同边界实测
+20,10,H200,aa-agentperf:deepseek-v4-pro:points:340,4751.302230976338,7600,36.109896955420176,37,conditional_break_even_threshold_not_capacity_prediction,自变量；如用 950W×N 模组规格，仅是预算情景，不是同边界实测
+20,10,H200,aa-agentperf:deepseek-v4-pro:points:340,4751.302230976338,15200,72.21979391084035,73,conditional_break_even_threshold_not_capacity_prediction,自变量；如用 950W×N 模组规格，仅是预算情景，不是同边界实测
+20,10,H200,aa-agentperf:deepseek-v4-pro:points:340,4751.302230976338,30400,144.4395878216807,145,conditional_break_even_threshold_not_capacity_prediction,自变量；如用 950W×N 模组规格，仅是预算情景，不是同边界实测
+20,10,H200,aa-agentperf:deepseek-v4-pro:points:340,4751.302230976338,60800,288.8791756433614,289,conditional_break_even_threshold_not_capacity_prediction,自变量；如用 950W×N 模组规格，仅是预算情景，不是同边界实测
+20,10,H200,aa-agentperf:deepseek-v4-pro:points:340,4751.302230976338,121600,577.7583512867228,578,conditional_break_even_threshold_not_capacity_prediction,自变量；如用 950W×N 模组规格，仅是预算情景，不是同边界实测
+20,10,H200,aa-agentperf:deepseek-v4-pro:points:340,4751.302230976338,972800,4622.0668102937825,4623,conditional_break_even_threshold_not_capacity_prediction,自变量；如用 950W×N 模组规格，仅是预算情景，不是同边界实测
+60,5,H200,aa-agentperf:deepseek-v4-pro:points:342,2977.395390887726,1000,2.977395390887726,3,conditional_break_even_threshold_not_capacity_prediction,自变量；如用 950W×N 模组规格，仅是预算情景，不是同边界实测
+60,5,H200,aa-agentperf:deepseek-v4-pro:points:342,2977.395390887726,4000,11.909581563550905,12,conditional_break_even_threshold_not_capacity_prediction,自变量；如用 950W×N 模组规格，仅是预算情景，不是同边界实测
+60,5,H200,aa-agentperf:deepseek-v4-pro:points:342,2977.395390887726,7600,22.62820497074672,23,conditional_break_even_threshold_not_capacity_prediction,自变量；如用 950W×N 模组规格，仅是预算情景，不是同边界实测
+60,5,H200,aa-agentperf:deepseek-v4-pro:points:342,2977.395390887726,15200,45.25640994149344,46,conditional_break_even_threshold_not_capacity_prediction,自变量；如用 950W×N 模组规格，仅是预算情景，不是同边界实测
+60,5,H200,aa-agentperf:deepseek-v4-pro:points:342,2977.395390887726,30400,90.51281988298688,91,conditional_break_even_threshold_not_capacity_prediction,自变量；如用 950W×N 模组规格，仅是预算情景，不是同边界实测
+60,5,H200,aa-agentperf:deepseek-v4-pro:points:342,2977.395390887726,60800,181.02563976597375,182,conditional_break_even_threshold_not_capacity_prediction,自变量；如用 950W×N 模组规格，仅是预算情景，不是同边界实测
+60,5,H200,aa-agentperf:deepseek-v4-pro:points:342,2977.395390887726,121600,362.0512795319475,363,conditional_break_even_threshold_not_capacity_prediction,自变量；如用 950W×N 模组规格，仅是预算情景，不是同边界实测
+60,5,H200,aa-agentperf:deepseek-v4-pro:points:342,2977.395390887726,972800,2896.41023625558,2897,conditional_break_even_threshold_not_capacity_prediction,自变量；如用 950W×N 模组规格，仅是预算情景，不是同边界实测

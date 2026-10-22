@@ -1,0 +1,17 @@
+accelerator_model,output_speed_p25_minimum_tokens_per_second,time_to_first_token_p95_maximum_seconds,published_point_count,passing_published_point_count,status,best_observed_agents_per_megawatt,best_efficiency_point_identifier,best_efficiency_concurrent_agents,best_efficiency_measured_total_power_watts,best_efficiency_configuration_identifier,maximum_observed_passing_concurrent_agents,maximum_concurrency_point_identifier,maximum_concurrency_point_agents_per_megawatt,maximum_concurrency_measured_total_power_watts,maximum_concurrency_configuration_identifier,is_proven_capacity_limit
+Ascend 910,20,10,0,0,no_published_target_model_point,,,,,,,,,,,False
+Ascend 910,60,5,0,0,no_published_target_model_point,,,,,,,,,,,False
+Ascend 910B,20,10,0,0,no_published_target_model_point,,,,,,,,,,,False
+Ascend 910B,60,5,0,0,no_published_target_model_point,,,,,,,,,,,False
+Ascend 910C,20,10,0,0,no_published_target_model_point,,,,,,,,,,,False
+Ascend 910C,60,5,0,0,no_published_target_model_point,,,,,,,,,,,False
+Ascend 950PR,20,10,0,0,no_published_target_model_point,,,,,,,,,,,False
+Ascend 950PR,60,5,0,0,no_published_target_model_point,,,,,,,,,,,False
+Ascend 950DT,20,10,0,0,no_published_target_model_point,,,,,,,,,,,False
+Ascend 950DT,60,5,0,0,no_published_target_model_point,,,,,,,,,,,False
+H100,20,10,0,0,no_published_target_model_point,,,,,,,,,,,False
+H100,60,5,0,0,no_published_target_model_point,,,,,,,,,,,False
+H200,20,10,11,11,published_passing_points,4751.302230976338,aa-agentperf:deepseek-v4-pro:points:340,20,4209.3723,17db15bd-d740-4987-81f1-bbd0cf936e95,20,aa-agentperf:deepseek-v4-pro:points:340,4751.302230976338,4209.3723,17db15bd-d740-4987-81f1-bbd0cf936e95,False
+H200,60,5,11,9,published_passing_points,2977.395390887726,aa-agentperf:deepseek-v4-pro:points:342,12,4030.3683,17db15bd-d740-4987-81f1-bbd0cf936e95,12,aa-agentperf:deepseek-v4-pro:points:342,2977.395390887726,4030.3683,17db15bd-d740-4987-81f1-bbd0cf936e95,False
+B200,20,10,14,11,published_passing_points,30898.2931986853,aa-agentperf:deepseek-v4-pro:points:394,128,4142.62364516129,b80a56d5-d2d9-4ded-90fb-a0e1a37fe5a6,128,aa-agentperf:deepseek-v4-pro:points:394,30898.2931986853,4142.62364516129,b80a56d5-d2d9-4ded-90fb-a0e1a37fe5a6,False
+B200,60,5,14,7,published_passing_points,5126.419781316007,aa-agentperf:deepseek-v4-pro:points:397,32,6242.17316666667,18bb5680-e20c-4167-bf4b-ccb9e2de5969,32,aa-agentperf:deepseek-v4-pro:points:397,5126.419781316007,6242.17316666667,18bb5680-e20c-4167-bf4b-ccb9e2de5969,False

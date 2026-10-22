@@ -1,0 +1,7 @@
+context_tokens,main_cache_entry_bytes,index_cache_entry_bytes,single_logical_copy_payload_bytes,single_logical_copy_payload_gibibytes,evidence_tier,assumption
+32768,584,68,169430016,0.15779399871826172,conditional_cache_layout_payload_not_physical_hbm,特定vLLM布局、单逻辑副本；排除分页/尾态/草稿/工作区/复制，不认定为AA或Ascend实际布局
+32768,584,132,185158656,0.17244243621826172,conditional_cache_layout_payload_not_physical_hbm,特定vLLM布局、单逻辑副本；排除分页/尾态/草稿/工作区/复制，不认定为AA或Ascend实际布局
+131072,584,68,664040448,0.6184358596801758,conditional_cache_layout_payload_not_physical_hbm,特定vLLM布局、单逻辑副本；排除分页/尾态/草稿/工作区/复制，不认定为AA或Ascend实际布局
+131072,584,132,726955008,0.6770296096801758,conditional_cache_layout_payload_not_physical_hbm,特定vLLM布局、单逻辑副本；排除分页/尾态/草稿/工作区/复制，不认定为AA或Ascend实际布局
+1048576,584,68,5280404480,4.917759895324707,conditional_cache_layout_payload_not_physical_hbm,特定vLLM布局、单逻辑副本；排除分页/尾态/草稿/工作区/复制，不认定为AA或Ascend实际布局
+1048576,584,132,5783720960,5.386509895324707,conditional_cache_layout_payload_not_physical_hbm,特定vLLM布局、单逻辑副本；排除分页/尾态/草稿/工作区/复制，不认定为AA或Ascend实际布局

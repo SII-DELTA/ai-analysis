@@ -1,0 +1,1311 @@
+{
+  "schema_version": 1,
+  "research_title": "昇腾与NVIDIA每兆瓦Agent并发研究：硬件产品与部署证据",
+  "evidence_cutoff_date": "2026-10-22",
+  "authorship_note": "受主agent分工撰写的一手来源证据附录；本次未操作目标硬件、未执行自托管推理或测量功率。",
+  "date_policy": "有具体正文日期才填写published_on；live网页/代码的未知发布日期保留null，另记修订信息；accessed_on统一为本次访问日期。",
+  "source_eligibility_policy": "仅采用厂商、软件项目、论文作者或平台运营方对自身产品/实验的公开材料；第三方芯片表、券商估算和经销商数字未作为规格依据。",
+  "commercial_status_policy": {
+    "commercially_deployed": "官方或实际平台方明确称上市、交付或商用部署；需记录具体产品形态",
+    "released_without_verified_delivery": "正式产品发布或现行规格可查，未独立闭合当前交付",
+    "official_roadmap": "厂商未来时间点和目标配置；时间已到不自动升级为商用",
+    "unverified_report": "仅外部报道或传闻；不进入本文件的确认事实"
+  },
+  "power_boundary_policy": [
+    "die功率、封装/模组功率、整板功率、服务器输入、完整集群IT功率和设施功率分别保留；不可混用。",
+    "厂商TDP、最大功率规格、遥测示例与目标工作负载的稳态实测分别标注；没有实测时不得填写measured。",
+    "1MW容量计算应纳入Prefill与Decode两池、CPU/DDR、网络、存储及损耗；若1MW指设施功率，还须按PUE转换。",
+    "电源额定容量、冗余电源合计、机柜100kW供电能力不能当作工作负载耗电。"
+  ],
+  "sources": [
+    {
+      "source_id": "huawei-2019-annual-report",
+      "url": "https://www-file.huawei.com/-/media/corporate/pdf/annual-report/annual_report_2019_cn.pdf?la=zh",
+      "title": "华为2019年年度报告",
+      "publisher": "华为",
+      "source_type": "一手来源",
+      "published_on": null,
+      "publication_date_note": "报告年份为2019，具体公开日期未在本次证据中核实",
+      "accessed_on": "2026-10-22",
+      "locator": "印刷第34页；报告2019年业务",
+      "evidence_note": "2019年推出的昇腾910达到FP16 256 TFLOPS、INT8 512 TOPS；达到该规格算力所需功耗310W。",
+      "supported_fact_scope": [
+        "原版昇腾910的历史发布与性能功耗声明"
+      ]
+    },
+    {
+      "source_id": "huawei-2025-ascend-roadmap",
+      "url": "https://www.huawei.com/en/news/2025/9/hc-xu-keynote-speech",
+      "title": "Groundbreaking SuperPoD Interconnect: Leading a New Paradigm for AI Infrastructure",
+      "publisher": "华为",
+      "source_type": "一手来源",
+      "published_on": "2025-09-18",
+      "publication_date_note": "新闻正文演讲事件日期为2025-09-18",
+      "accessed_on": "2026-10-22",
+      "locator": "Ascend chip roadmap；Atlas 900 A3与950 SuperPoD段落",
+      "evidence_note": "官方确认Atlas900 A3于2025年3月发布并使用384颗910C；当时规划950PR在2026Q1、950DT及8192卡Atlas950在2026Q4推出。",
+      "supported_fact_scope": [
+        "910C产品身份与部署",
+        "2025年时点路线图",
+        "950PR的HiBL1.0与950DT的HiZQ2.0命名"
+      ]
+    },
+    {
+      "source_id": "huawei-2026-commercial-update",
+      "url": "https://www.huawei.com/en/news/2026/9/hc-wang-keynote",
+      "title": "Advancing the Agentic World, Building a Solid Silicon Foundation",
+      "publisher": "华为",
+      "source_type": "一手来源",
+      "published_on": "2026-09-17",
+      "publication_date_note": "正文标注日期",
+      "accessed_on": "2026-10-22",
+      "locator": "SuperPoDs gain broad consensus段落",
+      "evidence_note": "官方称Atlas900 A3部署超过1000套，Atlas950已规模商用；更新未来960DT/PR计划。",
+      "supported_fact_scope": [
+        "2026年9月系统级商业状态更新；不证明所有芯片bin均已交付"
+      ]
+    },
+    {
+      "source_id": "ascend-950-architecture-whitepaper",
+      "url": "https://public-download.obs.cn-east-2.myhuaweicloud.com/ascend/%E6%98%87%E8%85%BE950%20NPU%E6%9E%B6%E6%9E%84%E7%99%BD%E7%9A%AE%E4%B9%A6.pdf",
+      "title": "昇腾950 NPU架构白皮书",
+      "publisher": "华为",
+      "source_type": "一手来源",
+      "published_on": null,
+      "publication_date_note": "PDF版权为2026，具体发布日期及修订号未标明；不能当作2025路线图原始附件",
+      "accessed_on": "2026-10-22",
+      "locator": "PDF物理第12页：合封结构；物理第13-15页：表3-1；容量/带宽主要在物理第14页，UB方向/端口复用在物理第15页",
+      "evidence_note": "950芯片合封2个AI Die及2个IO Die。PR内存有128/112GB与1.6/1.4TB/s规格，DT有144/96GB与4TB/s规格；UB为2016GB/s双向，部分端口与PCIe/UBoE复用。",
+      "supported_fact_scope": [
+        "950PR/DT芯片家族规格与变体",
+        "封装与die计数",
+        "互联方向和端口复用；未提供负载实测功率"
+      ],
+      "printed_page_numbers": null,
+      "printed_page_number_note": "未核实可独立引用的印刷页码；不得凭封面与目录页数推算。优先使用PDF从1开始的物理页码与表3-1。"
+    },
+    {
+      "source_id": "ascend-950pr-live-product",
+      "url": "https://www.hiascend.com/hardware/processor",
+      "title": "Ascend 950PR",
+      "publisher": "昇腾社区/华为",
+      "source_type": "一手来源",
+      "published_on": null,
+      "publication_date_note": "页面未提供可核验的具体发布日期；不把检索引擎相对日期、版权年份或访问日当作发布日期",
+      "accessed_on": "2026-10-22",
+      "locator": "产品特性与技术白皮书入口",
+      "evidence_note": "950PR面向Prefill与推荐；网页写最高128GB、1.6TB/s及2TB/s双向互联。白皮书由此官方入口链接。",
+      "supported_fact_scope": [
+        "950PR当前营销家族上限和白皮书来源归属"
+      ]
+    },
+    {
+      "source_id": "atlas-350-live-product",
+      "url": "https://www.hiascend.com/hardware/accelerator-card",
+      "title": "Atlas 350 加速卡",
+      "publisher": "昇腾社区/华为",
+      "source_type": "一手来源",
+      "published_on": null,
+      "publication_date_note": "页面未提供可核验的具体发布日期；不把检索引擎相对日期、版权年份或访问日当作发布日期",
+      "accessed_on": "2026-10-22",
+      "locator": "Atlas350技术规格表",
+      "evidence_note": "实际PCIe标卡采用950PR，112GB HBM、1.4TB/s、最大功耗不超过600W；2卡与4卡拓扑分别标424与318GB/s双向互联。",
+      "supported_fact_scope": [
+        "Atlas350具体物理板卡规格；不适用于所有950PR服务器或950DT"
+      ]
+    },
+    {
+      "source_id": "atlas-950-live-product",
+      "url": "https://www.hiascend.com/hardware/cluster",
+      "title": "Atlas 950 SuperPoD 液冷超节点",
+      "publisher": "昇腾社区/华为",
+      "source_type": "一手来源",
+      "published_on": null,
+      "publication_date_note": "页面未提供可核验的具体发布日期；不把检索引擎相对日期、版权年份或访问日当作发布日期",
+      "accessed_on": "2026-10-22",
+      "locator": "Atlas950技术规格表",
+      "evidence_note": "当前配置最多1024颗950DT、256颗鲲鹏950，片上内存为1024×96GB；16个计算柜与4个互联柜，单柜互联64×1.68TB/s双向。",
+      "supported_fact_scope": [
+        "已上市Atlas950具体系统配置；与早期8192卡目标区分"
+      ]
+    },
+    {
+      "source_id": "ascend-2026-superpod-launch",
+      "url": "https://www.hiascend.com/activities/dynamic-news/783",
+      "title": "昇腾超节点系统创新，加速Agentic AI跃迁",
+      "publisher": "昇腾社区/华为",
+      "source_type": "一手来源",
+      "published_on": "2026-09-18",
+      "publication_date_note": "文章发表于2026-09-18；演讲事件日期为2026-09-17",
+      "accessed_on": "2026-10-22",
+      "locator": "昇腾950超节点正式上市段落",
+      "evidence_note": "9月17日演讲称950液冷和风冷产品提前上市；1024 NPU液冷超节点每计算刀片8颗NPU，每个NPU模组功耗950W。异构PD使用950PR Atlas850做Prefill、950DT Atlas850E做Decode。",
+      "supported_fact_scope": [
+        "2026年上市与实际1024封装规模",
+        "该液冷系统NPU模组功率声明",
+        "异构PD产品分工"
+      ]
+    },
+    {
+      "source_id": "cloudmatrix-paper-v2",
+      "url": "https://arxiv.org/html/2506.12708v2",
+      "title": "Serving Large Language Models on Huawei CloudMatrix384（v2）",
+      "publisher": "华为研究团队",
+      "source_type": "一手来源",
+      "published_on": "2025-06-18",
+      "publication_date_note": "已核对arXiv提交历史：v2为2025-06-18 10:04:59 UTC；v3为2025-06-19。",
+      "accessed_on": "2026-10-22",
+      "locator": "§3.3.1；§4.1；§5.1",
+      "evidence_note": "v2明确910C为双计算die封装，128GB/封装、64GB/die，3.2TB/s/封装、1.6TB/s/die；UB每die单向196GB/s，跨die双向540GB/s。示例256颗封装分成96颗Prefill与160颗Decode。",
+      "supported_fact_scope": [
+        "论文v2指定配置的910C结构、容量与网络方向",
+        "封装数与EP rank数换算；不代表V4-Pro实测"
+      ]
+    },
+    {
+      "source_id": "cloudmatrix-paper-v3",
+      "url": "https://arxiv.org/html/2506.12708v3",
+      "title": "Serving Large Language Models on Huawei CloudMatrix384（v3）",
+      "publisher": "华为研究团队",
+      "source_type": "一手来源",
+      "published_on": "2025-06-19",
+      "publication_date_note": "正文标注日期",
+      "accessed_on": "2026-10-22",
+      "locator": "§3.3.1与arXiv版本历史",
+      "evidence_note": "v3改用Ascend910泛称并删除v2多项具体容量和带宽信息，仍描述双die。不得把v2细节伪装成最新版原文。",
+      "supported_fact_scope": [
+        "论文版本差异与证据适用边界"
+      ]
+    },
+    {
+      "source_id": "ascend-recsdk-soc-identifiers",
+      "url": "https://gitee.com/ascend/RecSDK/blob/8251e16519db9132e33d33685d9d7a50607e1567/src/lccl/src/lcal_comm.cpp?skip_mobile=true",
+      "title": "Ascend/RecSDK：src/lccl/src/lcal_comm.cpp",
+      "publisher": "Ascend官方开源项目",
+      "source_type": "一手来源",
+      "published_on": null,
+      "publication_date_note": "页面未提供可核验的具体发布日期；不把检索引擎相对日期、版权年份或访问日当作发布日期",
+      "accessed_on": "2026-10-22",
+      "locator": "固定commit 8251e16519db9132e33d33685d9d7a50607e1567；chipMap",
+      "evidence_note": "官方代码识别Ascend910B1/B2/B2C/B3/B4/B4-1及Ascend910_93xx若干标识。源码中的芯片识别表不构成每个变体的销售规格表。",
+      "supported_fact_scope": [
+        "可识别的运行时SoC变体名；不证明各变体显存、TDP或上市日期"
+      ]
+    },
+    {
+      "source_id": "ascend-original-soc-family-mapping",
+      "url": "https://gitee.com/ascend/samples/blob/84504315a553ab84e2ccaec6bf95a75a9e68ad66/operator_contrib/CumsumSample/FrameworkLaunch/Cumsum/cmake/util/opdesc_parser.py",
+      "title": "Ascend/samples：opdesc_parser.py",
+      "publisher": "Ascend官方开源项目",
+      "source_type": "一手来源",
+      "published_on": null,
+      "publication_date_note": "页面未提供可核验的具体发布日期；不把检索引擎相对日期、版权年份或访问日当作发布日期",
+      "accessed_on": "2026-10-22",
+      "locator": "固定commit 84504315a553ab84e2ccaec6bf95a75a9e68ad66；SOC_TO_SHORT_SOC_MAP",
+      "evidence_note": "SDK将ascend910a、ascend910b、ascend910proa、ascend910prob、ascend910premiuma映射至ascend910，而带数字后缀的ascend910b1等映射至ascend910b。",
+      "supported_fact_scope": [
+        "SDK命名分组；不能把不带数字的Ascend910B自动当成后来的910B1家族"
+      ]
+    },
+    {
+      "source_id": "atlas-300i-a2-live-product",
+      "url": "https://e.huawei.com/cn/products/computing/ascend/atlas-300i-a2",
+      "title": "Atlas 300I A2 推理卡",
+      "publisher": "华为企业业务",
+      "source_type": "一手来源",
+      "published_on": null,
+      "publication_date_note": "页面未提供可核验的具体发布日期；不把检索引擎相对日期、版权年份或访问日当作发布日期",
+      "accessed_on": "2026-10-22",
+      "locator": "技术规格表",
+      "evidence_note": "物理PCIe卡有32GB/0.8TB/s和64GB/1.6TB/s两组规格，最大功耗350W。页面没有给出精确910B后缀。",
+      "supported_fact_scope": [
+        "A2推理物理板卡规格；不能把350W移植给全部910B训练卡"
+      ]
+    },
+    {
+      "source_id": "atlas-800i-a3-live-product",
+      "url": "https://e.huawei.com/cn/products/computing/ascend/atlas-800i-a3",
+      "title": "Atlas 800I A3",
+      "publisher": "华为企业业务",
+      "source_type": "一手来源",
+      "published_on": null,
+      "publication_date_note": "页面未提供可核验的具体发布日期；不把检索引擎相对日期、版权年份或访问日当作发布日期",
+      "accessed_on": "2026-10-22",
+      "locator": "技术规格表",
+      "evidence_note": "单机8颗昇腾910与8×128GB片上内存，页面列3.2TB/s内存带宽、多机最大384卡。标题未给精确910C bin。",
+      "supported_fact_scope": [
+        "A3物理节点8封装及内存配置；网页带宽行未独立说明逐封装或整机统计边界"
+      ]
+    },
+    {
+      "source_id": "ascend-a3-power-and-device-boundary",
+      "url": "https://www.hiascend.com/document/detail/zh/mindcluster/71RC1/toolbox/toolboxug/toolboxug_0245.html",
+      "title": "MindCluster 7.1.RC1：AICPU压测/性能测试",
+      "publisher": "昇腾社区/华为",
+      "source_type": "一手来源",
+      "published_on": null,
+      "publication_date_note": "页面未提供可核验的具体发布日期；不把检索引擎相对日期、版权年份或访问日当作发布日期",
+      "accessed_on": "2026-10-22",
+      "locator": "设备状态与功耗信息说明",
+      "evidence_note": "官方工具文档指出A3为多芯片设备，查询JSON中功耗以Device显示并为整卡功耗；短暂算力测试的周期采样功耗不可作为稳态功耗。",
+      "supported_fact_scope": [
+        "功率遥测工具的产品相关统计边界；不提供V4稳态功率"
+      ]
+    },
+    {
+      "source_id": "sjtu-910b-deployment",
+      "url": "https://hpc.sjtu.edu.cn/Item/Hardware.htm",
+      "title": "上海交通大学交我算：硬件资源",
+      "publisher": "上海交通大学高性能计算中心",
+      "source_type": "一手来源",
+      "published_on": null,
+      "publication_date_note": "正文给平台建成时间2025-09；页面未给发布日期。官方检索正文可读，直接open本次超时",
+      "accessed_on": "2026-10-22",
+      "locator": "致远一号国产千卡智算平台",
+      "evidence_note": "平台方称2025年9月建成，配置1024张910B、128台Atlas800T A2；每机柜5台、单柜30kW。",
+      "supported_fact_scope": [
+        "910B家族实际部署证据；机柜功率是资源介绍规格，非本研究模型负载实测"
+      ]
+    },
+    {
+      "source_id": "nvidia-hgx-reference-architecture",
+      "url": "https://docs.nvidia.com/enterprise-reference-architectures/hgx-ai-factory-h100-h200-b200/latest/components.html",
+      "title": "Components — NVIDIA HGX AI Factory (HGX H100, H200, B200)",
+      "publisher": "NVIDIA",
+      "source_type": "一手来源",
+      "published_on": null,
+      "publication_date_note": "页面未提供可核验的具体发布日期；不把检索引擎相对日期、版权年份或访问日当作发布日期",
+      "accessed_on": "2026-10-22",
+      "locator": "Table1与Table2",
+      "evidence_note": "H100/H200/B200 SXM逐GPU显存为80/141/180GB，带宽3.35/4.8/8TB/s；8GPU节点显存640/1128/1440GB，NVLink逐GPU900/900/1800GB/s。B200可配置至1kW/GPU。",
+      "supported_fact_scope": [
+        "指定HGX SXM形态规格；NVLink聚合量与逐GPU量区分"
+      ]
+    },
+    {
+      "source_id": "nvidia-h100-current-spec",
+      "url": "https://www.nvidia.com/es-la/data-center/h100/",
+      "title": "GPU NVIDIA H100：Especificaciones",
+      "publisher": "NVIDIA",
+      "source_type": "一手来源",
+      "published_on": null,
+      "publication_date_note": "页面未提供可核验的具体发布日期；不把检索引擎相对日期、版权年份或访问日当作发布日期",
+      "accessed_on": "2026-10-22",
+      "locator": "H100 SXM规格列",
+      "evidence_note": "H100 SXM最大可配置TDP700W；该列与H100 NVL PCIe的功率和显存不同。",
+      "supported_fact_scope": [
+        "H100 SXM的GPU模块TDP；不等于服务器或机房功耗"
+      ]
+    },
+    {
+      "source_id": "nvidia-h100-production",
+      "url": "https://nvidianews.nvidia.com/news/nvidia-hopper-in-full-production",
+      "title": "NVIDIA Hopper in Full Production",
+      "publisher": "NVIDIA",
+      "source_type": "一手来源",
+      "published_on": "2022-09-20",
+      "publication_date_note": "正文标注日期",
+      "accessed_on": "2026-10-22",
+      "locator": "发布正文与Availability",
+      "evidence_note": "NVIDIA当时宣布H100全面生产、合作伙伴计划10月推出首批产品。",
+      "supported_fact_scope": [
+        "H100生产状态与当时上市计划；不把计划日期当作已交付证明"
+      ]
+    },
+    {
+      "source_id": "nvidia-h200-datasheet",
+      "url": "https://dam-cdn.nvd.orangelogic.com/AssetLink/5o2qgy5d2835ve2pm11i62kv8mphqta8.pdf",
+      "title": "NVIDIA H200 Tensor Core GPU Datasheet",
+      "publisher": "NVIDIA",
+      "source_type": "一手来源",
+      "published_on": null,
+      "publication_date_note": "页脚修订标记Nov24，仅能精确到2024-11",
+      "accessed_on": "2026-10-22",
+      "locator": "PDF物理第4页/印刷第4页：Technical Specifications；页脚Nov24",
+      "evidence_note": "H200 SXM为141GB、4.8TB/s、NVLink900GB/s、最大可配置TDP700W；NVL PCIe是600W。表中Tensor Core峰值带稀疏性脚注。",
+      "supported_fact_scope": [
+        "H200 SXM规格与功耗边界；不移植NVL数据"
+      ]
+    },
+    {
+      "source_id": "nvidia-h200-current-product",
+      "url": "https://www.nvidia.com/en-us/data-center/h200/",
+      "title": "NVIDIA H200 GPU",
+      "publisher": "NVIDIA",
+      "source_type": "一手来源",
+      "published_on": null,
+      "publication_date_note": "页面未提供可核验的具体发布日期；不把检索引擎相对日期、版权年份或访问日当作发布日期",
+      "accessed_on": "2026-10-22",
+      "locator": "Now available及规格入口",
+      "evidence_note": "当前官方页面标明产品已可用；页面推理倍数使用不同批量，不能当成相同设置的等效性能。",
+      "supported_fact_scope": [
+        "H200当前商业状态及产品宣称适用范围"
+      ]
+    },
+    {
+      "source_id": "nvidia-dgx-h100-h200-node-spec",
+      "url": "https://docs.nvidia.com/dgx/dgxh100-user-guide/introduction-to-dgxh100.html",
+      "title": "Introduction to NVIDIA DGX H100/H200 Systems",
+      "publisher": "NVIDIA",
+      "source_type": "一手来源",
+      "published_on": null,
+      "publication_date_note": "页面未提供可核验的具体发布日期；不把检索引擎相对日期、版权年份或访问日当作发布日期",
+      "accessed_on": "2026-10-22",
+      "locator": "Component Description；Power Specifications Table3",
+      "evidence_note": "DGX H100/H200各8 GPU，节点最大功率10.2kW；6×3.3kW电源为供电与冗余配置，不能相加当作实际用电。",
+      "supported_fact_scope": [
+        "DGX完整服务器规格上限；不含集群外置网络、存储及设施制冷"
+      ]
+    },
+    {
+      "source_id": "nvidia-dgx-b200-node-spec",
+      "url": "https://docs.nvidia.com/dgx/dgxb200-user-guide/introduction-to-dgxb200.html",
+      "title": "Introduction to NVIDIA DGX B200 Systems",
+      "publisher": "NVIDIA",
+      "source_type": "一手来源",
+      "published_on": null,
+      "publication_date_note": "页面未提供可核验的具体发布日期；不把检索引擎相对日期、版权年份或访问日当作发布日期",
+      "accessed_on": "2026-10-22",
+      "locator": "Component Description；Power Specifications",
+      "evidence_note": "DGX B200为8 GPU、1440GB总GPU内存，系统最大功率14.3kW，6×3.3kW供电采用5+1冗余。",
+      "supported_fact_scope": [
+        "DGX B200完整节点最大规格；不代表本研究工作负载实测"
+      ]
+    },
+    {
+      "source_id": "nvidia-blackwell-two-dies",
+      "url": "https://nvidianews.nvidia.com/news/nvidia-blackwell-platform-arrives-to-power-a-new-era-of-computing/",
+      "title": "NVIDIA Blackwell Platform Arrives to Power a New Era of Computing",
+      "publisher": "NVIDIA",
+      "source_type": "一手来源",
+      "published_on": "2024-03-18",
+      "publication_date_note": "正文标注日期",
+      "accessed_on": "2026-10-22",
+      "locator": "World’s Most Powerful Chip；GB200说明",
+      "evidence_note": "Blackwell数据中心GPU以2个die通过10TB/s片内链路组成一个统一GPU；GB200 Superchip再包含2颗B200 GPU和Grace CPU。",
+      "supported_fact_scope": [
+        "B200双die仍为1个GPU的计数；GB200与B200不能混称"
+      ]
+    },
+    {
+      "source_id": "supermicro-b200-production",
+      "url": "https://ir.supermicro.com/news/news-details/2025/Supermicro-Ramps-Full-Production-of-NVIDIA-Blackwell-Rack-Scale-Solutions-with-NVIDIA-HGX-B200/default.aspx",
+      "title": "Supermicro Ramps Full Production of NVIDIA Blackwell Rack-Scale Solutions with NVIDIA HGX B200",
+      "publisher": "Supermicro整机制造商",
+      "source_type": "一手来源",
+      "published_on": "2025-02-05",
+      "publication_date_note": "正文标注日期",
+      "accessed_on": "2026-10-22",
+      "locator": "发布正文与10U HGX B200段落",
+      "evidence_note": "整机厂宣布HGX B200系统全面生产可用，风冷10U系统支持8颗1000W TDP GPU。",
+      "supported_fact_scope": [
+        "B200整机商业可用证据；不指定本研究实际采购或交付"
+      ]
+    },
+    {
+      "source_id": "nvidia-nvlink-direction",
+      "url": "https://developer.nvidia.com/blog/nvidia-gb200-nvl72-delivers-trillion-parameter-llm-training-and-real-time-inference/",
+      "title": "NVIDIA GB200 NVL72 Delivers Trillion-Parameter LLM Training and Real-Time Inference",
+      "publisher": "NVIDIA",
+      "source_type": "一手来源",
+      "published_on": "2024-03-18",
+      "publication_date_note": "正文标注日期",
+      "accessed_on": "2026-10-22",
+      "locator": "Fifth-generation NVLink段落",
+      "evidence_note": "NVLink5逐GPU的1.8TB/s为双向值。",
+      "supported_fact_scope": [
+        "Blackwell NVLink方向；不能当单向带宽与华为单向数值直接相除"
+      ]
+    },
+    {
+      "source_id": "deepseek-pro-0813-model-card",
+      "url": "https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro-0813",
+      "title": "deepseek-ai/DeepSeek-V4-Pro-0813",
+      "publisher": "DeepSeek",
+      "source_type": "一手来源",
+      "published_on": null,
+      "publication_date_note": "模型名称包含0813，但未用名称推断具体发布日期",
+      "accessed_on": "2026-10-22",
+      "locator": "Chat Template；How to Run Locally；SGLang/vLLM说明",
+      "evidence_note": "max由reasoning_effort控制；支持DSpark。当前建议T=1，Agent场景top_p=0.95、其他为1；high/max建议最大输出384K。",
+      "supported_fact_scope": [
+        "0813 checkpoint的服务配置与推理模式；不将max当另一套权重"
+      ]
+    },
+    {
+      "source_id": "vllm-ascend-pro-deployment",
+      "url": "https://docs.vllm.ai/projects/ascend/en/main/tutorials/models/DeepSeek-V4-Pro.html",
+      "title": "DeepSeek-V4-Pro — vLLM Ascend",
+      "publisher": "vLLM Ascend官方项目",
+      "source_type": "一手来源",
+      "published_on": null,
+      "publication_date_note": "live main页面；正文自述v0.30.0，示例镜像同时含A3 v0.30.0rc2与A2 v0.23.0，应锁版本复核",
+      "accessed_on": "2026-10-22",
+      "locator": "§3.1；§4；§7；§8；§9；W4A4C8 FAQ",
+      "evidence_note": "列出0813 W4A8的2台A3或4台64GB A2支持与950PR/DT W4A4C8；给出若干精度结果但无稳态吞吐/功率配对。A3配置4节点计64运行时NPU设备。",
+      "supported_fact_scope": [
+        "当前软件支持、量化配方、运行时设备计数及精度验证的有限范围"
+      ]
+    },
+    {
+      "source_id": "sglang-pro-deployment",
+      "url": "https://github.com/sgl-project/sglang/blob/main/docs/cookbook/autoregressive/DeepSeek/DeepSeek-V4.mdx",
+      "title": "SGLang：DeepSeek-V4 cookbook",
+      "publisher": "SGLang官方项目",
+      "source_type": "一手来源",
+      "published_on": null,
+      "publication_date_note": "页面未提供可核验的具体发布日期；不把检索引擎相对日期、版权年份或访问日当作发布日期",
+      "accessed_on": "2026-10-22",
+      "locator": "Pro Official0813硬件表；Hopper note；DSpark note",
+      "evidence_note": "0813有B200/H200单节点TP8与H100双节点TP16的低比特部署配置；原始Pro的MTP/EAGLE与0813 DSpark不能互换。",
+      "supported_fact_scope": [
+        "可执行部署配置与内存容纳证据；不等于所有长度或并发均满足SLO"
+      ]
+    },
+    {
+      "source_id": "nvidia-pro-0813-nvfp4-quality",
+      "url": "https://huggingface.co/nvidia/DeepSeek-V4-Pro-0813-NVFP4",
+      "title": "nvidia/DeepSeek-V4-Pro-0813-NVFP4",
+      "publisher": "NVIDIA ModelOpt",
+      "source_type": "一手来源",
+      "published_on": "2026-08-27",
+      "publication_date_note": "模型卡Release Date明确08/27/2026；当前live内容可能在该日后更新",
+      "accessed_on": "2026-10-22",
+      "locator": "Inference；Usage；Evaluation",
+      "evidence_note": "B200/SGLang在max、T=1、top_p=1下给出源MXFP4与NVFP4配对质量；8×B200的vLLM约115K输入测试未报错。DSpark在本次发布验证中未开启。",
+      "supported_fact_scope": [
+        "0813 NVFP4格式转换的有限质量回归与已测运行范围；没有整机功耗或容量SLO曲线"
+      ]
+    },
+    {
+      "source_id": "nvidia-brev-generic-gpu-catalog",
+      "url": "https://docs.nvidia.com/brev/reference/gpu-types",
+      "title": "GPU Types — NVIDIA Brev Documentation",
+      "publisher": "NVIDIA",
+      "source_type": "一手来源",
+      "published_on": null,
+      "publication_date_note": "无具体发布日期的live产品目录",
+      "accessed_on": "2026-10-22",
+      "locator": "High Performance表",
+      "evidence_note": "泛化目录把B200列为192GB；同表H100写96GB而未注明SXM/NVL，因此不能用此目录替代指定HGX/SXM规格。",
+      "supported_fact_scope": [
+        "证明官方材料确实存在192GB说法；不据此确定本研究HGX B200部署显存"
+      ]
+    },
+    {
+      "source_id": "nvidia-nim-specific-b200-gb200-memory",
+      "url": "https://docs.nvidia.com/nim/large-language-models/2.0.6/day-0/support-matrix-day-0.html",
+      "title": "Support Matrix for NIM Day 0 — NVIDIA NIM for LLMs 2.0.6",
+      "publisher": "NVIDIA",
+      "source_type": "一手来源",
+      "published_on": null,
+      "publication_date_note": "版本2.0.6；具体发布日期未核实",
+      "accessed_on": "2026-10-22",
+      "locator": "逐GPU显存的支持矩阵",
+      "evidence_note": "同一矩阵分别把B200写为180GB、GB200写为192GB；形态有区别，应沿用明确HGX/DGX B200的180GB。",
+      "supported_fact_scope": [
+        "软件支持矩阵中的明确形态差别；不能擅自认定容量差必由ECC或保留空间导致"
+      ]
+    },
+    {
+      "source_id": "huawei-research-original-910-architecture",
+      "url": "https://www-file.huawei.com/admin/asset/v1/pro/view/6ca306adab0a4852bacffce25f5573ec.pdf",
+      "title": "Communications of HUAWEI RESEARCH：Ascend架构与DNN Training SoC",
+      "publisher": "华为研究",
+      "source_type": "一手来源",
+      "published_on": null,
+      "publication_date_note": "页脚文本兼有October2021与June2022；本次未据此推断具体初刊日",
+      "accessed_on": "2026-10-22",
+      "locator": "PDF物理第113-114页；印刷第109-110页；§4.1.3与图18-20",
+      "access_method": "web检索命中官方PDF正文；web open因大于10MB受限，随后从同一官方URL以内存方式获取21240532字节并用pdftotext定位",
+      "evidence_note": "原版910结构包含1个计算chiplet、1个IOchiplet和4个HBM存储模块，HBM总带宽1.2TB/s；架构文章另写额定TDP300W。",
+      "supported_fact_scope": [
+        "原版910的HBM带宽和chiplet边界",
+        "300W为架构文献声明；不得与2019年报的达到规格算力所需310W合并成同一个测量"
+      ],
+      "unclosed_fact_scope": [
+        "本次取得的相关段落未单独闭合32GB容量"
+      ]
+    }
+  ],
+  "hardware_product_evidence": [
+    {
+      "product_evidence_id": "ascend-910-original-2019",
+      "product_name": "昇腾910原版（2019发布款）",
+      "entity_boundary": "原版架构为1计算chiplet+1IOchiplet+4HBM存储模块；具体板卡容量未在本次引证中闭合",
+      "commercial_status_as_of_cutoff": "历史已发布；当前可购买性与在售SKU未核实",
+      "status_source_ids": [
+        "huawei-2019-annual-report"
+      ],
+      "memory_capacity_variants_gb": null,
+      "memory_bandwidth_variants_tb_s": [
+        1.2
+      ],
+      "interconnect": null,
+      "power_evidence": [
+        {
+          "watts": 310,
+          "evidence_class": "厂商达到指定峰值算力所需功耗声明",
+          "measurement_boundary": "原版芯片；不是完整PCIe卡、服务器或设施功率",
+          "applies_to": "FP16 256TFLOPS/INT8 512TOPS的2019款声明",
+          "source_id": "huawei-2019-annual-report"
+        },
+        {
+          "watts": 300,
+          "evidence_class": "架构文章额定TDP声明",
+          "measurement_boundary": "原版910 SoC架构；不表示目标负载整卡实测",
+          "source_id": "huawei-research-original-910-architecture"
+        }
+      ],
+      "source_ids": [
+        "huawei-2019-annual-report",
+        "ascend-original-soc-family-mapping",
+        "huawei-research-original-910-architecture"
+      ],
+      "missing_evidence": [
+        "该原版芯片具体板卡32GB容量、互联与完整节点功耗的本次一手闭合",
+        "300W TDP与310W达到规格功耗属于不同资料口径；不自行取平均或移植到910B/910C",
+        "V4-Pro0813原版910的实际部署支持与质量/性能实证"
+      ],
+      "memory_bandwidth_boundary_note": "原版架构文献的HBM总带宽；具体32GB板卡容量仍待核实",
+      "compute_dies_per_physical_npu_package": 1,
+      "io_dies_per_physical_npu_package": 1,
+      "hbm_storage_modules_per_physical_npu_package": 4
+    },
+    {
+      "product_evidence_id": "ascend-910b-family-identifiable-variants",
+      "product_name": "昇腾910B家族及可识别变体",
+      "entity_boundary": "运行时SoC识别名；家族部署与具体板卡规格分开取证",
+      "identified_soc_variants": [
+        {
+          "soc_identifier": "Ascend910B1",
+          "per_variant_memory_gb": null,
+          "per_variant_bandwidth_tb_s": null,
+          "per_variant_tdp_watts": null,
+          "per_variant_sale_status": "官方代码识别，未分别闭合销售与规格"
+        },
+        {
+          "soc_identifier": "Ascend910B2",
+          "per_variant_memory_gb": null,
+          "per_variant_bandwidth_tb_s": null,
+          "per_variant_tdp_watts": null,
+          "per_variant_sale_status": "官方代码识别，未分别闭合销售与规格"
+        },
+        {
+          "soc_identifier": "Ascend910B2C",
+          "per_variant_memory_gb": null,
+          "per_variant_bandwidth_tb_s": null,
+          "per_variant_tdp_watts": null,
+          "per_variant_sale_status": "官方代码识别，未分别闭合销售与规格"
+        },
+        {
+          "soc_identifier": "Ascend910B3",
+          "per_variant_memory_gb": null,
+          "per_variant_bandwidth_tb_s": null,
+          "per_variant_tdp_watts": null,
+          "per_variant_sale_status": "官方代码识别，未分别闭合销售与规格"
+        },
+        {
+          "soc_identifier": "Ascend910B4",
+          "per_variant_memory_gb": null,
+          "per_variant_bandwidth_tb_s": null,
+          "per_variant_tdp_watts": null,
+          "per_variant_sale_status": "官方代码识别，未分别闭合销售与规格"
+        },
+        {
+          "soc_identifier": "Ascend910B4-1",
+          "per_variant_memory_gb": null,
+          "per_variant_bandwidth_tb_s": null,
+          "per_variant_tdp_watts": null,
+          "per_variant_sale_status": "官方代码识别，未分别闭合销售与规格"
+        }
+      ],
+      "commercial_status_as_of_cutoff": "910B家族有平台方公开的实际部署；逐bin商业状态未知",
+      "status_source_ids": [
+        "sjtu-910b-deployment"
+      ],
+      "node_count_evidence": {
+        "platform": "上海交通大学致远一号",
+        "physical_servers": 128,
+        "physical_accelerator_cards": 1024,
+        "cards_per_server": 8,
+        "source_id": "sjtu-910b-deployment"
+      },
+      "memory_capacity_variants_gb": null,
+      "power_evidence": [],
+      "related_product_evidence_ids": [
+        "atlas-300i-a2-pcie-32gb",
+        "atlas-300i-a2-pcie-64gb"
+      ],
+      "source_ids": [
+        "ascend-recsdk-soc-identifiers",
+        "sjtu-910b-deployment"
+      ],
+      "missing_evidence": [
+        "每个bin的显存、带宽、TDP和训练/推理服务器对应关系",
+        "不得从泛称910B、A2系列或另一bin推定规格；也不能将源码识别等同上市",
+        "B4与B4-1必须区分；64GB与400W未被本次厂商规格证据同时闭合，不能作为已证实的910B4标准配置"
+      ]
+    },
+    {
+      "product_evidence_id": "atlas-300i-a2-pcie-32gb",
+      "product_name": "Atlas 300I A2 32GB PCIe推理卡",
+      "entity_boundary": "物理PCIe板卡；精确910B bin未由此产品页给出",
+      "commercial_status_as_of_cutoff": "官方产品规格可查；本次未单独核对当前交付",
+      "memory_capacity_variants_gb": [
+        32
+      ],
+      "memory_bandwidth_variants_tb_s": [
+        0.8
+      ],
+      "interconnect": {
+        "pcie": "PCIe5.0",
+        "hccs_bandwidth_gb_s": null
+      },
+      "power_evidence": [
+        {
+          "watts": 350,
+          "evidence_class": "物理板卡最大功耗规格",
+          "measurement_boundary": "Atlas300I A2整卡；不含主机与外部互联",
+          "source_id": "atlas-300i-a2-live-product"
+        }
+      ],
+      "source_ids": [
+        "atlas-300i-a2-live-product"
+      ],
+      "missing_evidence": [
+        "精确910B后缀",
+        "V4-Pro0813该32GB版本的部署与功耗实测"
+      ]
+    },
+    {
+      "product_evidence_id": "atlas-300i-a2-pcie-64gb",
+      "product_name": "Atlas 300I A2 64GB PCIe推理卡",
+      "entity_boundary": "物理PCIe板卡；不与32GB版本交叉拼接带宽",
+      "commercial_status_as_of_cutoff": "官方产品规格可查；本次未单独核对当前交付",
+      "memory_capacity_variants_gb": [
+        64
+      ],
+      "memory_bandwidth_variants_tb_s": [
+        1.6
+      ],
+      "interconnect": {
+        "pcie": "PCIe5.0",
+        "hccs_bandwidth_gb_s": null
+      },
+      "power_evidence": [
+        {
+          "watts": 350,
+          "evidence_class": "物理板卡最大功耗规格",
+          "measurement_boundary": "Atlas300I A2整卡；不能作为全部910B服务器卡功率",
+          "source_id": "atlas-300i-a2-live-product"
+        }
+      ],
+      "source_ids": [
+        "atlas-300i-a2-live-product"
+      ],
+      "missing_evidence": [
+        "精确910B后缀",
+        "该具体板卡与4台A2服务器配置的等同性未验证"
+      ]
+    },
+    {
+      "product_evidence_id": "ascend-910c-cloudmatrix384",
+      "product_name": "昇腾910C（CloudMatrix384论文v2指定配置）",
+      "entity_boundary": "一个NPU封装含两个计算die；论文EP rank可按die计数",
+      "commercial_status_as_of_cutoff": "已商用部署的910C系统；精确bin未披露",
+      "status_source_ids": [
+        "huawei-2025-ascend-roadmap",
+        "huawei-2026-commercial-update"
+      ],
+      "compute_dies_per_physical_npu_package": 2,
+      "memory_capacity_variants_gb": [
+        128
+      ],
+      "memory_capacity_per_compute_die_gb": 64,
+      "memory_bandwidth_variants_tb_s": [
+        3.2
+      ],
+      "memory_bandwidth_per_compute_die_tb_s": 1.6,
+      "interconnect": {
+        "scale_up_ub_per_compute_die_unidirectional_gb_s": 196,
+        "scale_up_ub_per_compute_die_bidirectional_gb_s": 392,
+        "scale_up_ub_per_package_bidirectional_gb_s": 784,
+        "package_value_derivation": "2个die×392；聚合推导而非新增实测",
+        "in_package_cross_die_bidirectional_gb_s": 540,
+        "scale_out_rdma_per_compute_die_unidirectional_gbps": 200,
+        "source_id": "cloudmatrix-paper-v2"
+      },
+      "power_evidence": [],
+      "node_count_evidence": {
+        "cloudmatrix384_physical_npu_packages": 384,
+        "cloudmatrix384_compute_dies": 768,
+        "example_production_test_subset_physical_npu_packages": 256,
+        "example_prefill_physical_npu_packages": 96,
+        "example_decode_physical_npu_packages": 160,
+        "example_prefill_ep_degree": 32,
+        "example_decode_ep_degree": 320,
+        "source_id": "cloudmatrix-paper-v2"
+      },
+      "source_ids": [
+        "cloudmatrix-paper-v2",
+        "cloudmatrix-paper-v3",
+        "huawei-2025-ascend-roadmap"
+      ],
+      "missing_evidence": [
+        "同配置V4-Pro0813的整机/网络/存储总功率及goodput",
+        "v3删除具体规格；本记录只能标明v2历史披露",
+        "不能把不同A3 bin全部当成此论文配置",
+        "本次论文v2/v3未找到800W规格或负载功率；800W不得当作此论文确认事实"
+      ]
+    },
+    {
+      "product_evidence_id": "atlas-800i-a3-physical-node",
+      "product_name": "Atlas 800I A3物理节点",
+      "entity_boundary": "单台物理服务器8个NPU封装；vLLM可见16个die设备",
+      "commercial_status_as_of_cutoff": "官方产品与软件部署配置可查",
+      "physical_npu_packages_per_node": 8,
+      "runtime_device_count_per_node": 16,
+      "count_mapping_evidence": "vLLM指南映射davinci0至15，4节点表记64运行时NPUs；硬件表为每节点8×128GB",
+      "memory_capacity_per_physical_npu_package_gb": 128,
+      "aggregate_npu_memory_per_node_gb": 1024,
+      "memory_bandwidth_row_tb_s": 3.2,
+      "memory_bandwidth_boundary_note": "硬件网页该行未明确逐封装/整机；不能仅由该行直接相乘，逐封装值需另取论文特定配置证据",
+      "power_evidence": [],
+      "source_ids": [
+        "atlas-800i-a3-live-product",
+        "vllm-ascend-pro-deployment",
+        "ascend-a3-power-and-device-boundary"
+      ],
+      "missing_evidence": [
+        "该型号精确910C bin与整机输入功率的本次一手闭合",
+        "32个运行时设备对应2台A3共16个封装，不能按32×128GB计算"
+      ]
+    },
+    {
+      "product_evidence_id": "ascend-950pr-chip-family",
+      "product_name": "昇腾950PR芯片家族",
+      "entity_boundary": "多die NPU封装规格；2个AI Die与2个IO Die不等于4张卡",
+      "commercial_status_as_of_cutoff": "存在正式产品与商用平台；各容量变体交付须按具体产品确认",
+      "status_source_ids": [
+        "ascend-2026-superpod-launch",
+        "atlas-350-live-product"
+      ],
+      "compute_dies_per_physical_npu_package": 2,
+      "io_dies_per_physical_npu_package": 2,
+      "memory_variants": [
+        {
+          "capacity_gb": 128,
+          "bandwidth_tb_s": 1.6,
+          "configuration_scope": "芯片家族最高规格；未以此证明Atlas350具备该容量"
+        },
+        {
+          "capacity_gb": 112,
+          "bandwidth_tb_s": 1.4,
+          "configuration_scope": "Atlas350已公开实际板卡配置"
+        }
+      ],
+      "interconnect": {
+        "unified_bus_peak_bidirectional_gb_s": 2016,
+        "boundary_note": "芯片UB峰值；UBoE与PCIe端口复用，实际板卡只引出部分UB能力",
+        "source_id": "ascend-950-architecture-whitepaper"
+      },
+      "power_evidence": [],
+      "source_ids": [
+        "ascend-950-architecture-whitepaper",
+        "ascend-950pr-live-product",
+        "atlas-350-live-product"
+      ],
+      "missing_evidence": [
+        "各950PR服务器模组功率与具体bin",
+        "不能给950PR通用地赋950W或600W；后者只属于Atlas350板卡"
+      ]
+    },
+    {
+      "product_evidence_id": "atlas-350-950pr-pcie-card",
+      "product_name": "Atlas 350（950PR）112GB PCIe加速卡",
+      "entity_boundary": "一块双宽PCIe物理板卡",
+      "commercial_status_as_of_cutoff": "官方现行产品规格可查；950PR产品已推出，具体订单交付未调查",
+      "memory_capacity_variants_gb": [
+        112
+      ],
+      "memory_bandwidth_variants_tb_s": [
+        1.4
+      ],
+      "interconnect": {
+        "pcie_gen5_x16_bidirectional_gb_s": 128,
+        "two_card_topology_per_card_bidirectional_gb_s": 424,
+        "four_card_fully_connected_topology_per_card_bidirectional_gb_s": 318,
+        "boundary_note": "拓扑相关逐卡聚合双向值；不可使用芯片2016GB/s替代板卡引出带宽"
+      },
+      "power_evidence": [
+        {
+          "watts": 600,
+          "comparison_operator": "<=",
+          "evidence_class": "物理板卡最大功耗规格",
+          "measurement_boundary": "整块Atlas350 PCIe卡；不含主机、NIC、交换机与设施",
+          "source_id": "atlas-350-live-product"
+        }
+      ],
+      "source_ids": [
+        "atlas-350-live-product"
+      ],
+      "missing_evidence": [
+        "该板卡V4-Pro0813 Max相同负载goodput与整节点功耗",
+        "112GB配置的有效可分配显存及运行时保留量"
+      ]
+    },
+    {
+      "product_evidence_id": "ascend-950dt-chip-family",
+      "product_name": "昇腾950DT芯片家族",
+      "entity_boundary": "一个NPU封装；芯片家族最高规格与已上市系统配置分开",
+      "commercial_status_as_of_cutoff": "当前Atlas950/Atlas850E具体产品已上市；144GB bin独立交付未核实",
+      "status_source_ids": [
+        "ascend-2026-superpod-launch",
+        "atlas-950-live-product"
+      ],
+      "compute_dies_per_physical_npu_package": 2,
+      "io_dies_per_physical_npu_package": 2,
+      "memory_variants": [
+        {
+          "capacity_gb": 144,
+          "bandwidth_tb_s": 4.0,
+          "configuration_scope": "家族规格及2025路线图；未证明当前1024卡Atlas950采用此容量"
+        },
+        {
+          "capacity_gb": 96,
+          "bandwidth_tb_s": 4.0,
+          "configuration_scope": "当前Atlas950产品页的逐NPU实际配置"
+        }
+      ],
+      "interconnect": {
+        "unified_bus_peak_bidirectional_gb_s": 2016,
+        "boundary_note": "芯片家族上限，不等于实际系统逐NPU引出带宽1.68TB/s",
+        "source_id": "ascend-950-architecture-whitepaper"
+      },
+      "power_evidence": [],
+      "source_ids": [
+        "ascend-950-architecture-whitepaper",
+        "atlas-950-live-product",
+        "ascend-2026-superpod-launch"
+      ],
+      "missing_evidence": [
+        "144GB配置商业交付、实际平台和功率",
+        "不同DT bin是否均采用950W模组未核实"
+      ]
+    },
+    {
+      "product_evidence_id": "atlas-950dt-1024-package-commercial-system",
+      "product_name": "Atlas 950 SuperPoD现行1024颗950DT液冷系统",
+      "entity_boundary": "16个计算柜+4个互联柜；1024个物理NPU封装，不是1024个die",
+      "commercial_status_as_of_cutoff": "2026-09正式上市且厂商称规模商用",
+      "status_source_ids": [
+        "ascend-2026-superpod-launch",
+        "huawei-2026-commercial-update"
+      ],
+      "physical_npu_packages_max": 1024,
+      "physical_npu_packages_per_compute_blade": 8,
+      "compute_dies_max_derived": 2048,
+      "cpu_packages_max": 256,
+      "memory_capacity_per_physical_npu_package_gb": 96,
+      "memory_bandwidth_per_physical_npu_package_tb_s": 4.0,
+      "aggregate_npu_local_memory_gb_derived": 98304,
+      "unified_addressing_capacity_tb": 256,
+      "unified_addressing_note": "256TB为跨资源统一编址空间，不能全部当NPU本地HBM",
+      "interconnect": {
+        "per_npu_in_rack_bidirectional_tb_s": 1.68,
+        "per_rack_aggregated_bidirectional_tb_s_derived": 107.52,
+        "rack_value_derivation": "官方逐柜64×1.68TB/s；不是应用有效带宽"
+      },
+      "power_evidence": [
+        {
+          "watts": 950,
+          "evidence_class": "厂商演讲的NPU模组功率规格",
+          "measurement_boundary": "该液冷系统的一个昇腾950 NPU模组；并非die+HBM测得负载功率，也不是整刀片功率",
+          "source_id": "ascend-2026-superpod-launch"
+        },
+        {
+          "watts": 972800,
+          "evidence_class": "仅NPU模组名义功率合计的算术推导",
+          "measurement_boundary": "1024×950W；排除CPU、DDR、IO、互联套片、光模块、交换机、电源损耗及制冷",
+          "derivation": "1024 * 950",
+          "source_id": "ascend-2026-superpod-launch",
+          "allowed_use": "只能作为模组规格合计；不能作为实测IT功耗或整套部署功率"
+        }
+      ],
+      "prefill_decode_pool_note": "来源未给1024池内每个PR/DT混合方案的负载功率；该产品页指DT液冷池。Atlas850 PR和850E DT风冷PD组合须单独预算，不可两个池统一各套950W。",
+      "source_ids": [
+        "atlas-950-live-product",
+        "ascend-2026-superpod-launch"
+      ],
+      "missing_evidence": [
+        "实际完整系统稳态输入功率和Max负载goodput",
+        "预填充池与解码池各自实测功率及配比",
+        "当前1024产品不等同2025年的8192卡/144GB路线图"
+      ]
+    },
+    {
+      "product_evidence_id": "nvidia-h100-sxm",
+      "product_name": "NVIDIA H100 SXM",
+      "entity_boundary": "一个物理GPU模块/封装；HGX/DGX每节点8个，不使用MIG逻辑分区数充当GPU数",
+      "commercial_status_as_of_cutoff": "已商业可用",
+      "status_source_ids": [
+        "nvidia-h100-production",
+        "nvidia-dgx-h100-h200-node-spec"
+      ],
+      "memory_capacity_variants_gb": [
+        80
+      ],
+      "memory_type": "HBM3",
+      "memory_bandwidth_variants_tb_s": [
+        3.35
+      ],
+      "physical_gpu_modules_per_hgx_or_dgx_node": 8,
+      "aggregate_memory_per_eight_gpu_node_gb": 640,
+      "runtime_gpu_devices_per_node_without_mig": 8,
+      "interconnect": {
+        "nvlink_aggregated_per_gpu_gb_s": 900,
+        "nvlink_generation": 4,
+        "bandwidth_direction_note": "逐GPU聚合值；B200的1800GB/s由NVLink5官方资料确认为双向；Hopper的900GB/s未在本记录独立重新推导方向",
+        "eight_gpu_nvlink_aggregate_gb_s": 7200,
+        "scale_out_network_note": "外部IB/Ethernet网络须按服务器NIC与交换机配置另计，不能把NVLink带宽当跨节点带宽"
+      },
+      "power_evidence": [
+        {
+          "watts": 700,
+          "evidence_class": "GPU模块最大可配置TDP/功率规格",
+          "measurement_boundary": "H100 SXM GPU模块；不含CPU、系统DDR、外部网络与制冷",
+          "source_id": "nvidia-h100-current-spec"
+        },
+        {
+          "watts": 10200,
+          "evidence_class": "DGX节点最大输入功率规格",
+          "measurement_boundary": "完整DGX H100服务器；不含外置集群网络、存储及设施制冷",
+          "source_id": "nvidia-dgx-h100-h200-node-spec"
+        }
+      ],
+      "source_ids": [
+        "nvidia-hgx-reference-architecture",
+        "nvidia-dgx-h100-h200-node-spec",
+        "nvidia-h100-current-spec"
+      ],
+      "missing_evidence": [
+        "对应checkpoint/量化/Max/Agent负载的稳态节点功率与质量约束goodput",
+        "TDP与节点最大功率都不能冒充工作负载实测"
+      ],
+      "compute_dies_per_physical_gpu_package": null,
+      "die_count_evidence_note": "本次引用的规格页未单独验证裸die数量；硬件数量以物理GPU模块记"
+    },
+    {
+      "product_evidence_id": "nvidia-h200-sxm",
+      "product_name": "NVIDIA H200 SXM",
+      "entity_boundary": "一个物理GPU模块/封装；HGX/DGX每节点8个，不使用MIG逻辑分区数充当GPU数",
+      "commercial_status_as_of_cutoff": "已商业可用",
+      "status_source_ids": [
+        "nvidia-h200-current-product"
+      ],
+      "memory_capacity_variants_gb": [
+        141
+      ],
+      "memory_type": "HBM3e",
+      "memory_bandwidth_variants_tb_s": [
+        4.8
+      ],
+      "physical_gpu_modules_per_hgx_or_dgx_node": 8,
+      "aggregate_memory_per_eight_gpu_node_gb": 1128,
+      "runtime_gpu_devices_per_node_without_mig": 8,
+      "interconnect": {
+        "nvlink_aggregated_per_gpu_gb_s": 900,
+        "nvlink_generation": 4,
+        "bandwidth_direction_note": "逐GPU聚合值；B200的1800GB/s由NVLink5官方资料确认为双向；Hopper的900GB/s未在本记录独立重新推导方向",
+        "eight_gpu_nvlink_aggregate_gb_s": 7200,
+        "scale_out_network_note": "外部IB/Ethernet网络须按服务器NIC与交换机配置另计，不能把NVLink带宽当跨节点带宽"
+      },
+      "power_evidence": [
+        {
+          "watts": 700,
+          "evidence_class": "GPU模块最大可配置TDP/功率规格",
+          "measurement_boundary": "H200 SXM GPU模块；不含CPU、系统DDR、外部网络与制冷",
+          "source_id": "nvidia-h200-datasheet"
+        },
+        {
+          "watts": 10200,
+          "evidence_class": "DGX节点最大输入功率规格",
+          "measurement_boundary": "完整DGX H200服务器；不含外置集群网络、存储及设施制冷",
+          "source_id": "nvidia-dgx-h100-h200-node-spec"
+        }
+      ],
+      "source_ids": [
+        "nvidia-hgx-reference-architecture",
+        "nvidia-dgx-h100-h200-node-spec",
+        "nvidia-h200-datasheet",
+        "nvidia-h200-current-product"
+      ],
+      "missing_evidence": [
+        "对应checkpoint/量化/Max/Agent负载的稳态节点功率与质量约束goodput",
+        "TDP与节点最大功率都不能冒充工作负载实测"
+      ],
+      "compute_dies_per_physical_gpu_package": null,
+      "die_count_evidence_note": "本次引用的规格页未单独验证裸die数量；硬件数量以物理GPU模块记"
+    },
+    {
+      "product_evidence_id": "nvidia-b200-sxm",
+      "product_name": "NVIDIA B200 SXM",
+      "entity_boundary": "一个物理GPU模块/封装；HGX/DGX每节点8个，不使用MIG逻辑分区数充当GPU数",
+      "commercial_status_as_of_cutoff": "已商业可用",
+      "status_source_ids": [
+        "supermicro-b200-production"
+      ],
+      "memory_capacity_variants_gb": [
+        180
+      ],
+      "memory_type": "HBM3e",
+      "memory_bandwidth_variants_tb_s": [
+        8.0
+      ],
+      "physical_gpu_modules_per_hgx_or_dgx_node": 8,
+      "aggregate_memory_per_eight_gpu_node_gb": 1440,
+      "runtime_gpu_devices_per_node_without_mig": 8,
+      "interconnect": {
+        "nvlink_aggregated_per_gpu_gb_s": 1800,
+        "nvlink_generation": 5,
+        "bandwidth_direction_note": "逐GPU聚合值；B200的1800GB/s由NVLink5官方资料确认为双向；Hopper的900GB/s未在本记录独立重新推导方向",
+        "eight_gpu_nvlink_aggregate_gb_s": 14400,
+        "scale_out_network_note": "外部IB/Ethernet网络须按服务器NIC与交换机配置另计，不能把NVLink带宽当跨节点带宽"
+      },
+      "power_evidence": [
+        {
+          "watts": 1000,
+          "evidence_class": "GPU模块最大可配置TDP/功率规格",
+          "measurement_boundary": "B200 SXM GPU模块；不含CPU、系统DDR、外部网络与制冷",
+          "source_id": "nvidia-hgx-reference-architecture"
+        },
+        {
+          "watts": 14300,
+          "evidence_class": "DGX节点最大输入功率规格",
+          "measurement_boundary": "完整DGX B200服务器；不含外置集群网络、存储及设施制冷",
+          "source_id": "nvidia-dgx-b200-node-spec"
+        }
+      ],
+      "source_ids": [
+        "nvidia-hgx-reference-architecture",
+        "nvidia-dgx-b200-node-spec",
+        "nvidia-blackwell-two-dies",
+        "supermicro-b200-production",
+        "nvidia-nvlink-direction",
+        "nvidia-brev-generic-gpu-catalog",
+        "nvidia-nim-specific-b200-gb200-memory"
+      ],
+      "missing_evidence": [
+        "对应checkpoint/量化/Max/Agent负载的稳态节点功率与质量约束goodput",
+        "TDP与节点最大功率都不能冒充工作负载实测"
+      ],
+      "compute_dies_per_physical_gpu_package": 2,
+      "compute_dies_per_eight_gpu_node": 16,
+      "die_to_runtime_note": "双die由NV-HBI组成一个统一GPU，8个模块对应8个runtime GPU；不按16个GPU预算显存或吞吐",
+      "memory_capacity_conflict_note": "采用具体HGX/DGX B200的180GB；泛化目录192GB保留为冲突，原因未核实，不能自行增加6.7%容量。"
+    }
+  ],
+  "model_deployment_and_quality_evidence": [
+    {
+      "deployment_evidence_id": "ascend-pro0813-w4a8-a3-a2",
+      "checkpoint": "DeepSeek-V4-Pro-0813-w4a8",
+      "hardware_support": "2台Atlas800I A3（8×128GB/台）或4台64GB Atlas800I A2",
+      "software_version_note": "页面宣称vLLM-Ascend v0.30.0；镜像示例A3为v0.30.0rc2-a3、A2为v0.23.0，尚未重新执行核实兼容性",
+      "speculative_decoder": "随权重DSpark；无需另给draft路径",
+      "physical_count_vs_runtime_note": "2台A3=16个物理NPU封装，32个die运行设备；4节点PD表中的64 NPUs为运行时设备",
+      "quality_evidence": [
+        {
+          "benchmark": "GPQA",
+          "reported_score": 91.41,
+          "reported_note": "0831 official W4A8 weight with DSpark enabled",
+          "evidence_limitation": "来源写0831，与0813权重名不一致；不得无说明改正为0813"
+        },
+        {
+          "benchmark": "GPQA",
+          "reported_score": 89.9,
+          "reported_note": "2 Atlas800I A3 (128GB×8)",
+          "evidence_limitation": "未给原始checkpoint配对基线与完整重复次数，不能证明精度等价"
+        }
+      ],
+      "throughput_slo_power_complete_measurement": false,
+      "missing_evidence": [
+        "固定Max/Agent评测、配对源精度基线、同长度负载曲线、整机功率",
+        "不能以能启动或HTTP200代替容量验证"
+      ],
+      "source_ids": [
+        "vllm-ascend-pro-deployment"
+      ]
+    },
+    {
+      "deployment_evidence_id": "ascend-pro0813-w4a4c8-950",
+      "checkpoint": "DeepSeek-V4-Pro-0813-w4a4c8",
+      "hardware_support": "950PR与950DT产品",
+      "quantization_note": "官方FAQ：路由MoE为W4A4 MXFP4；Attention及shared expert为W8A8 MXFP8；敏感组件和MTP保留高精度；C8为服务侧动态FP8 KV cache",
+      "quality_evidence": [
+        {
+          "benchmark": "GSM8K",
+          "reported_score": 97.54,
+          "configuration_note": "950PR&950DT Products,w4a4c8",
+          "evidence_limitation": "无逐PR/DT节点配置与配对原始基线；不是端到端Agent质量等价性验证"
+        }
+      ],
+      "throughput_slo_power_complete_measurement": false,
+      "source_ids": [
+        "vllm-ascend-pro-deployment"
+      ]
+    },
+    {
+      "deployment_evidence_id": "sglang-pro0813-hopper-blackwell",
+      "checkpoint": "deepseek-ai/DeepSeek-V4-Pro-0813及具体转换版本须分别锁定",
+      "hardware_support": [
+        "B200单节点TP8",
+        "H200低比特单节点TP8",
+        "H100低比特双节点TP16"
+      ],
+      "software_version_note": "官方main cookbook随版本变化；实施复现需锁定commit、容器digest、kernel与并行配置",
+      "speculative_decoder": "0813应使用DSpark；原始Pro的EAGLE/MTP参数不能移植",
+      "quality_evidence": [],
+      "throughput_slo_power_complete_measurement": false,
+      "source_ids": [
+        "sglang-pro-deployment",
+        "deepseek-pro-0813-model-card"
+      ]
+    },
+    {
+      "deployment_evidence_id": "nvidia-pro0813-nvfp4-b200-quality",
+      "checkpoint": "nvidia/DeepSeek-V4-Pro-0813-NVFP4",
+      "source_checkpoint": "deepseek-ai/DeepSeek-V4-Pro-0813",
+      "hardware_support": "NVIDIA B200；vLLM验证明确8×B200 TP8",
+      "quantization_note": "源路由MoE已为MXFP4，本转换只改为NVFP4；其余混合精度不应称为全模型FP4",
+      "accuracy_engine": "SGLang",
+      "accuracy_sampling": {
+        "temperature": 1.0,
+        "top_p": 1.0,
+        "reasoning_effort": "max"
+      },
+      "quality_evidence": [
+        {
+          "benchmark": "GPQA Diamond",
+          "source_mxfp4_score": 88.51,
+          "nvfp4_score": 88.42,
+          "runs_note": "单次"
+        },
+        {
+          "benchmark": "Terminal-Bench Hard",
+          "source_mxfp4_score": 51.39,
+          "nvfp4_score": 50.69,
+          "runs_note": "单次"
+        },
+        {
+          "benchmark": "AA-LCR",
+          "source_mxfp4_score": 68.67,
+          "nvfp4_score": 69.33,
+          "runs_note": "配对配置，每侧2次"
+        },
+        {
+          "benchmark": "IFBench",
+          "source_mxfp4_score": 76.53,
+          "nvfp4_score": 75.68,
+          "runs_note": "每侧4次汇总"
+        }
+      ],
+      "runtime_validation": {
+        "engine_images": [
+          "vllm/vllm-openai:v0.27.1",
+          "vllm/vllm-openai:v0.28.0"
+        ],
+        "input_length_approx_tokens": 115000,
+        "total_length_approx_tokens": 128000,
+        "reported_outcome": "官方QA验证未报错；不是吞吐或Max384K输出容量结果"
+      },
+      "speculative_decoder_validation": "该NVFP4发布验证未启用DSpark；不可默认投机加速已获验证",
+      "throughput_slo_power_complete_measurement": false,
+      "source_ids": [
+        "nvidia-pro-0813-nvfp4-quality"
+      ]
+    }
+  ],
+  "material_conflicts_and_missing_evidence": [
+    {
+      "conflict_id": "950-roadmap-versus-commercial-configuration",
+      "description": "2025年路线图8192卡、144GB/950DT与现行1024卡、96GB/950DT是不同配置和时点；不将前者当成交付事实。",
+      "source_ids": [
+        "huawei-2025-ascend-roadmap",
+        "atlas-950-live-product",
+        "ascend-2026-superpod-launch"
+      ]
+    },
+    {
+      "conflict_id": "950pr-chip-family-versus-atlas350-card",
+      "description": "950PR家族128GB/1.6TB/s/2016GB/s双向UB上限，不等于Atlas350实际112GB/1.4TB/s/拓扑318或424GB/s。",
+      "source_ids": [
+        "ascend-950-architecture-whitepaper",
+        "atlas-350-live-product"
+      ]
+    },
+    {
+      "conflict_id": "cloudmatrix-v2-versus-v3",
+      "description": "v2有明确910C名称及细节，v3泛称Ascend910并删节；来源版本必须随事实保留。",
+      "source_ids": [
+        "cloudmatrix-paper-v2",
+        "cloudmatrix-paper-v3"
+      ]
+    },
+    {
+      "conflict_id": "a3-eight-packages-versus-sixteen-runtime-devices",
+      "description": "每A3节点8×128GB封装与16运行时设备同时成立；显存与950W类功率必须用物理封装/模组数，不能直接用world_size。",
+      "source_ids": [
+        "atlas-800i-a3-live-product",
+        "vllm-ascend-pro-deployment",
+        "cloudmatrix-paper-v2"
+      ]
+    },
+    {
+      "conflict_id": "ascend-doc-checkpoint-and-version-inconsistency",
+      "description": "GPQA备注0831与0813名称、页面v0.30.0与示例A2v0.23.0/A3v0.30.0rc2存在差异；保留原始值并在复现时锁定。",
+      "source_ids": [
+        "vllm-ascend-pro-deployment"
+      ]
+    },
+    {
+      "conflict_id": "no-common-pro0813-max-system-power-benchmark",
+      "description": "本次一手来源核验未找到同时覆盖相同checkpoint/质量、负载、TTFT/TPOT门槛、并发与整套IT功率的昇腾对H100/H200/B200实测；这是本次取证未闭合，不断言全网绝无相关结果。",
+      "source_ids": [
+        "vllm-ascend-pro-deployment",
+        "sglang-pro-deployment",
+        "nvidia-pro-0813-nvfp4-quality"
+      ]
+    },
+    {
+      "conflict_id": "b200-180-versus-generic-192",
+      "description": "NVIDIA Brev泛化目录标B200192GB，而具体HGX/DGX与NIM支持矩阵标B200180GB；NIM另标GB200192GB。本研究采用HGX/DGX B200180GB，并保留192GB来源差异；未取得厂商说明，不将差额解释为已确认的ECC、坏块或保留容量。",
+      "source_ids": [
+        "nvidia-brev-generic-gpu-catalog",
+        "nvidia-hgx-reference-architecture",
+        "nvidia-dgx-b200-node-spec",
+        "nvidia-nim-specific-b200-gb200-memory"
+      ]
+    },
+    {
+      "conflict_id": "original-910-300tdp-versus-310-specified-compute",
+      "description": "原版910架构文章写额定TDP300W，2019年报写达到规格算力所需310W；分别保留原始语义，不能当作同一次负载测试。32GB容量仍未在本次一手取证中闭合。",
+      "source_ids": [
+        "huawei-research-original-910-architecture",
+        "huawei-2019-annual-report"
+      ]
+    }
+  ],
+  "permitted_quantitative_uses": [
+    "按具体内存变体计算权重与KV cache的理论容纳边界。",
+    "按已定义功耗边界做规格功率情景，不标为负载实测；对完整系统未知功率保留参数。",
+    "以质量配对表确定量化回归风险，不能将不同benchmark的单独分数视为跨硬件等质量证明。"
+  ],
+  "prohibited_quantitative_shortcuts": [
+    "峰值FLOPS或厂商TPS直接换算agents/MW。",
+    "以GPU/NPU TDP除以功率预算后宣称整个集群可部署卡数。",
+    "用A3逻辑设备数乘每物理封装128GB，或将B200双die计为2GPU。",
+    "给950PR和950DT所有模组统一赋950W；用1024×950W代表完整Atlas950实测IT功耗。",
+    "用旧8192卡路线图乘当前1024卡商用模组规格生成已售系统。"
+  ]
+}

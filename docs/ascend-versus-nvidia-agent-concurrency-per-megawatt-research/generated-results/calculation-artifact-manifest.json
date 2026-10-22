@@ -1,0 +1,14 @@
+{
+  "source_retrieved_at_utc": "2026-10-22T16:52:29.744021+00:00",
+  "artifacts_sha256": {
+    "conditional-main-cache-and-indexer-payload.csv": "1924044138cf03a03af95b0aa8abe0f4d6ffaccf7c7e0d64906bedfc18f1b13a",
+    "h200-equivalent-energy-efficiency-required-concurrency.csv": "80418362b13a0600431c59535a52382ed106628deb1e40cf0131f38a1c085e65",
+    "hardware-product-evidence-matrix.csv": "3483ac81bc3eb669d1ebc24d0187a31fe414ebe1858360150eaa714481305429",
+    "historical-h200-reference-recalculation.csv": "734a0bff3dcc9bd96544c84cafc88f01a8f22f2d2e81de6632dd895ce65134fe",
+    "normalized-public-agentperf-measured-points.csv": "772d93f4334eae67acd8071fa30c68dbef2d167862bf9a5c7b777a6d33501058",
+    "platform-optimized-observed-energy-efficiency-summary.csv": "f7ddfa87f41f83ff055640eb608e76a3abf132fd4ebad2f793401c85a8520019",
+    "primary-source-evidence-register.csv": "8d9eb3a27a2f28b9c747876980be7afc0aeae3b123c5c8354dd51ebcd69686e6",
+    "published-checkpoint-aggregate-memory-necessary-conditions.csv": "4320d2e9d2a4d4002198ab087a69a416ee95c5a7cf6b6dfba340f9c3701c75d2",
+    "research-calculation-results.json": "14b0b944cf098da6df720fe7b17fec0a7eb6f56b03d07b33a42c6c160dac046f"
+  }
+}

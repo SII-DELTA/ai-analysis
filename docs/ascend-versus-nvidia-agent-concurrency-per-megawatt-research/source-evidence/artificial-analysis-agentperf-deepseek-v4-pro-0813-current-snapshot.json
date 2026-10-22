@@ -1,0 +1,1202 @@
+{
+  "source": {
+    "requestedUrl": "https://artificialanalysis.ai/hardware-inference-stack/datacenter",
+    "resolvedUrl": "https://artificialanalysis.ai/hardware-inference-stack/datacenter",
+    "retrievalStartedUtc": "2026-10-22T16:52:18.085551+00:00",
+    "retrievalCompletedUtc": "2026-10-22T16:52:29.744021+00:00",
+    "httpStatus": 200,
+    "responseBodySha256": "39b53cfd3ecdb49b54858cc7250c694b3bc4d59c89f78438c986b4c3bd41ef22",
+    "responseBodyBytes": 891692,
+    "httpResponseHeaders": {
+      "Content-Length": "891692",
+      "Content-Type": "text/html; charset=utf-8",
+      "Date": "Thu, 22 Oct 2026 16:06:43 GMT",
+      "Etag": "\"109tpa506eej3ta\""
+    },
+    "extractionMethod": "解码 self.__next_f.push([1, Flight文本]) 的 JSON 字符串，解析可解码为 JSON 的 Flight 记录，定位包含 systems/configs/points/models 的 agentPerf；按模型汇总所有视图的 frontier 索引与 nearby[*][0] 索引的并集，保留匹配目标硬件的全部公开测点，而非仅取某条 Pareto 线。"
+  },
+  "modelSlug": "deepseek-v4-pro",
+  "allPagePointCount": 483,
+  "indexAssociationAudit": {
+    "totalPagePointsWithModelMembership": 483,
+    "pagePointIndexesWithoutModelMembership": [],
+    "pagePointIndexesWithMultipleModelMemberships": {}
+  },
+  "targetHardwareRequested": [
+    "B200",
+    "H100",
+    "H200"
+  ],
+  "systems": {
+    "86975052-53c5-4d0b-9e11-b8fec09f5935": {
+      "chipId": "0cce8d42-9236-4947-a3d0-f1f3257a39e3",
+      "chipShortName": "B200",
+      "chipCreatorName": "NVIDIA",
+      "chipCreatorColor": "#86b737",
+      "numberOfChips": 8
+    },
+    "f47ac10b-58cc-4372-a567-0e02b2c3d481": {
+      "chipId": "56fd87d3-320f-4ab5-8adb-2c6fe18c2d8c",
+      "chipShortName": "H200",
+      "chipCreatorName": "NVIDIA",
+      "chipCreatorColor": "#86b737",
+      "numberOfChips": 8
+    },
+    "f47ac10b-58cc-4372-a567-0e02b2c3d480": {
+      "chipId": "25a64245-69e4-4cb3-ba2d-0840a9f7510e",
+      "chipShortName": "H100",
+      "chipCreatorName": "NVIDIA",
+      "chipCreatorColor": "#86b737",
+      "numberOfChips": 8
+    }
+  },
+  "targetModelGroups": [
+    {
+      "systemId": "f47ac10b-58cc-4372-a567-0e02b2c3d481",
+      "views": {
+        "throughput-per-mw:p5": {
+          "frontier": [
+            340,
+            341,
+            342,
+            343,
+            344,
+            345,
+            346
+          ],
+          "nearby": [
+            [
+              347,
+              1
+            ],
+            [
+              348,
+              1
+            ],
+            [
+              349,
+              1
+            ],
+            [
+              350,
+              1
+            ]
+          ]
+        },
+        "throughput-per-mw:p25": {
+          "frontier": [
+            340,
+            341,
+            342,
+            343,
+            344,
+            345,
+            346
+          ],
+          "nearby": [
+            [
+              347,
+              1
+            ],
+            [
+              348,
+              1
+            ],
+            [
+              349,
+              1
+            ],
+            [
+              350,
+              1
+            ]
+          ]
+        },
+        "throughput-per-mw:p50": {
+          "frontier": [
+            340,
+            341,
+            342,
+            343,
+            344,
+            345,
+            346
+          ],
+          "nearby": [
+            [
+              347,
+              1
+            ],
+            [
+              348,
+              1
+            ],
+            [
+              349,
+              1
+            ],
+            [
+              350,
+              1
+            ]
+          ]
+        },
+        "throughput-per-mw:p75": {
+          "frontier": [
+            340,
+            341,
+            342,
+            343,
+            344,
+            345,
+            346
+          ],
+          "nearby": [
+            [
+              347,
+              1
+            ],
+            [
+              348,
+              1
+            ],
+            [
+              349,
+              1
+            ],
+            [
+              350,
+              1
+            ]
+          ]
+        },
+        "throughput-per-accelerator:p5": {
+          "frontier": [
+            340,
+            341,
+            342,
+            343,
+            348,
+            344,
+            345,
+            346
+          ],
+          "nearby": [
+            [
+              347,
+              1
+            ],
+            [
+              349,
+              1
+            ],
+            [
+              350,
+              1
+            ]
+          ]
+        },
+        "throughput-per-accelerator:p25": {
+          "frontier": [
+            340,
+            341,
+            342,
+            343,
+            348,
+            345,
+            346
+          ],
+          "nearby": [
+            [
+              347,
+              1
+            ],
+            [
+              344,
+              1
+            ],
+            [
+              349,
+              1
+            ],
+            [
+              350,
+              1
+            ]
+          ]
+        },
+        "throughput-per-accelerator:p50": {
+          "frontier": [
+            340,
+            341,
+            342,
+            343,
+            348,
+            345,
+            346
+          ],
+          "nearby": [
+            [
+              347,
+              1
+            ],
+            [
+              344,
+              1
+            ],
+            [
+              349,
+              1
+            ],
+            [
+              350,
+              1
+            ]
+          ]
+        },
+        "throughput-per-accelerator:p75": {
+          "frontier": [
+            340,
+            341,
+            342,
+            343,
+            348,
+            345,
+            346
+          ],
+          "nearby": [
+            [
+              347,
+              1
+            ],
+            [
+              344,
+              1
+            ],
+            [
+              349,
+              1
+            ],
+            [
+              350,
+              1
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "systemId": "86975052-53c5-4d0b-9e11-b8fec09f5935",
+      "views": {
+        "throughput-per-mw:p5": {
+          "frontier": [
+            391,
+            392,
+            393,
+            394,
+            395,
+            396,
+            397,
+            398,
+            399,
+            400,
+            401,
+            402,
+            403
+          ],
+          "nearby": []
+        },
+        "throughput-per-mw:p25": {
+          "frontier": [
+            391,
+            392,
+            393,
+            394,
+            395,
+            396,
+            397,
+            398,
+            399,
+            400,
+            401,
+            402,
+            403
+          ],
+          "nearby": [
+            [
+              404,
+              1
+            ]
+          ]
+        },
+        "throughput-per-mw:p50": {
+          "frontier": [
+            391,
+            392,
+            393,
+            394,
+            395,
+            396,
+            397,
+            398,
+            399,
+            400,
+            401,
+            402,
+            403
+          ],
+          "nearby": [
+            [
+              404,
+              1
+            ]
+          ]
+        },
+        "throughput-per-mw:p75": {
+          "frontier": [
+            391,
+            392,
+            393,
+            394,
+            395,
+            396,
+            397,
+            398,
+            399,
+            400,
+            401,
+            402,
+            403
+          ],
+          "nearby": [
+            [
+              404,
+              1
+            ]
+          ]
+        },
+        "throughput-per-accelerator:p5": {
+          "frontier": [
+            391,
+            392,
+            393,
+            394,
+            395,
+            396,
+            397,
+            398,
+            399,
+            400,
+            401,
+            402,
+            403
+          ],
+          "nearby": []
+        },
+        "throughput-per-accelerator:p25": {
+          "frontier": [
+            391,
+            392,
+            393,
+            394,
+            395,
+            396,
+            397,
+            398,
+            399,
+            400,
+            401,
+            402,
+            403
+          ],
+          "nearby": [
+            [
+              404,
+              1
+            ]
+          ]
+        },
+        "throughput-per-accelerator:p50": {
+          "frontier": [
+            391,
+            392,
+            393,
+            394,
+            395,
+            396,
+            397,
+            398,
+            399,
+            400,
+            401,
+            402,
+            403
+          ],
+          "nearby": [
+            [
+              404,
+              1
+            ]
+          ]
+        },
+        "throughput-per-accelerator:p75": {
+          "frontier": [
+            391,
+            392,
+            393,
+            394,
+            395,
+            396,
+            397,
+            398,
+            399,
+            400,
+            401,
+            402,
+            403
+          ],
+          "nearby": [
+            [
+              404,
+              1
+            ]
+          ]
+        }
+      }
+    }
+  ],
+  "points": [
+    {
+      "configId": "17db15bd-d740-4987-81f1-bbd0cf936e95",
+      "systemId": "f47ac10b-58cc-4372-a567-0e02b2c3d481",
+      "concurrency": 20,
+      "ttftP95": 2.39451048374176,
+      "runDate": "2026-09-18T16:05:56.401726+00:00",
+      "outputSpeedByPercentile": {
+        "p5": 26.3102917394199,
+        "p25": 37.2113959065039,
+        "p50": 46.8356286618848,
+        "p75": 64.7967328679273,
+        "p95": 111.641428707849
+      },
+      "serverThroughput": 88662.8099200207,
+      "powerAvgTotalW": 4209.3723,
+      "powerGpuCount": 8,
+      "sourcePointIndex": 340,
+      "sourcePointId": "aa-agentperf:deepseek-v4-pro:points:340"
+    },
+    {
+      "configId": "17db15bd-d740-4987-81f1-bbd0cf936e95",
+      "systemId": "f47ac10b-58cc-4372-a567-0e02b2c3d481",
+      "concurrency": 16,
+      "ttftP95": 2.04889101982117,
+      "runDate": "2026-09-18T15:45:59.192706+00:00",
+      "outputSpeedByPercentile": {
+        "p5": 35.1467171284899,
+        "p25": 45.9839192149862,
+        "p50": 58.6856968959548,
+        "p75": 80.2887488819488,
+        "p95": 135.575729336684
+      },
+      "serverThroughput": 81615.1893367482,
+      "powerAvgTotalW": 4133.8059,
+      "powerGpuCount": 8,
+      "sourcePointIndex": 341,
+      "sourcePointId": "aa-agentperf:deepseek-v4-pro:points:341"
+    },
+    {
+      "configId": "17db15bd-d740-4987-81f1-bbd0cf936e95",
+      "systemId": "f47ac10b-58cc-4372-a567-0e02b2c3d481",
+      "concurrency": 12,
+      "ttftP95": 1.81922560930252,
+      "runDate": "2026-09-18T15:25:58.060852+00:00",
+      "outputSpeedByPercentile": {
+        "p5": 43.6805859033003,
+        "p25": 60.1646087231438,
+        "p50": 76.9629682643135,
+        "p75": 103.03698706407,
+        "p95": 157.943710001929
+      },
+      "serverThroughput": 71739.8156931398,
+      "powerAvgTotalW": 4030.3683,
+      "powerGpuCount": 8,
+      "sourcePointIndex": 342,
+      "sourcePointId": "aa-agentperf:deepseek-v4-pro:points:342"
+    },
+    {
+      "configId": "17db15bd-d740-4987-81f1-bbd0cf936e95",
+      "systemId": "f47ac10b-58cc-4372-a567-0e02b2c3d481",
+      "concurrency": 8,
+      "ttftP95": 1.5591903924942,
+      "runDate": "2026-09-18T15:06:09.853971+00:00",
+      "outputSpeedByPercentile": {
+        "p5": 61.0968042542635,
+        "p25": 86.1047614218231,
+        "p50": 108.904834803327,
+        "p75": 141.918889474003,
+        "p95": 196.91642192218
+      },
+      "serverThroughput": 62915.6522731342,
+      "powerAvgTotalW": 3908.05686666667,
+      "powerGpuCount": 8,
+      "sourcePointIndex": 343,
+      "sourcePointId": "aa-agentperf:deepseek-v4-pro:points:343"
+    },
+    {
+      "configId": "17db15bd-d740-4987-81f1-bbd0cf936e95",
+      "systemId": "f47ac10b-58cc-4372-a567-0e02b2c3d481",
+      "concurrency": 4,
+      "ttftP95": 1.26953468322754,
+      "runDate": "2026-09-19T13:12:59.112961+00:00",
+      "outputSpeedByPercentile": {
+        "p5": 109.558857670942,
+        "p25": 139.335692385787,
+        "p50": 169.622068707264,
+        "p75": 206.449603667516,
+        "p95": 284.378323341811
+      },
+      "serverThroughput": 44306.8191769313,
+      "powerAvgTotalW": 3464.99793333333,
+      "powerGpuCount": 8,
+      "sourcePointIndex": 344,
+      "sourcePointId": "aa-agentperf:deepseek-v4-pro:points:344"
+    },
+    {
+      "configId": "17db15bd-d740-4987-81f1-bbd0cf936e95",
+      "systemId": "f47ac10b-58cc-4372-a567-0e02b2c3d481",
+      "concurrency": 2,
+      "ttftP95": 0.736985695362091,
+      "runDate": "2026-09-19T12:53:23.225499+00:00",
+      "outputSpeedByPercentile": {
+        "p5": 169.638752321064,
+        "p25": 201.318726737992,
+        "p50": 238.846233327462,
+        "p75": 278.750596180683,
+        "p95": 355.066310038014
+      },
+      "serverThroughput": 27753.1287299126,
+      "powerAvgTotalW": 2818.5261,
+      "powerGpuCount": 8,
+      "sourcePointIndex": 345,
+      "sourcePointId": "aa-agentperf:deepseek-v4-pro:points:345"
+    },
+    {
+      "configId": "2c7a2170-f9d9-4676-bfd9-f02b49951b93",
+      "systemId": "f47ac10b-58cc-4372-a567-0e02b2c3d481",
+      "concurrency": 1,
+      "ttftP95": 0.466391098499298,
+      "runDate": "2026-09-18T10:37:25.831878+00:00",
+      "outputSpeedByPercentile": {
+        "p5": 216.699020689323,
+        "p25": 246.429692733576,
+        "p50": 285.748802260379,
+        "p75": 322.705479249991,
+        "p95": 432.419770074626
+      },
+      "serverThroughput": 13233.5535923969,
+      "powerAvgTotalW": 2121.42174193548,
+      "powerGpuCount": 8,
+      "sourcePointIndex": 346,
+      "sourcePointId": "aa-agentperf:deepseek-v4-pro:points:346"
+    },
+    {
+      "configId": "2c7a2170-f9d9-4676-bfd9-f02b49951b93",
+      "systemId": "f47ac10b-58cc-4372-a567-0e02b2c3d481",
+      "concurrency": 8,
+      "ttftP95": 1.6351363658905,
+      "runDate": "2026-09-18T11:36:18.900535+00:00",
+      "outputSpeedByPercentile": {
+        "p5": 60.5617542684953,
+        "p25": 87.1824756646627,
+        "p50": 106.276062133945,
+        "p75": 141.658498983303,
+        "p95": 189.551901904627
+      },
+      "serverThroughput": 59216.1171728888,
+      "powerAvgTotalW": 3948.81936666667,
+      "powerGpuCount": 8,
+      "sourcePointIndex": 347,
+      "sourcePointId": "aa-agentperf:deepseek-v4-pro:points:347"
+    },
+    {
+      "configId": "2c7a2170-f9d9-4676-bfd9-f02b49951b93",
+      "systemId": "f47ac10b-58cc-4372-a567-0e02b2c3d481",
+      "concurrency": 4,
+      "ttftP95": 1.24456372261047,
+      "runDate": "2026-09-18T11:16:34.043968+00:00",
+      "outputSpeedByPercentile": {
+        "p5": 103.212351081317,
+        "p25": 139.318141263803,
+        "p50": 170.526606883654,
+        "p75": 209.956720392485,
+        "p95": 300.141556320051
+      },
+      "serverThroughput": 44951.9480490823,
+      "powerAvgTotalW": 3531.9907,
+      "powerGpuCount": 8,
+      "sourcePointIndex": 348,
+      "sourcePointId": "aa-agentperf:deepseek-v4-pro:points:348"
+    },
+    {
+      "configId": "2c7a2170-f9d9-4676-bfd9-f02b49951b93",
+      "systemId": "f47ac10b-58cc-4372-a567-0e02b2c3d481",
+      "concurrency": 2,
+      "ttftP95": 0.794181382656096,
+      "runDate": "2026-09-18T10:56:57.884767+00:00",
+      "outputSpeedByPercentile": {
+        "p5": 165.822064592685,
+        "p25": 196.467330981261,
+        "p50": 234.739591583566,
+        "p75": 283.598888708809,
+        "p95": 367.695195678956
+      },
+      "serverThroughput": 26281.6479570434,
+      "powerAvgTotalW": 2890.60016666667,
+      "powerGpuCount": 8,
+      "sourcePointIndex": 349,
+      "sourcePointId": "aa-agentperf:deepseek-v4-pro:points:349"
+    },
+    {
+      "configId": "17db15bd-d740-4987-81f1-bbd0cf936e95",
+      "systemId": "f47ac10b-58cc-4372-a567-0e02b2c3d481",
+      "concurrency": 1,
+      "ttftP95": 0.460062670707703,
+      "runDate": "2026-09-19T12:33:47.744183+00:00",
+      "outputSpeedByPercentile": {
+        "p5": 213.996259211133,
+        "p25": 243.417527030184,
+        "p50": 273.953964648988,
+        "p75": 323.036288168401,
+        "p95": 436.352250645442
+      },
+      "serverThroughput": 12992.4175045818,
+      "powerAvgTotalW": 2153.95564516129,
+      "powerGpuCount": 8,
+      "sourcePointIndex": 350,
+      "sourcePointId": "aa-agentperf:deepseek-v4-pro:points:350"
+    },
+    {
+      "configId": "b80a56d5-d2d9-4ded-90fb-a0e1a37fe5a6",
+      "systemId": "86975052-53c5-4d0b-9e11-b8fec09f5935",
+      "concurrency": 256,
+      "ttftP95": 7.2345469713211,
+      "runDate": "2026-10-08T10:07:20.127292+00:00",
+      "outputSpeedByPercentile": {
+        "p5": 10.657621566163,
+        "p25": 12.7693119416128,
+        "p50": 14.759244525747,
+        "p75": 17.4981924681796,
+        "p95": 24.8735668698627
+      },
+      "serverThroughput": 381065.437040917,
+      "powerAvgTotalW": 3994.94580645161,
+      "powerGpuCount": 8,
+      "sourcePointIndex": 391,
+      "sourcePointId": "aa-agentperf:deepseek-v4-pro:points:391"
+    },
+    {
+      "configId": "b80a56d5-d2d9-4ded-90fb-a0e1a37fe5a6",
+      "systemId": "86975052-53c5-4d0b-9e11-b8fec09f5935",
+      "concurrency": 192,
+      "ttftP95": 5.62732553482056,
+      "runDate": "2026-10-08T09:45:43.938319+00:00",
+      "outputSpeedByPercentile": {
+        "p5": 13.2704702867869,
+        "p25": 15.932592922848,
+        "p50": 18.7701415979198,
+        "p75": 22.848685854726,
+        "p95": 35.2003766205308
+      },
+      "serverThroughput": 362204.445855914,
+      "powerAvgTotalW": 4026.48035483871,
+      "powerGpuCount": 8,
+      "sourcePointIndex": 392,
+      "sourcePointId": "aa-agentperf:deepseek-v4-pro:points:392"
+    },
+    {
+      "configId": "b80a56d5-d2d9-4ded-90fb-a0e1a37fe5a6",
+      "systemId": "86975052-53c5-4d0b-9e11-b8fec09f5935",
+      "concurrency": 160,
+      "ttftP95": 4.57972410917282,
+      "runDate": "2026-10-08T08:31:56.71411+00:00",
+      "outputSpeedByPercentile": {
+        "p5": 15.2060519824384,
+        "p25": 18.3128614182922,
+        "p50": 21.6004885384495,
+        "p75": 26.4434799915071,
+        "p95": 40.3690670014933
+      },
+      "serverThroughput": 346703.739971234,
+      "powerAvgTotalW": 4229.15790322581,
+      "powerGpuCount": 8,
+      "sourcePointIndex": 393,
+      "sourcePointId": "aa-agentperf:deepseek-v4-pro:points:393"
+    },
+    {
+      "configId": "b80a56d5-d2d9-4ded-90fb-a0e1a37fe5a6",
+      "systemId": "86975052-53c5-4d0b-9e11-b8fec09f5935",
+      "concurrency": 128,
+      "ttftP95": 3.76364300251007,
+      "runDate": "2026-10-08T08:10:48.934173+00:00",
+      "outputSpeedByPercentile": {
+        "p5": 18.3837674744789,
+        "p25": 22.4604379443648,
+        "p50": 26.8386920721814,
+        "p75": 33.0069457829553,
+        "p95": 77.2855547507332
+      },
+      "serverThroughput": 336243.159224683,
+      "powerAvgTotalW": 4142.62364516129,
+      "powerGpuCount": 8,
+      "sourcePointIndex": 394,
+      "sourcePointId": "aa-agentperf:deepseek-v4-pro:points:394"
+    },
+    {
+      "configId": "b80a56d5-d2d9-4ded-90fb-a0e1a37fe5a6",
+      "systemId": "86975052-53c5-4d0b-9e11-b8fec09f5935",
+      "concurrency": 96,
+      "ttftP95": 2.85511385202408,
+      "runDate": "2026-10-08T07:49:41.917416+00:00",
+      "outputSpeedByPercentile": {
+        "p5": 23.0295343051966,
+        "p25": 28.1451004274273,
+        "p50": 33.8298088624888,
+        "p75": 42.35081496595,
+        "p95": 100.191420268072
+      },
+      "serverThroughput": 302287.657312699,
+      "powerAvgTotalW": 4277.38364516129,
+      "powerGpuCount": 8,
+      "sourcePointIndex": 395,
+      "sourcePointId": "aa-agentperf:deepseek-v4-pro:points:395"
+    },
+    {
+      "configId": "b80a56d5-d2d9-4ded-90fb-a0e1a37fe5a6",
+      "systemId": "86975052-53c5-4d0b-9e11-b8fec09f5935",
+      "concurrency": 64,
+      "ttftP95": 2.32902331352234,
+      "runDate": "2026-10-08T07:29:09.241614+00:00",
+      "outputSpeedByPercentile": {
+        "p5": 31.8615753077385,
+        "p25": 39.2316692964929,
+        "p50": 47.8658182089176,
+        "p75": 66.5405761073006,
+        "p95": 130.427509935672
+      },
+      "serverThroughput": 268442.711576782,
+      "powerAvgTotalW": 4343.93938709677,
+      "powerGpuCount": 8,
+      "sourcePointIndex": 396,
+      "sourcePointId": "aa-agentperf:deepseek-v4-pro:points:396"
+    },
+    {
+      "configId": "18bb5680-e20c-4167-bf4b-ccb9e2de5969",
+      "systemId": "86975052-53c5-4d0b-9e11-b8fec09f5935",
+      "concurrency": 32,
+      "ttftP95": 1.01045215129852,
+      "runDate": "2026-10-08T05:22:51.486446+00:00",
+      "outputSpeedByPercentile": {
+        "p5": 53.7149887957147,
+        "p25": 67.7996767893335,
+        "p50": 84.1172090827405,
+        "p75": 110.681908487487,
+        "p95": 192.305326509562
+      },
+      "serverThroughput": 221805.450857642,
+      "powerAvgTotalW": 6242.17316666667,
+      "powerGpuCount": 8,
+      "sourcePointIndex": 397,
+      "sourcePointId": "aa-agentperf:deepseek-v4-pro:points:397"
+    },
+    {
+      "configId": "18bb5680-e20c-4167-bf4b-ccb9e2de5969",
+      "systemId": "86975052-53c5-4d0b-9e11-b8fec09f5935",
+      "concurrency": 24,
+      "ttftP95": 0.91867446899414,
+      "runDate": "2026-10-08T06:42:27.802594+00:00",
+      "outputSpeedByPercentile": {
+        "p5": 65.6893606966185,
+        "p25": 83.3047520368085,
+        "p50": 104.223835175736,
+        "p75": 137.407656664273,
+        "p95": 232.249562103627
+      },
+      "serverThroughput": 195040.196287741,
+      "powerAvgTotalW": 6064.36596666667,
+      "powerGpuCount": 8,
+      "sourcePointIndex": 398,
+      "sourcePointId": "aa-agentperf:deepseek-v4-pro:points:398"
+    },
+    {
+      "configId": "18bb5680-e20c-4167-bf4b-ccb9e2de5969",
+      "systemId": "86975052-53c5-4d0b-9e11-b8fec09f5935",
+      "concurrency": 16,
+      "ttftP95": 0.652415025234222,
+      "runDate": "2026-10-08T06:22:26.684247+00:00",
+      "outputSpeedByPercentile": {
+        "p5": 90.155378982404,
+        "p25": 113.541271901185,
+        "p50": 143.698410475785,
+        "p75": 189.27187444677,
+        "p95": 313.466241538835
+      },
+      "serverThroughput": 169722.48289524,
+      "powerAvgTotalW": 5767.69123333333,
+      "powerGpuCount": 8,
+      "sourcePointIndex": 399,
+      "sourcePointId": "aa-agentperf:deepseek-v4-pro:points:399"
+    },
+    {
+      "configId": "18bb5680-e20c-4167-bf4b-ccb9e2de5969",
+      "systemId": "86975052-53c5-4d0b-9e11-b8fec09f5935",
+      "concurrency": 8,
+      "ttftP95": 0.503023624420166,
+      "runDate": "2026-10-08T05:02:47.11089+00:00",
+      "outputSpeedByPercentile": {
+        "p5": 140.811779740589,
+        "p25": 180.23833244502,
+        "p50": 226.811872689536,
+        "p75": 296.065957230899,
+        "p95": 463.375531358934
+      },
+      "serverThroughput": 106187.36464887,
+      "powerAvgTotalW": 5163.58436666667,
+      "powerGpuCount": 8,
+      "sourcePointIndex": 400,
+      "sourcePointId": "aa-agentperf:deepseek-v4-pro:points:400"
+    },
+    {
+      "configId": "18bb5680-e20c-4167-bf4b-ccb9e2de5969",
+      "systemId": "86975052-53c5-4d0b-9e11-b8fec09f5935",
+      "concurrency": 4,
+      "ttftP95": 0.427834796905518,
+      "runDate": "2026-10-08T06:02:20.409833+00:00",
+      "outputSpeedByPercentile": {
+        "p5": 210.249698960576,
+        "p25": 260.421671370236,
+        "p50": 330.176634655275,
+        "p75": 412.4590458048,
+        "p95": 589.642282967013
+      },
+      "serverThroughput": 69903.7326774271,
+      "powerAvgTotalW": 4252.05906666667,
+      "powerGpuCount": 8,
+      "sourcePointIndex": 401,
+      "sourcePointId": "aa-agentperf:deepseek-v4-pro:points:401"
+    },
+    {
+      "configId": "2e9311eb-3b0a-4e55-9747-459462206a46",
+      "systemId": "86975052-53c5-4d0b-9e11-b8fec09f5935",
+      "concurrency": 2,
+      "ttftP95": 0.451887631416321,
+      "runDate": "2026-10-08T09:00:05.294727+00:00",
+      "outputSpeedByPercentile": {
+        "p5": 265.749175424116,
+        "p25": 321.130991843006,
+        "p50": 392.490458743333,
+        "p75": 465.446036688554,
+        "p95": 545.158897854839
+      },
+      "serverThroughput": 34922.8514550165,
+      "powerAvgTotalW": 3480.3705,
+      "powerGpuCount": 8,
+      "sourcePointIndex": 402,
+      "sourcePointId": "aa-agentperf:deepseek-v4-pro:points:402"
+    },
+    {
+      "configId": "2e9311eb-3b0a-4e55-9747-459462206a46",
+      "systemId": "86975052-53c5-4d0b-9e11-b8fec09f5935",
+      "concurrency": 1,
+      "ttftP95": 0.365427839756012,
+      "runDate": "2026-10-08T03:18:57.280199+00:00",
+      "outputSpeedByPercentile": {
+        "p5": 325.44393800772,
+        "p25": 367.442594521354,
+        "p50": 429.750005568499,
+        "p75": 506.548953917127,
+        "p95": 573.710857951597
+      },
+      "serverThroughput": 16312.1518281209,
+      "powerAvgTotalW": 2859.52083333333,
+      "powerGpuCount": 8,
+      "sourcePointIndex": 403,
+      "sourcePointId": "aa-agentperf:deepseek-v4-pro:points:403"
+    },
+    {
+      "configId": "18bb5680-e20c-4167-bf4b-ccb9e2de5969",
+      "systemId": "86975052-53c5-4d0b-9e11-b8fec09f5935",
+      "concurrency": 48,
+      "ttftP95": 2.45656065940857,
+      "runDate": "2026-10-08T07:02:35.255183+00:00",
+      "outputSpeedByPercentile": {
+        "p5": 30.0728830499935,
+        "p25": 42.8452456738447,
+        "p50": 55.9013639561982,
+        "p75": 75.4753468678813,
+        "p95": 139.914902951098
+      },
+      "serverThroughput": 213229.842185258,
+      "powerAvgTotalW": 6692.74216129032,
+      "powerGpuCount": 8,
+      "sourcePointIndex": 404,
+      "sourcePointId": "aa-agentperf:deepseek-v4-pro:points:404"
+    }
+  ],
+  "configs": {
+    "17db15bd-d740-4987-81f1-bbd0cf936e95": {
+      "dateAddedLabel": null,
+      "acceleratorsUsed": 8,
+      "spec": {
+        "runDate": null,
+        "servedModel": null,
+        "inferenceEngine": "sglang",
+        "inferenceFrameworkVersion": "0.5.19",
+        "precision": "mxfp4",
+        "tensorParallel": 8,
+        "dataParallel": 1,
+        "expertParallel": 1,
+        "disaggregation": null,
+        "executionTopology": [
+          {
+            "scope": null,
+            "label": "Serving",
+            "value": "Aggregated in-flight batching — one SGLang server, 8 GPUs on one node",
+            "short": "Aggregated",
+            "kind": "serving"
+          },
+          {
+            "scope": null,
+            "label": "Tensor parallel",
+            "value": "TP8",
+            "short": null,
+            "kind": "tp"
+          },
+          {
+            "scope": null,
+            "label": "Speculative decoding",
+            "value": "DSpark (draft head bundled in the checkpoint, block size 6)",
+            "short": null,
+            "kind": "spec-decode"
+          },
+          {
+            "scope": null,
+            "label": "Max running requests",
+            "value": "32",
+            "short": null,
+            "kind": "other"
+          }
+        ],
+        "gpusUsed": null,
+        "numberOfChips": null,
+        "submittedBy": "Artificial Analysis"
+      }
+    },
+    "2c7a2170-f9d9-4676-bfd9-f02b49951b93": {
+      "dateAddedLabel": null,
+      "acceleratorsUsed": 8,
+      "spec": {
+        "runDate": null,
+        "servedModel": null,
+        "inferenceEngine": "sglang",
+        "inferenceFrameworkVersion": "0.5.19",
+        "precision": "mxfp4",
+        "tensorParallel": 8,
+        "dataParallel": 1,
+        "expertParallel": 1,
+        "disaggregation": null,
+        "executionTopology": [
+          {
+            "scope": null,
+            "label": "Serving",
+            "value": "Aggregated in-flight batching — one SGLang server, 8 GPUs on one node",
+            "short": "Aggregated",
+            "kind": "serving"
+          },
+          {
+            "scope": null,
+            "label": "Tensor parallel",
+            "value": "TP8",
+            "short": null,
+            "kind": "tp"
+          },
+          {
+            "scope": null,
+            "label": "Speculative decoding",
+            "value": "DSpark (draft head bundled in the checkpoint, block size 6)",
+            "short": null,
+            "kind": "spec-decode"
+          }
+        ],
+        "gpusUsed": null,
+        "numberOfChips": null,
+        "submittedBy": "Artificial Analysis"
+      }
+    },
+    "b80a56d5-d2d9-4ded-90fb-a0e1a37fe5a6": {
+      "dateAddedLabel": null,
+      "acceleratorsUsed": 8,
+      "spec": {
+        "runDate": null,
+        "servedModel": null,
+        "inferenceEngine": "sglang",
+        "inferenceFrameworkVersion": "0.5.21",
+        "precision": "mxfp4",
+        "tensorParallel": 8,
+        "dataParallel": 8,
+        "expertParallel": 8,
+        "disaggregation": null,
+        "executionTopology": [
+          {
+            "scope": null,
+            "label": "Serving",
+            "value": "Aggregated in-flight batching - one SGLang server on all 8 GPUs of the node",
+            "short": "Aggregated",
+            "kind": "serving"
+          },
+          {
+            "scope": null,
+            "label": "Data parallel",
+            "value": "DP8 attention",
+            "short": null,
+            "kind": "dp"
+          },
+          {
+            "scope": null,
+            "label": "Tensor parallel",
+            "value": "TP8",
+            "short": null,
+            "kind": "tp"
+          },
+          {
+            "scope": null,
+            "label": "Expert parallel",
+            "value": "EP8 (MegaMoE)",
+            "short": null,
+            "kind": "ep"
+          },
+          {
+            "scope": null,
+            "label": "Speculative decoding",
+            "value": "DSpark (bundled draft, block size 6)",
+            "short": null,
+            "kind": "spec-decode"
+          },
+          {
+            "scope": null,
+            "label": "Hierarchical KV cache",
+            "value": "Host DRAM KV tier, ratio 8, write_through",
+            "short": "HiCache",
+            "kind": "kv-cache"
+          }
+        ],
+        "gpusUsed": null,
+        "numberOfChips": null,
+        "submittedBy": "Artificial Analysis"
+      }
+    },
+    "18bb5680-e20c-4167-bf4b-ccb9e2de5969": {
+      "dateAddedLabel": null,
+      "acceleratorsUsed": 8,
+      "spec": {
+        "runDate": null,
+        "servedModel": null,
+        "inferenceEngine": "vllm",
+        "inferenceFrameworkVersion": "v0.31.0",
+        "precision": "mxfp4",
+        "tensorParallel": 8,
+        "dataParallel": 1,
+        "expertParallel": 1,
+        "disaggregation": null,
+        "executionTopology": [
+          {
+            "scope": null,
+            "label": "Serving",
+            "value": "Aggregated in-flight batching - one vLLM server on all 8 GPUs of the node",
+            "short": "Aggregated",
+            "kind": "serving"
+          },
+          {
+            "scope": null,
+            "label": "Tensor parallel",
+            "value": "TP8",
+            "short": null,
+            "kind": "tp"
+          },
+          {
+            "scope": null,
+            "label": "Speculative decoding",
+            "value": "DSpark (bundled draft head, 7 tokens)",
+            "short": null,
+            "kind": "spec-decode"
+          }
+        ],
+        "gpusUsed": null,
+        "numberOfChips": null,
+        "submittedBy": "Artificial Analysis"
+      }
+    },
+    "2e9311eb-3b0a-4e55-9747-459462206a46": {
+      "dateAddedLabel": null,
+      "acceleratorsUsed": 8,
+      "spec": {
+        "runDate": null,
+        "servedModel": null,
+        "inferenceEngine": "sglang",
+        "inferenceFrameworkVersion": "0.5.21",
+        "precision": "mxfp4",
+        "tensorParallel": 8,
+        "dataParallel": 1,
+        "expertParallel": 1,
+        "disaggregation": null,
+        "executionTopology": [
+          {
+            "scope": null,
+            "label": "Serving",
+            "value": "Aggregated in-flight batching - one SGLang server on all 8 GPUs of the node",
+            "short": "Aggregated",
+            "kind": "serving"
+          },
+          {
+            "scope": null,
+            "label": "Tensor parallel",
+            "value": "TP8",
+            "short": null,
+            "kind": "tp"
+          },
+          {
+            "scope": null,
+            "label": "Speculative decoding",
+            "value": "DSpark (bundled draft, block size 6)",
+            "short": null,
+            "kind": "spec-decode"
+          },
+          {
+            "scope": null,
+            "label": "Hierarchical KV cache",
+            "value": "Host DRAM KV tier, ratio 2.75, write_through",
+            "short": "HiCache",
+            "kind": "kv-cache"
+          }
+        ],
+        "gpusUsed": null,
+        "numberOfChips": null,
+        "submittedBy": "Artificial Analysis"
+      }
+    }
+  },
+  "targetHardwareWithoutPublishedModelPoints": [
+    "H100"
+  ],
+  "schemaVersion": 1,
+  "evidenceKind": "artificial-analysis-agentperf-current-model-public-measured-points",
+  "modelName": "DeepSeek V4 Pro 0813 (max)",
+  "fieldInterpretations": {
+    "sourcePointId": "采集器生成的快照内来源定位符，不是 AA 原生运行 ID；对应原响应 agentPerf.points[sourcePointIndex]，通过 source.responseBodySha256 绑定本快照。",
+    "powerAvgTotalW": "逐点被测加速卡集合的平均总功耗，单位 W；不是单卡均值，不得再乘 GPU 数。GPU die + HBM，不含 CPU、网络、制冷。",
+    "powerGpuCount": "逐点功耗覆盖的实际 GPU 数；与关联配置 acceleratorsUsed 交叉核对。",
+    "numberOfChips": "系统目录的标称节点/系统卡数，不能替代逐点实际用卡数。",
+    "serverThroughput": "输入与输出 token 总吞吐量，包含 KV-cache 命中输入；不能除以逐请求输出速度来推算 Agent 并发。",
+    "sloPolicy": "本快照不添加 AA 官方通过/失败标记；20/60 tokens/s 与 P95 TTFT 10/5 s 由研究脚本明确作为研究沿用约束计算。",
+    "configurationCompleteness": "configs 保存排行榜响应披露的完整关联对象；完整启动命令、checkpoint 与 KV 参数另见 configuration-details 快照。未披露字段不得推断补齐。"
+  }
+}
