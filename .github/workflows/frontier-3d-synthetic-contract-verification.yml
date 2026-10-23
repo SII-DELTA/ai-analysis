@@ -1,0 +1,42 @@
+name: Frontier 3D 合成契约验证
+on: [push, pull_request]
+jobs:
+  python-and-javascript-unit-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.3'
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.12.4'
+      - run: uv python install 3.12.12
+      - run: uv sync --frozen --all-extras --python 3.12.12
+      - run: npm ci
+      - run: uv run --frozen --all-extras pytest -q tests/python_unit
+      - run: node --test tests/javascript_unit/*.test.js
+      - run: node scripts/build_frontier_3d_threejs_interactive_renderer.mjs --check
+  synthetic-browser-tests:
+    runs-on: macos-14
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.3'
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.12.4'
+      - run: uv python install 3.12.12
+      - run: uv sync --frozen --all-extras --python 3.12.12
+      - run: uv run --frozen --all-extras python -m playwright install ${{ matrix.browser }}
+      - run: uv run --frozen --all-extras pytest -q tests/browser_playwright --browser ${{ matrix.browser }} --tracing retain-on-failure --screenshot only-on-failure
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: frontier-3d-${{ matrix.browser }}-failure-evidence
+          path: test-results/

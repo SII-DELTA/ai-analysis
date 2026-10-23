@@ -156,7 +156,7 @@ AA 在 2026-08-14 到 09-23 之间把智能指数从 v4.1 重定标到 v4.3。�
 
 Pareto 层号只回答「在不在前沿」，不回答「有多突出」。这里给**四个互补的连续标量**度量
 「一个前沿(SOTA)模型比其余 Pareto 最优构成的**趋势**领先多少」，页面右上「突出度」面板里用
-**指标选择器**切换：选中的口径同时驱动 **Pareto 黑色空心圈的大小（越突出圈越大）** 与下方
+**指标选择器**切换：选中的口径同时驱动 **突出度光晕的大小（按秩映射）** 与下方
 **前沿排行榜**。四指标一律在当前口径「显示且参与分析」的点上计算，前沿与图上一致。
 
 | 口径 | 定义 | 轴对称？ |
@@ -181,19 +181,19 @@ Pareto 层号只回答「在不在前沿」，不回答「有多突出」。这�
 ## 用法
 
 依赖以 `pyproject.toml` + `uv.lock` 为准（Python 3.12，见 `.python-version`）。`requirements.txt` 只供不用 uv 的旧入口（`pip install -r requirements.txt`），下界与 pyproject 对齐（plotly ≥ 6.0、kaleido ≥ 1.0 等），由 pytest 校验两者不脱节。
-所有 Python 命令统一用 `uv run python …`：
+所有 Python 命令统一用 `uv run --frozen python …`：
 
 ```bash
 # 1) 安装 uv 后首次运行会按 uv.lock 建立环境（测试与浏览器验证依赖在 extras 里）
 uv sync --extra test --extra browser-verification
-uv run python -m playwright install chromium   # 只有跑浏览器验证才需要
+uv run --frozen python -m playwright install chromium   # 只有跑浏览器验证才需要
 
 # 2) 配置 API key（任选其一；只有刷新 API 时才需要）
 export ARTIFICIAL_ANALYSIS_API_KEY="aa_xxx"
 # 或：cp .env.example .env 后填入
 
 # 3) 生成交互式 HTML、数据契约与模型表（默认均衡剪枝；默认复用 data/raw 缓存、不联网）
-uv run python -m src.cli
+uv run --frozen python -m src.cli
 # → output/frontier_3d.html
 # → output/frontier_3d_visualization_dataset.json
 # → data/processed/models.csv
@@ -236,7 +236,7 @@ AA《Website Terms of Use》第 3.3(b)(vi) 条禁止用脚本抓取站点数据�
 | `--use-previous-run-processed-models-csv-as-fallback` | 关 | 把上次产物 models.csv 作为非当期回退源（版本未知） |
 | `--processed-models-csv-out` | `data/processed/models.csv` | 模型表输出路径 |
 | `--previous-run-processed-models-csv-in` | 同 `--processed-models-csv-out` | 上一个开关读取的「上次 models.csv」路径 |
-| `--artificial-analysis-raw-data-directory` | `data/raw` | 原始数据目录：API 缓存、API 响应历史、列表页与详情页缓存都在其下读写。指向 scratch 副本即可彩排 `--refresh`，不碰共享目录 |
+| `--artificial-analysis-raw-data-directory` | `data/raw` | 原始数据目录：API 缓存、API 响应历史、列表页与详情页缓存都在其下读写。指向显式独立副本即可彩排 `--refresh`，不碰共享目录 |
 | `--export` | 无 | 另存静态图 `png` / `svg`（需 extra `static-image-export`，即 kaleido）；失败时以非零码退出 |
 | `--out` | `output/frontier_3d.html` | 输出路径；所有指标组合统一在同一个 HTML 内 |
 | `--frontier-3d-visualization-dataset-out` | HTML 同目录的 `frontier_3d_visualization_dataset.json` | 输出前端可渲染的数据契约 |
@@ -244,20 +244,22 @@ AA《Website Terms of Use》第 3.3(b)(vi) 条禁止用脚本抓取站点数据�
 
 ```bash
 # 更激进/更聚焦前沿
-uv run python -m src.cli --since-months 12 --layers 2
+uv run --frozen python -m src.cli --since-months 12 --layers 2
 # 初始显示原始速度 × 7:2:1 混合单价（页面内仍可切换）
-uv run python -m src.cli --speed-metric raw --cost-metric blended
+uv run --frozen python -m src.cli --speed-metric raw --cost-metric blended
 # 重新拉取 API（不抓网页）+ 导出静态图
-uv run --extra static-image-export python -m src.cli --refresh --export png
+uv run --frozen --extra static-image-export python -m src.cli --refresh --export png
 # 前端迭代：复用上次数据契约重渲染 HTML（无需 API key / 网络）
-uv run python -m src.cli \
+uv run --frozen python -m src.cli \
   --frontier-3d-visualization-dataset-in output/frontier_3d_visualization_dataset.json
-# 彩排刷新：先把 data/raw 复制到 scratch（目标目录须不存在），所有读写都落在副本里。
+# 彩排刷新：先把 data/raw 复制到持久隔离目录（目标目录须不存在），所有读写都落在副本里。
 # 必须用 -L：worktree 里 data/raw 是指向主 checkout 的符号链接，macOS 的 cp -R 默认只复制链接本身，
 # 「副本」会仍指向共享目录，彩排的 --refresh 就会改写共享的 data/raw
-cp -RL data/raw /tmp/rehearsal-raw && uv run python -m src.cli --refresh \
-  --artificial-analysis-raw-data-directory /tmp/rehearsal-raw \
-  --processed-models-csv-out /tmp/rehearsal/models.csv --out /tmp/rehearsal/frontier_3d.html
+cp -RpL data/raw .frontier-3d-worktree-artifacts/rehearsal-artificial-analysis-raw-data-cache
+uv run --frozen python -m src.cli --refresh \
+  --artificial-analysis-raw-data-directory .frontier-3d-worktree-artifacts/rehearsal-artificial-analysis-raw-data-cache \
+  --processed-models-csv-out .frontier-3d-worktree-artifacts/rehearsal-processed-model-tables/models.csv \
+  --out .frontier-3d-worktree-artifacts/rehearsal-rendered-reports/frontier_3d.html
 ```
 
 彩排（W1-13）怎么看结果——按新规则，下列情况**不算**故障：目录 vs API 智能分一致率 < 99% 的告警（只要被接受分区仍是
@@ -320,7 +322,7 @@ open output/frontier_3d.html
 （不要托管仓库根：`.env` 与 `.git` 会一起暴露；一键脚本的 `--host` 只托管报告副本所在的临时目录）：
 
 ```bash
-uv run python -m http.server 8765 --bind 127.0.0.1 --directory output
+uv run --frozen python -m http.server 8765 --bind 127.0.0.1 --directory output
 # 浏览器打开：http://127.0.0.1:8765/frontier_3d.html
 ```
 
@@ -335,7 +337,7 @@ HTML 的 `<meta>` 带产物指纹：`frontier-3d-renderer-bundle-sha256`、`fron
 ### 冗长度报告
 
 ```bash
-uv run python scripts/generate_model_intelligence_verbosity_report.py \
+uv run --frozen python scripts/generate_model_intelligence_verbosity_report.py \
   --report-out <报告.md> --under-limit-table-out <表.md> --under-limit-csv-out <表.csv>
 ```
 
@@ -359,7 +361,7 @@ uv run python scripts/generate_model_intelligence_verbosity_report.py \
   Pareto 层，以及**四个突出度值**（趋势残差 / 智能抬升 / 加权超体积 / 到前沿垂距）。
 - 右上角可独立切换成本口径（有效运行成本 / 7:2:1 混合单价）和速度口径（有效速度 / 原始速度）；
   四种组合各自重新计算 Pareto、剪枝、前沿和轴范围。
-- 其下的「**突出度**」面板：指标选择器决定哪个口径驱动 **Pareto 圈的大小（越突出越大）** 与
+- 其下的「**突出度**」面板：指标选择器决定哪个口径驱动 **突出度光晕的大小（按秩映射）** 与
   **前沿排行榜**；选「加权超体积」时 3 个轴权重滑杆(智能/成本/速度，各带输入框)可用，拖动即时重排
   （见上「突出度指标」节的权重语义）。
 - 每个模型点使用始终面向相机的**厂商 Logo Sprite**；右栏「厂商筛选」以
@@ -369,7 +371,7 @@ uv run python scripts/generate_model_intelligence_verbosity_report.py \
 - 顶部「模型标识」可选开启**国别外框**：中国=红色双圆环、美国=蓝色圆角方环、
   其他/未分类=灰色菱形环。该能力默认关闭，且与厂商 Logo、Pareto 突出度和 pin 高亮互不替代。
   同一组里的「**仅当期可比**」开关隐藏历史口径点（见 D-1）。
-- **Pareto 最优** 点使用深色外环，环大小继续由当前突出度口径驱动；历史口径点使用半透明虚线底板。
+- **Pareto 最优** 点使用固定大小的深色身份环；独立光晕按突出度分位数改变大小，指标缺值时显示虚线光晕。历史口径点使用半透明虚线底板。
 - 顶部按钮分两组：左组切前沿样式 `前沿线框` / `前沿实心面` / `隐藏前沿` / `仅散点`，
   右组独立开关 `+可达前沿曲面` / `−可达前沿曲面`（两组互不干扰）。
 - **为什么默认线框**：线框能在密集 Logo 点云中保留更好的层次与可读性。three.js 的模型拾取与
@@ -383,7 +385,7 @@ uv run python scripts/generate_model_intelligence_verbosity_report.py \
 npm ci
 npm run build:frontier-3d-threejs
 node scripts/build_frontier_3d_threejs_interactive_renderer.mjs --check   # 已提交 bundle 与入口源码逐字节一致
-uv run python -m src.cli \
+uv run --frozen python -m src.cli \
   --frontier-3d-visualization-dataset-in output/frontier_3d_visualization_dataset.json
 ```
 
@@ -394,24 +396,64 @@ Logo 与国别外框。
 
 ```bash
 # 单元、性质、契约与冒烟测试（读本机 data/raw 缓存的测试默认跳过）
-uv run python -m pytest
+uv run --frozen python -m pytest
 # 连同读本机缓存的测试一起跑（三种开关任选其一）
-uv run python -m pytest --run-tests-requiring-local-cached-artificial-analysis-data
-RUN_TESTS_REQUIRING_LOCAL_CACHED_ARTIFICIAL_ANALYSIS_DATA=1 uv run python -m pytest
-uv run python -m pytest -m requires_local_cached_artificial_analysis_data
+uv run --frozen python -m pytest --run-tests-requiring-local-cached-artificial-analysis-data
+RUN_TESTS_REQUIRING_LOCAL_CACHED_ARTIFICIAL_ANALYSIS_DATA=1 uv run --frozen python -m pytest
+uv run --frozen python -m pytest -m requires_local_cached_artificial_analysis_data
 
-# 全量验证（9 步：pytest、bundle --check、HTML 内联 bundle = 仓库 bundle、指标口径回归、公共/内嵌数据契约、
+# 全量验证（11 步：Python/Node、三浏览器合成页面、bundle --check、HTML 内联指纹、指标与数据契约、
 # 4 个 Playwright 浏览器验证，其中一个用该 HTML 的前端渲染合成的恶意字符串 / 非有限契约）
-scripts/run_all_frontier_3d_verifications.sh <frontier_3d.html>
+scripts/run_all_frontier_3d_verifications.sh  # 无参数自建合成报告；也可显式传独立 HTML 路径
 # 验证归档的旧 HTML（其内联 bundle 不是仓库当前 bundle）时，把「bundle 一致」一步降为告警
 scripts/run_all_frontier_3d_verifications.sh --allow-html-renderer-bundle-differing-from-repository-renderer-bundle <旧.html>
 ```
 
 - 数据契约 golden（合成 fixture）变更后需要重写：
-  `RUN_REGENERATE_FRONTIER_3D_VISUALIZATION_DATASET_GOLDEN_PROJECTION=1 uv run python -m pytest tests/python_unit/test_frontier_3d_visualization_dataset_golden.py`。
+  `RUN_REGENERATE_FRONTIER_3D_VISUALIZATION_DATASET_GOLDEN_PROJECTION=1 uv run --frozen python -m pytest tests/python_unit/test_frontier_3d_visualization_dataset_golden.py`。
   重写后需人工审阅 diff。
 - `verify_frontier_3d_axis_annotations.py` 把截图写到环境变量 `FRONTIER_3D_AXIS_ANNOTATION_SCREENSHOT_DIRECTORY`
-  指定的目录（缺省为 HTML 同目录）；`run_all` 会把它设成临时目录并打印位置，不会往共享的 `output/` 写截图。
+  指定的目录；缺省为本 checkout 的 `.frontier-3d-worktree-artifacts/axis-annotation-screenshots/`，不会写到共享目录。
+
+### W2：隔离路径与浏览器验证
+
+主 checkout 保留 `output/`、`data/raw`、`data/processed` 默认路径；linked worktree（包括 detached HEAD）
+默认改用 `.frontier-3d-worktree-artifacts/` 下的 `rendered-reports/`、
+`artificial-analysis-raw-data-cache/` 和 `processed-model-tables/`。显式独立路径参数继续有效，
+写入共享符号链接或其真实目标会报错。旧缓存需要显式复制，保留 mtime，不能仅复制符号链接；不自动回退共享缓存。
+
+```bash
+export UV_PROJECT_ENVIRONMENT="$PWD/.frontier-3d-worktree-artifacts/python-environment"
+uv sync --frozen --all-extras
+npm ci
+uv run --frozen --all-extras python -m playwright install chromium firefox webkit
+scripts/run_all_frontier_3d_verifications.sh
+```
+
+Python 单元测试只读合成 fixture，真实缓存用例默认跳过。浏览器测试由 session fixture 自建 HTML，
+不读取真实缓存或密钥，三浏览器均检查异常与外部请求，包含像素、拖拽、固定、筛选与 WebGL 恢复断言。
+旧的 `scripts/verify_*.py` 命令仍可调用，实现迁至 `tests/browser_playwright/`。
+
+macOS 27 若 Firefox 报 `Could not find profile folder`，可按
+[上游问题](https://github.com/microsoft/playwright/issues/42768) 为任务内安装创建独立应用身份；
+不需要修改日常浏览器或系统权限：
+
+```bash
+export PLAYWRIGHT_BROWSERS_PATH="$PWD/.frontier-3d-worktree-artifacts/playwright-browser-installations"
+uv run --frozen --all-extras python -m playwright install firefox
+# 将下面参数换成本次安装的 Firefox 可执行文件；安装器会打印位置。
+uv run --frozen --all-extras python scripts/prepare_frontier_3d_isolated_firefox_verification_launcher.py \
+  --firefox-executable-path "$PLAYWRIGHT_BROWSERS_PATH/firefox-1543/firefox/Nightly.app/Contents/MacOS/firefox"
+unset PLAYWRIGHT_BROWSERS_PATH
+export FRONTIER_3D_FIREFOX_EXECUTABLE_PATH="$PWD/.frontier-3d-worktree-artifacts/browser-launch-wrappers/firefox-verification"
+scripts/run_all_frontier_3d_verifications.sh
+```
+
+可显式运行 `bash scripts/install_frontier_3d_pre_commit_hook.sh` 启用暂存候选验证。
+安装器不覆盖已有 hook 或 `core.hooksPath`；Git hooks 目录由同仓库 worktree 共享，故本任务不自动安装。
+钩子验证 index 快照中的单元测试、Node 测试和 bundle 一致性，避免未暂存文件掩盖错误。
+CI 只运行锁定依赖及合成 fixture；不运行真实数据刷新。能力对等状态见
+[渲染器能力清单](docs/frontier-3d-renderer-capability-parity-checklist.md)。
 
 ## 数据契约（`frontier_3d_visualization_dataset/v2`，只增字段）
 

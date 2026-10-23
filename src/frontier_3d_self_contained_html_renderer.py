@@ -170,6 +170,8 @@ def write_frontier_3d_self_contained_html_report(
     dataset: dict[str, Any],
     output_html_path: Path,
 ) -> Path:
+    from .frontier_3d_worktree_storage_paths import refuse_shared_worktree_directory_write
+    refuse_shared_worktree_directory_write(output_html_path)
     output_html_path.parent.mkdir(parents=True, exist_ok=True)
     output_html_path.write_text(
         render_frontier_3d_self_contained_html_report(dataset),

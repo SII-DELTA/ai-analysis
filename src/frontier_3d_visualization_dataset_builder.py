@@ -17,6 +17,7 @@ import numpy as np
 import pandas as pd
 from plotly.utils import PlotlyJSONEncoder
 import json
+from uuid import UUID
 
 from . import frontier, visualize
 from .fetch_data import MODELS_DATAFRAME_ATTRS_KEY_ARTIFICIAL_ANALYSIS_DATA_PROVENANCE
@@ -592,10 +593,20 @@ def _validate_triangle_mesh(triangle_mesh: object, field_path: str) -> None:
 def _validate_displayed_model_markers(displayed_model_markers: object, field_path: str) -> None:
     if not isinstance(displayed_model_markers, list):
         raise ValueError(f"{field_path} 应为数组")
+    seen_model_uuids = set()
     for marker_position, displayed_model_marker in enumerate(displayed_model_markers):
         marker_field_path = f"{field_path}[{marker_position}]"
         if not isinstance(displayed_model_marker, dict):
             raise ValueError(f"{marker_field_path} 应为对象")
+        model_uuid = displayed_model_marker.get("model_uuid")
+        if model_uuid is not None:
+            try:
+                normalized_uuid = str(UUID(model_uuid)) if isinstance(model_uuid, str) else None
+            except ValueError:
+                normalized_uuid = None
+            if normalized_uuid is None or normalized_uuid in seen_model_uuids:
+                raise ValueError(f"{marker_field_path}.model_uuid 不是有效且唯一的模型 UUID")
+            seen_model_uuids.add(normalized_uuid)
         for coordinate_key in ("x", "y", "z"):
             if not _is_finite_json_number(displayed_model_marker.get(coordinate_key)):
                 raise ValueError(
@@ -699,6 +710,8 @@ def write_frontier_3d_visualization_dataset(
     dataset: dict[str, Any],
     output_path: Path,
 ) -> Path:
+    from .frontier_3d_worktree_storage_paths import refuse_shared_worktree_directory_write
+    refuse_shared_worktree_directory_write(output_path)
     validate_frontier_3d_visualization_dataset(dataset)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(

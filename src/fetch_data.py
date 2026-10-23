@@ -48,8 +48,10 @@ except ImportError:  # pragma: no cover
     load_dotenv = None
 
 ROOT = Path(__file__).resolve().parent.parent
-RAW = ROOT / "data" / "raw"
-PROCESSED = ROOT / "data" / "processed"
+from .frontier_3d_worktree_storage_paths import resolve_frontier_3d_storage_paths, refuse_shared_worktree_directory_write
+
+RAW = resolve_frontier_3d_storage_paths().raw_data_directory
+PROCESSED = resolve_frontier_3d_storage_paths().processed_models_csv_path.parent
 REFERENCE = ROOT / "data" / "reference"
 # 版本化回退快照：7/1 采集的 v4.1 成本与原始输出 token 数（由
 # scripts/convert_legacy_intelligence_per_million_output_token_fallback_snapshot_to_raw_token_counts.py 生成）
@@ -316,6 +318,7 @@ def _fetch_paginated_language_models(api_key: str) -> tuple[list[dict], str]:
 
 def _write_text_file_atomically(target_file_path: Path, file_text: str) -> None:
     """先写同目录的临时文件再 os.replace：中途被打断时目标文件要么是旧内容、要么是新内容，不会被截断。"""
+    refuse_shared_worktree_directory_write(target_file_path)
     target_file_path.parent.mkdir(parents=True, exist_ok=True)
     temporary_file_path = target_file_path.with_name(
         target_file_path.name + ".partial_write_in_progress"
@@ -407,6 +410,8 @@ def mark_refreshed_api_language_models_response_history_file_with_guardrail_outc
         if data_quality_guardrails_passed
         else API_LANGUAGE_MODELS_RESPONSE_HISTORY_FILE_NAME_SUFFIX_REJECTED_BY_DATA_QUALITY_GUARDRAILS,
     )
+    refuse_shared_worktree_directory_write(pending_response_history_file_path)
+    refuse_shared_worktree_directory_write(outcome_response_history_file_path)
     os.replace(pending_response_history_file_path, outcome_response_history_file_path)
     return outcome_response_history_file_path
 
@@ -528,6 +533,8 @@ def replace_api_language_models_cache_with_refreshed_response_after_guardrails_p
     api_language_models_cache_path: Path,
 ) -> None:
     """护栏通过后，用暂存的新响应原子替换共享缓存（同目录 os.replace）。"""
+    refuse_shared_worktree_directory_write(refreshed_response_pending_cache_replacement_path)
+    refuse_shared_worktree_directory_write(api_language_models_cache_path)
     os.replace(refreshed_response_pending_cache_replacement_path, api_language_models_cache_path)
 
 
@@ -690,6 +697,7 @@ def _fetch_and_cache_web_page_html(
         timeout=120,
     )
     page_response.raise_for_status()
+    refuse_shared_worktree_directory_write(page_html_cache_path)
     page_html_cache_path.parent.mkdir(parents=True, exist_ok=True)
     page_html_cache_path.write_text(page_response.text, encoding="utf-8")
     return page_response.text
@@ -2050,7 +2058,7 @@ def build_dataframe(
 
     - 默认暂停网页抓取（D-12）：列表页/详情页只读缓存；`refresh=True` 只刷新 API；
       列表页不再是值来源，无论是否开启网页抓取都只读缓存、从不联网（R3-F3）；
-    - `artificial_analysis_raw_data_directory` 缺省为共享的 `data/raw`；给出时 API 缓存、API 响应历史、
+    - `artificial_analysis_raw_data_directory` 缺省按 checkout 选择独立缓存目录（主 checkout 仍为 `data/raw`）；给出时 API 缓存、API 响应历史、
       列表页缓存与详情页缓存都改在该目录下读写（R1-07：可在 scratch 副本上完整彩排 `--refresh`）；
     - `embedded_model_catalog_cache_directory` 缺省为原始数据目录下的详情页缓存目录；
     - `versioned_fallback_snapshot_path` 缺省为 v4.1 版本化快照；
@@ -2739,6 +2747,7 @@ def save(df: pd.DataFrame, processed_models_csv_output_path: Path | None = None)
         if processed_models_csv_output_path is not None
         else PROCESSED / "models.csv"
     )
+    refuse_shared_worktree_directory_write(resolved_processed_models_csv_output_path)
     resolved_processed_models_csv_output_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(resolved_processed_models_csv_output_path, index=False)
     return resolved_processed_models_csv_output_path
@@ -2833,14 +2842,14 @@ def _parse_fetch_data_command_line_arguments(command_line_arguments: list[str] |
         "--processed-models-csv-out",
         type=Path,
         default=None,
-        help="models.csv 输出路径（缺省 data/processed/models.csv）",
+        help="models.csv 输出路径（缺省按 checkout 选择的 models.csv 路径）",
     )
     command_line_argument_parser.add_argument(
         "--artificial-analysis-raw-data-directory",
         type=Path,
         default=None,
         help=(
-            "原始数据目录（缺省共享的 data/raw）：API 缓存、API 响应历史、列表页与详情页缓存都在其下读写；"
+            "原始数据目录（缺省按 checkout 选择的原始缓存目录）：API 缓存、API 响应历史、列表页与详情页缓存都在其下读写；"
             "指向 scratch 副本即可彩排 --refresh 而不碰共享目录"
         ),
     )
@@ -2848,7 +2857,7 @@ def _parse_fetch_data_command_line_arguments(command_line_arguments: list[str] |
         "--previous-run-processed-models-csv-in",
         type=Path,
         default=None,
-        help="上次产物 models.csv 的读取路径（缺省同 --processed-models-csv-out，再缺省 data/processed/models.csv）",
+        help="上次产物 models.csv 的读取路径（缺省同 --processed-models-csv-out，再缺省按 checkout 选择的 models.csv 路径）",
     )
     return command_line_argument_parser.parse_args(command_line_arguments)
 
