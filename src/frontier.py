@@ -21,6 +21,12 @@ from scipy.spatial import Delaunay
 
 DIMS = ["intelligence", "cost_to_run", "eff_speed"]
 
+# EXPERIMENT_NODE: 六个月默认宽限能否兼顾新模型覆盖与点云密度，后续按真实数据比较。
+DEFAULT_RECENT_RELEASE_FRONTIER_DISTANCE_GRACE_PERIOD_MONTHS = 6
+DISPLAYED_ONLY_BECAUSE_OF_RECENT_RELEASE_GRACE_PERIOD_COLUMN_NAME = (
+    "displayed_only_because_of_recent_release_grace_period"
+)
+
 COST_TO_RUN_VALUE_IS_FROM_CURRENT_INTELLIGENCE_INDEX_VERSION_COLUMN_NAME = (
     "cost_to_run_value_is_from_current_intelligence_index_version"
 )
@@ -326,6 +332,9 @@ def apply_pruning(
     *,
     analysis_eligible_mask: pd.Series | None = None,
     pruning_reference_date: object | None = None,
+    recent_release_frontier_distance_grace_period_months: int = (
+        DEFAULT_RECENT_RELEASE_FRONTIER_DISTANCE_GRACE_PERIOD_MONTHS
+    ),
 ) -> pd.DataFrame:
     """标注显示层与分析层（D-1，规格 4.2）。
 
@@ -334,7 +343,8 @@ def apply_pruning(
     - 分析层：只在 `analysis_eligible ∧ 三维齐全` 的点上剥层 → `layer`、`is_pareto`；
       非 eligible 点 layer=NaN、is_pareto=False；
     - `kept = 三维齐全 ∧ (分析 Pareto ∨ 显示 Pareto ∨ (近 since_months 月 ∧ (显示层 ≤ max_layers
-      ∨ 分析层 ≤ max_layers))) ∧ ¬早于 hard_age_cutoff_months`（远古模型即便 Pareto 最优也剔除）。
+      ∨ 分析层 ≤ max_layers)) ∨ 宽限内已发布) ∧ ¬早于 hard_age_cutoff_months`
+      （远古模型即便 Pareto 最优也剔除）。宽限为 0 时逐点恢复原规则。
       「分析层 ≤ max_layers」一项保证 eligible 点是否上图只由 eligible 点决定（D-1：历史口径点不得把
       当期可比的近前沿点挤出显示）；对 eligible 点而言，显示层规则蕴含于分析层规则（点集更大，层号只会更大）。
 
@@ -342,6 +352,12 @@ def apply_pruning(
     `analysis_eligibility_for_frontier_3d_metric_variant` 从值溯源列判定。
     """
     df = df.copy()
+    if (
+        isinstance(recent_release_frontier_distance_grace_period_months, bool)
+        or not isinstance(recent_release_frontier_distance_grace_period_months, int)
+        or recent_release_frontier_distance_grace_period_months < 0
+    ):
+        raise ValueError("近期发布模型宽限月数必须是非负整数")
     pruning_reference_timestamp = _resolve_pruning_reference_timestamp(pruning_reference_date, today)
     soft_cut = pruning_reference_timestamp - pd.DateOffset(months=since_months)
     hard_cut = pruning_reference_timestamp - pd.DateOffset(months=hard_age_cutoff_months)
@@ -393,7 +409,7 @@ def apply_pruning(
     too_old = (rdate < hard_cut).fillna(False).astype(bool)
     # 只按显示层判定「近前沿」时，9/23 数据上默认口径有 10 个 eligible 近期点（分析层 ≤3）被历史口径点
     # 把显示层推到 >3 而未上图——这等于让非当期值影响当期点的去留，违背 D-1；故并入分析层判定（107→117）。
-    kept = (
+    kept_without_recent_release_grace_period = (
         has_all
         & (
             df["is_pareto"]
@@ -401,6 +417,26 @@ def apply_pruning(
             | (recent & (near_display_frontier | near_analysis_frontier))
         )
         & ~too_old
+    )
+    # EXPERIMENT_NODE: 历史口径点同样享受显示宽限，是否需收紧由后续实验判断；分析资格不变。
+    within_recent_release_grace_period = (
+        rdate.between(
+            pruning_reference_timestamp
+            - pd.DateOffset(months=recent_release_frontier_distance_grace_period_months),
+            pruning_reference_timestamp,
+        ).fillna(False)
+        & (recent_release_frontier_distance_grace_period_months > 0)
+    )
+    displayed_only_because_of_recent_release_grace_period = (
+        has_all & ~too_old & within_recent_release_grace_period
+        & ~kept_without_recent_release_grace_period
+    )
+    kept = (
+        kept_without_recent_release_grace_period
+        | displayed_only_because_of_recent_release_grace_period
+    )
+    df[DISPLAYED_ONLY_BECAUSE_OF_RECENT_RELEASE_GRACE_PERIOD_COLUMN_NAME] = (
+        displayed_only_because_of_recent_release_grace_period.astype(bool)
     )
     df["kept"] = kept
     df[DISPLAY_ELIGIBLE_COLUMN_NAME] = kept

@@ -1,7 +1,7 @@
 """命令行入口：取数 → 数据契约 → 三维 HTML 可视化。
 
     python -m src.cli                       # 均衡默认，输出 output/frontier_3d.html
-    python -m src.cli --refresh             # 只重拉 API（网页抓取默认暂停，D-12）
+    python -m src.cli --refresh             # 刷新 API，并在冷却期结束后受限刷新目录
     python -m src.cli --since-months 12 --layers 2 --speed-scale linear
     python -m src.cli --speed-metric raw        # HTML 初始显示原始速度
     python -m src.cli --cost-metric blended     # HTML 初始显示 7:2:1 混合单价
@@ -73,6 +73,7 @@ PRUNING_AND_METRIC_COMPUTATION_ARGUMENT_FLAG_BY_ATTRIBUTE_NAME = {
     "hard_age_cutoff_months": "--hard-age-cutoff-months",
     "speed_scale": "--speed-scale",
     "pruning_reference_date": "--pruning-reference-date",
+    "recent_release_frontier_distance_grace_period_months": "--recent-release-grace-period-months",
 }
 # 读取已有契约时同样不起作用的取数参数（R1-09）：不提示会让人误以为已经刷新过数据
 DATA_FETCH_ARGUMENT_FLAG_BY_ATTRIBUTE_NAME = {
@@ -141,8 +142,26 @@ def _iso_calendar_date_command_line_argument(argument_text: str) -> str:
         ) from invalid_date_error
 
 
+def _non_negative_calendar_month_count_command_line_argument(argument_text: str) -> int:
+    try:
+        months = int(argument_text)
+        if months < 0:
+            raise ValueError
+        return months
+    except ValueError as invalid_months:
+        raise argparse.ArgumentTypeError("近期发布宽限月数必须是非负整数") from invalid_months
+
+
 def _build_command_line_argument_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="AA 三维前沿可视化")
+    p.add_argument(
+        "--recent-release-grace-period-months",
+        dest="recent_release_frontier_distance_grace_period_months",
+        type=_non_negative_calendar_month_count_command_line_argument,
+        default=None,
+        help=("近期发布模型免于层数限制的日历月数；0 关闭（缺省 "
+              f"{frontier.DEFAULT_RECENT_RELEASE_FRONTIER_DISTANCE_GRACE_PERIOD_MONTHS}）"),
+    )
     # 剪枝/口径参数缺省为 None：读取已有契约时据此判断用户是否显式给了会被忽略的参数
     p.add_argument(
         "--since-months", type=int, default=None,
@@ -181,12 +200,11 @@ def _build_command_line_argument_parser() -> argparse.ArgumentParser:
         default=None,
         help="HTML 初始成本口径；页面内仍可切换",
     )
-    p.add_argument("--refresh", action="store_true", help="忽略缓存，重新拉取 API（网页抓取暂停时只刷新 API）")
-    p.add_argument(
-        "--allow-artificial-analysis-website-page-fetch",
-        action="store_true",
-        help="显式开启 AA 网页抓取（默认暂停，D-12：只读已有缓存）",
-    )
+    p.add_argument("--refresh", action="store_true", help="重新拉取 API；目录冷却期结束后自动受限刷新")
+    from .artificial_analysis_minimal_model_catalog_refresh import add_website_catalog_fetch_policy_arguments
+    add_website_catalog_fetch_policy_arguments(p)
+    p.add_argument("--report-deployment-environment",choices=("development","production"),default="development",
+        help="报告环境；开发版持续显示未恢复目录异常，正式部署隐藏开发诊断标记")
     p.add_argument(
         "--use-previous-run-processed-models-csv-as-fallback",
         action="store_true",
@@ -496,7 +514,7 @@ def _freshness_summary_lines_for_dataset(
             f"已暂停（D-12），目录缓存截至 {embedded_model_catalog_captured_at_utc or '未知'}"
             if website_page_fetch_paused is True
             else (
-                "已显式开启"
+                "已开启受限目录批次刷新（最多每 24 小时一批）"
                 if website_page_fetch_paused is False
                 else "状态未记录"
             )
@@ -504,8 +522,17 @@ def _freshness_summary_lines_for_dataset(
         "剪枝参考日期："
         + f"{artificial_analysis_data_provenance.get('pruning_reference_date') or '未记录'}"
         + f"（{pruning_reference_date_source_text}）",
+        "近期发布宽限："
+        + str(artificial_analysis_data_provenance.get("recent_release_frontier_distance_grace_period_months", "未记录"))
+        + " 个月（只放宽离前沿距离；页面开关不重算分析）",
         "各口径（显示 / 分析 Pareto / 参与分析 / 历史口径）：",
     ]
+    refresh_status=artificial_analysis_data_provenance.get("artificial_analysis_embedded_model_catalog_refresh_status")
+    refresh_warning=artificial_analysis_data_provenance.get("artificial_analysis_embedded_model_catalog_refresh_warning_text")
+    if refresh_status:
+        summary_lines.insert(3,"目录刷新状态："+refresh_status)
+    if refresh_warning:
+        summary_lines.insert(3,"[warn] "+refresh_warning)
     for variant_key, variant in dataset["metric_variants"].items():
         cost_metric_name, speed_metric_name = variant_key.split("__", 1)
         summary_lines.append(
@@ -557,7 +584,7 @@ def _top_intelligence_models_missing_from_chart_warning_lines(dataset: dict, var
     return warning_lines
 
 
-def _models_missing_current_output_token_count_because_website_page_fetch_paused_lines(
+def _models_missing_current_output_token_count_from_verified_catalog_lines(
     df: pd.DataFrame,
 ) -> list[str]:
     """V-3 单列：有智能分、有原始速度、不在被接受的目录分区里、且没有任何有效速度的模型。
@@ -607,7 +634,7 @@ def _models_missing_current_output_token_count_because_website_page_fetch_paused
         absent_models_with_intelligence_and_raw_speed & effective_speed_is_missing
     ].sort_values("intelligence", ascending=False, kind="mergesort")
     v3_lines = [
-        f"V-3：{len(models_missing_current_output_token_count)} 个模型因暂停抓取缺当期 token"
+        f"V-3：{len(models_missing_current_output_token_count)} 个模型缺当期 token"
         "（不在目录分区中），在有效速度口径缺席"
         + ("：" if len(models_missing_current_output_token_count) else "")
     ]
@@ -648,7 +675,7 @@ def print_frontier_3d_data_freshness_summary(
     ):
         print(warning_line)
     if models_dataframe is not None:
-        for v3_line in _models_missing_current_output_token_count_because_website_page_fetch_paused_lines(
+        for v3_line in _models_missing_current_output_token_count_from_verified_catalog_lines(
             models_dataframe
         ):
             print(v3_line)
@@ -675,9 +702,12 @@ def main(command_line_arguments: list[str] | None = None) -> None:
             for attribute_name, argument_flag in PRUNING_AND_METRIC_COMPUTATION_ARGUMENT_FLAG_BY_ATTRIBUTE_NAME.items()
             if getattr(args, attribute_name) is not None
         ] + [
-            argument_flag
+            ("--disable-artificial-analysis-website-page-fetch"
+             if attribute_name=="allow_artificial_analysis_website_page_fetch" and args.allow_artificial_analysis_website_page_fetch is False
+             else argument_flag)
             for attribute_name, argument_flag in DATA_FETCH_ARGUMENT_FLAG_BY_ATTRIBUTE_NAME.items()
-            if getattr(args, attribute_name) not in (None, False)
+            if getattr(args, attribute_name) not in (None, False) or (
+                attribute_name=="allow_artificial_analysis_website_page_fetch" and args.allow_artificial_analysis_website_page_fetch is False)
         ]
         if ignored_argument_flags:
             print(
@@ -743,13 +773,19 @@ def main(command_line_arguments: list[str] | None = None) -> None:
             initial_cost_metric_name=args.cost_metric or DEFAULT_COST_METRIC_NAME,
             initial_speed_metric_name=args.speed_metric or DEFAULT_SPEED_METRIC_NAME,
             pruning_reference_date=args.pruning_reference_date,
+            recent_release_frontier_distance_grace_period_months=(
+                args.recent_release_frontier_distance_grace_period_months
+                if args.recent_release_frontier_distance_grace_period_months is not None
+                else frontier.DEFAULT_RECENT_RELEASE_FRONTIER_DISTANCE_GRACE_PERIOD_MONTHS
+            ),
         )
         write_frontier_3d_visualization_dataset(dataset, dataset_output_path)
         print(f"可视化数据契约: {dataset_output_path}")
 
     initial_variant_key = dataset["initial_variant_key"]
     initial_figure = _figure_from_dataset_variant(dataset, initial_variant_key)
-    written_html_report_path = write_frontier_3d_self_contained_html_report(dataset, output_html_path)
+    written_html_report_path = write_frontier_3d_self_contained_html_report(dataset, output_html_path,
+        report_deployment_environment=args.report_deployment_environment)
     print(f"\n✅ 交互式 HTML: {written_html_report_path}")
 
     print_frontier_3d_data_freshness_summary(

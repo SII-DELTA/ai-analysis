@@ -316,9 +316,9 @@ def build_model_intelligence_verbosity_dataframe_from_models_dataframe(
 def build_model_intelligence_verbosity_dataframe(
     refresh: bool = False,
     *,
-    allow_artificial_analysis_website_page_fetch: bool = False,
+    allow_artificial_analysis_website_page_fetch: bool | None = None,
 ) -> pd.DataFrame:
-    """取 AA 模型表（默认暂停网页抓取，只读已有目录缓存；`refresh` 只刷新 API）并构造报告表。"""
+    """取 AA 模型表并构造报告表；默认读缓存，`refresh` 在冷却期结束后受限刷新目录。"""
     models_dataframe = fetch_data.build_dataframe(
         refresh=refresh,
         allow_artificial_analysis_website_page_fetch=allow_artificial_analysis_website_page_fetch,
@@ -417,7 +417,7 @@ def write_model_intelligence_verbosity_report(
     under_output_token_limit_csv_path: Path = DEFAULT_MODELS_UNDER_OUTPUT_TOKEN_VERBOSITY_THRESHOLD_CSV_PATH,
     *,
     output_token_limit_multiple_of_current_median: float | None = None,
-    allow_artificial_analysis_website_page_fetch: bool = False,
+    allow_artificial_analysis_website_page_fetch: bool | None = None,
 ) -> ModelIntelligenceVerbosityReportResult:
     """生成 Markdown 报告、完整 Markdown 表和 CSV 明细。
 
@@ -686,6 +686,34 @@ def _data_source_and_intelligence_index_version_lines(frame: pd.DataFrame) -> li
     current_verbosity_model_count = int(frame["verbosity_m_output_tokens"].notna().sum())
     current_verbosity_median = frame["verbosity_m_output_tokens"].median()
     website_page_fetch_paused = provenance.get("artificial_analysis_website_page_fetch_paused")
+    website_catalog_fetch_policy = provenance.get("artificial_analysis_website_page_fetch_policy")
+    website_catalog_refresh_status = provenance.get(
+        "artificial_analysis_embedded_model_catalog_refresh_status"
+    )
+    website_catalog_fetch_summary = {
+        "automatic_on_api_refresh": "随 API 刷新自动受限更新目录（每批请求预算 2–3 页）。",
+        "explicitly_requested": "已显式允许受限目录批次刷新（每批请求预算 2–3 页）。",
+        "explicitly_disabled": "已显式禁用网页抓取，只离线读取已有缓存，不发网页请求。",
+    }.get(website_catalog_fetch_policy)
+    if website_catalog_fetch_summary is None:
+        website_catalog_fetch_summary = (
+            "已暂停（D-12），只离线读取已有缓存，不发网页请求。"
+            if website_page_fetch_paused is True
+            else "网页抓取策略未记录。"
+        )
+    if (
+        website_catalog_refresh_status == "not_requested_using_cached_catalog"
+        and website_catalog_fetch_policy != "explicitly_disabled"
+    ):
+        website_catalog_fetch_summary += "本次未请求目录刷新，只离线读取已验证缓存，不发网页请求。"
+    website_catalog_fetch_summary += (
+        f"本次目录刷新状态：`{website_catalog_refresh_status or '未记录'}`。"
+    )
+    website_catalog_refresh_warning = provenance.get(
+        "artificial_analysis_embedded_model_catalog_refresh_warning_text"
+    )
+    if website_catalog_refresh_warning:
+        website_catalog_fetch_summary += f"目录刷新告警：{website_catalog_refresh_warning}。"
     attribution_url = provenance.get(
         "artificial_analysis_attribution_url", fetch_data.ARTIFICIAL_ANALYSIS_ATTRIBUTION_URL
     )
@@ -717,11 +745,7 @@ def _data_source_and_intelligence_index_version_lines(frame: pd.DataFrame) -> li
         ),
         (
             "- **网页抓取：** "
-            + (
-                "已暂停（D-12），只离线解析已有缓存，不发网页请求。"
-                if website_page_fetch_paused is not False
-                else "本次显式允许按需抓取缺当期 token 的详情页。"
-            )
+            + website_catalog_fetch_summary
             + "列表页不再作为数据来源（payload 已改为 camelCase，旧的 snake_case 正则 0 命中）。"
         ),
         f"- **数据：** Artificial Analysis（{attribution_url}）。",

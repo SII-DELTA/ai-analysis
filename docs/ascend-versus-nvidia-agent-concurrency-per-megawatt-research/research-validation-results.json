@@ -1,0 +1,46 @@
+{
+  "validation_status": "passed",
+  "validation_scope": "本地研究证据与离线计算，不代表硬件实测、部署或正式RVF",
+  "unit_test_count": 9,
+  "hardware_primary_source_count": 33,
+  "hardware_product_evidence_count": 13,
+  "deployment_evidence_count": 4,
+  "published_point_count": 25,
+  "linked_configuration_count": 5,
+  "calculation_artifact_hashes_verified": 9,
+  "all_calculation_artifacts_reproduced_byte_for_byte": true,
+  "source_snapshot_hashes_verified": 6,
+  "local_markdown_link_count_checked": 20,
+  "independently_recomputed_winning_points": [
+    {
+      "accelerator_model": "H200",
+      "minimum_speed": 20,
+      "source_point_index": 340,
+      "agents_per_megawatt": 4751.302230976338
+    },
+    {
+      "accelerator_model": "H200",
+      "minimum_speed": 60,
+      "source_point_index": 342,
+      "agents_per_megawatt": 2977.395390887726
+    },
+    {
+      "accelerator_model": "B200",
+      "minimum_speed": 20,
+      "source_point_index": 394,
+      "agents_per_megawatt": 30898.2931986853
+    },
+    {
+      "accelerator_model": "B200",
+      "minimum_speed": 60,
+      "source_point_index": 397,
+      "agents_per_megawatt": 5126.419781316007
+    }
+  ],
+  "historical_reference_rounded_agents_per_megawatt": [
+    2594,
+    1786
+  ],
+  "figure_file_checks": "2 PNG签名与2 SVG文件存在；视觉检查另见验证记录",
+  "network_calls_during_validation": 0
+}

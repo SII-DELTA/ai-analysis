@@ -172,7 +172,7 @@ def test_command_line_prints_freshness_summary_missing_dimension_warning_and_v3_
 
     assert "智能前 20 中未上图" in standard_output
     assert "Speedless Genius (Max Effort)（70.0）：缺维度：速度" in standard_output
-    assert "1 个模型因暂停抓取缺当期 token（不在目录分区中），在有效速度口径缺席" in standard_output
+    assert "1 个模型缺当期 token（不在目录分区中），在有效速度口径缺席" in standard_output
     assert "Brand New Model (V-3)" in standard_output
 
 
@@ -204,13 +204,43 @@ def test_reading_existing_dataset_warns_that_pruning_and_metric_arguments_are_ig
             "linear",
             "--pruning-reference-date",
             "2026-01-01",
+            "--recent-release-grace-period-months",
+            "0",
         ],
     )
     assert "读取已有契约时这些参数被忽略" in standard_output
-    for ignored_argument_name in ("--since-months", "--speed-scale", "--pruning-reference-date"):
+    for ignored_argument_name in ("--since-months", "--speed-scale", "--pruning-reference-date", "--recent-release-grace-period-months"):
         assert ignored_argument_name in standard_output
     assert "--layers" not in standard_output.split("读取已有契约时这些参数被忽略")[1].splitlines()[0]
     assert (tmp_path / "rerendered.html").is_file()
+
+
+@pytest.mark.parametrize("months", [None, 0, 3])
+def test_command_line_records_default_or_explicit_recent_release_grace_period(
+    command_line_calls_recorded_with_synthetic_models_dataframe, tmp_path, capsys, months,
+) -> None:
+    arguments = ["--out", str(tmp_path / "grace-report.html")]
+    if months is not None:
+        arguments.extend(["--recent-release-grace-period-months", str(months)])
+    standard_output = _run_command_line_and_capture_standard_output(capsys, arguments)
+    dataset = json.loads((tmp_path / dataset_builder.DEFAULT_FRONTIER_3D_VISUALIZATION_DATASET_FILENAME).read_text())
+    expected_months = 6 if months is None else months
+    assert dataset["artificial_analysis_data_provenance"]["recent_release_frontier_distance_grace_period_months"] == expected_months
+    assert f"近期发布宽限：{expected_months} 个月" in standard_output
+    if months == 0:
+        for variant in dataset["metric_variants"].values():
+            assert variant["recent_release_grace_period_only_model_count"] == 0
+
+
+@pytest.mark.parametrize("invalid_months", ["-1", "1.5", "invalid"])
+def test_command_line_rejects_invalid_recent_release_grace_period_before_loading_data(
+    command_line_calls_recorded_with_synthetic_models_dataframe, capsys, invalid_months,
+) -> None:
+    with pytest.raises(SystemExit) as exit_result:
+        cli.main(["--recent-release-grace-period-months", invalid_months])
+    assert exit_result.value.code == 2
+    assert "非负整数" in capsys.readouterr().err
+    assert command_line_calls_recorded_with_synthetic_models_dataframe["build_dataframe_keyword_arguments"] is None
 
 
 def test_reading_existing_dataset_without_pruning_arguments_prints_no_ignored_argument_hint(
@@ -362,7 +392,7 @@ def test_v3_list_keeps_only_models_without_any_effective_speed_and_counts_histor
         capsys, ["--out", str(tmp_path / "frontier_3d.html")]
     )
     v3_section_text = standard_output[standard_output.index("V-3") :]
-    assert "1 个模型因暂停抓取缺当期 token（不在目录分区中），在有效速度口径缺席" in v3_section_text
+    assert "1 个模型缺当期 token（不在目录分区中），在有效速度口径缺席" in v3_section_text
     assert "Brand New Model (V-3)" in v3_section_text
     assert "另有 1 个不在目录分区的模型以 v4.1 等历史口径 token 显示" in v3_section_text
     assert "  - Kimi K3" not in v3_section_text

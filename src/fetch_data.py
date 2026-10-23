@@ -12,8 +12,8 @@
 每个成本/冗长度值都带「值溯源」列：来源、所属指数版本、抓取时间、是否当期版本
 （见规格 1.2/1.3）。下游（frontier / builder）据此判定「历史口径」点是否参与分析。
 
-网页抓取默认暂停（D-12）：列表页与详情页只读已有缓存，缺失即跳过、不发请求；
-`--refresh` 在暂停时只刷新 API。离线目录加载器按「(页面指数版本 family, 缓存 mtime 的
+网页目录按 D-12 最小化刷新：`--refresh` 默认刷新 API 并在冷却期结束后抓 2–3 页；
+显式禁用时只读已有目录；新 HTML 不落盘。离线目录加载器按「(页面指数版本 family, 缓存 mtime 的
 UTC 日期)」分区，只采用版本 family 与当期一致的**一个**分区，禁止跨分区/跨版本取并集；
 被接受分区里的 token 再逐 UUID 判定当期：该 UUID 的目录智能分与当期 API 一致才算当期（R1-01 (a)）。
 """
@@ -41,6 +41,10 @@ from .frontier import (
     ANALYSIS_INELIGIBILITY_REASON_CODE_OUTPUT_TOKEN_COUNT_VALUE_CATALOG_INTELLIGENCE_NOT_COMPARABLE_WITH_CURRENT_API_INTELLIGENCE,
     OUTPUT_TOKEN_COUNT_VALUE_NON_CURRENT_REASON_CODE_COLUMN_NAME,
 )
+from .artificial_analysis_guardrail_validated_json_response_storage import (
+    write_text_file_atomically,GuardrailValidatedJsonResponseStorage,
+    finalize_guardrail_validated_response_history,
+)
 
 try:
     from dotenv import load_dotenv
@@ -53,11 +57,11 @@ from .frontier_3d_worktree_storage_paths import resolve_frontier_3d_storage_path
 RAW = resolve_frontier_3d_storage_paths().raw_data_directory
 PROCESSED = resolve_frontier_3d_storage_paths().processed_models_csv_path.parent
 REFERENCE = ROOT / "data" / "reference"
-# 版本化回退快照：7/1 采集的 v4.1 成本与原始输出 token 数（由
-# scripts/convert_legacy_intelligence_per_million_output_token_fallback_snapshot_to_raw_token_counts.py 生成）
+# 版本化回退快照：从 8/4 无冲突的精确 v4.1 批次提取，时间按缓存 mtime 推断；
+# 7/1 的旧换算快照仍保留用于追溯，不再作默认值来源。
 ARTIFICIAL_ANALYSIS_INTELLIGENCE_INDEX_V4_1_COST_TO_RUN_AND_CANONICAL_OUTPUT_TOKEN_COUNT_FALLBACK_SNAPSHOT_PATH = (
     REFERENCE
-    / "artificial_analysis_intelligence_index_v4_1_cost_to_run_and_canonical_output_token_count_fallback_snapshot_captured_2026_07_01.csv"
+    / "artificial_analysis_intelligence_index_v4_1_single_batch_cost_and_output_token_fallback_snapshot_captured_2026_08_04.csv"
 )
 # 兼容旧名：旧脚本只用它判断「版本化快照存在」
 VERSIONED_COST_AND_OUTPUT_TOKEN_FALLBACK_SNAPSHOT = (
@@ -76,7 +80,6 @@ ARTIFICIAL_ANALYSIS_MODELS_LIST_PAGE_HTML_CACHE_PATH = RAW / "models_page.html"
 ARTIFICIAL_ANALYSIS_MODEL_DETAIL_PAGE_HTML_CACHE_DIRECTORY = (
     RAW / "artificial_analysis_model_detail_page_html"
 )
-UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 # AA 免费 API 要求署名；契约与页头引用该链接
 ARTIFICIAL_ANALYSIS_ATTRIBUTION_URL = "https://artificialanalysis.ai/"
 
@@ -317,14 +320,8 @@ def _fetch_paginated_language_models(api_key: str) -> tuple[list[dict], str]:
 
 
 def _write_text_file_atomically(target_file_path: Path, file_text: str) -> None:
-    """先写同目录的临时文件再 os.replace：中途被打断时目标文件要么是旧内容、要么是新内容，不会被截断。"""
-    refuse_shared_worktree_directory_write(target_file_path)
-    target_file_path.parent.mkdir(parents=True, exist_ok=True)
-    temporary_file_path = target_file_path.with_name(
-        target_file_path.name + ".partial_write_in_progress"
-    )
-    temporary_file_path.write_text(file_text, encoding="utf-8")
-    os.replace(temporary_file_path, target_file_path)
+    """API 与数值目录复用唯一暂存文件的原子写入；并发写入不会共享 .partial 文件。"""
+    write_text_file_atomically(target_file_path,file_text)
 
 
 # 响应历史文件名的护栏状态后缀（R1-04 / 复验风险 8）：刷新得到的新响应先以「待护栏校验」后缀写入历史，
@@ -410,9 +407,7 @@ def mark_refreshed_api_language_models_response_history_file_with_guardrail_outc
         if data_quality_guardrails_passed
         else API_LANGUAGE_MODELS_RESPONSE_HISTORY_FILE_NAME_SUFFIX_REJECTED_BY_DATA_QUALITY_GUARDRAILS,
     )
-    refuse_shared_worktree_directory_write(pending_response_history_file_path)
-    refuse_shared_worktree_directory_write(outcome_response_history_file_path)
-    os.replace(pending_response_history_file_path, outcome_response_history_file_path)
+    finalize_guardrail_validated_response_history(pending_response_history_file_path,outcome_response_history_file_path)
     return outcome_response_history_file_path
 
 
@@ -533,9 +528,8 @@ def replace_api_language_models_cache_with_refreshed_response_after_guardrails_p
     api_language_models_cache_path: Path,
 ) -> None:
     """护栏通过后，用暂存的新响应原子替换共享缓存（同目录 os.replace）。"""
-    refuse_shared_worktree_directory_write(refreshed_response_pending_cache_replacement_path)
-    refuse_shared_worktree_directory_write(api_language_models_cache_path)
-    os.replace(refreshed_response_pending_cache_replacement_path, api_language_models_cache_path)
+    GuardrailValidatedJsonResponseStorage(api_language_models_cache_path,api_language_models_cache_path.parent,
+        pending_response_path=refreshed_response_pending_cache_replacement_path).promote(archive_existing=False)
 
 
 def load_artificial_analysis_api_language_models_with_response_metadata(
@@ -611,7 +605,6 @@ def load_artificial_analysis_api_language_models_with_response_metadata(
         "fetched_at_utc": fetched_at_utc,
         "data": rows,
     }
-    api_response_cache_text = json.dumps(api_response_cache_payload)
     _archive_existing_api_language_models_cache_into_response_history(
         api_language_models_cache_path, response_history_directory
     )
@@ -627,21 +620,20 @@ def load_artificial_analysis_api_language_models_with_response_metadata(
             else ""
         ),
     )
-    _write_text_file_atomically(refreshed_response_history_file_path, api_response_cache_text)
-    refreshed_response_pending_cache_replacement_path = None
-    if defer_api_language_models_cache_replacement_until_guardrails_pass:
-        refreshed_response_pending_cache_replacement_path = (
-            refreshed_api_language_models_response_pending_cache_replacement_path(
-                api_language_models_cache_path,
-                fetched_at_datetime_utc,
-                refresh_attempt_unique_file_name_token=refresh_attempt_unique_file_name_token,
-            )
+    refreshed_response_pending_cache_replacement_path = (
+        refreshed_api_language_models_response_pending_cache_replacement_path(
+            api_language_models_cache_path,
+            fetched_at_datetime_utc,
+            refresh_attempt_unique_file_name_token=refresh_attempt_unique_file_name_token,
         )
-        _write_text_file_atomically(
-            refreshed_response_pending_cache_replacement_path, api_response_cache_text
-        )
-    else:
-        _write_text_file_atomically(api_language_models_cache_path, api_response_cache_text)
+    )
+    response_storage=GuardrailValidatedJsonResponseStorage(api_language_models_cache_path,response_history_directory)
+    response_storage.stage(api_response_cache_payload,response_name_prefix="artificial_analysis_api_language_models_response",
+        pending_response_path=refreshed_response_pending_cache_replacement_path,
+        pending_history_path=refreshed_response_history_file_path)
+    if not defer_api_language_models_cache_replacement_until_guardrails_pass:
+        response_storage.promote(archive_existing=False)
+        refreshed_response_pending_cache_replacement_path=None
     return rows, {
         "source_url": response_top_level_metadata["source_url"],
         "tier": response_top_level_metadata["tier"],
@@ -684,39 +676,17 @@ def _print_artificial_analysis_website_page_fetch_paused_notice_once() -> None:
     _artificial_analysis_website_page_fetch_paused_notice_already_printed = True
 
 
-def _fetch_and_cache_web_page_html(
-    page_url: str,
-    page_html_cache_path: Path,
-    refresh_requested: bool,
-) -> str:
-    if page_html_cache_path.exists() and not refresh_requested:
-        return page_html_cache_path.read_text(encoding="utf-8", errors="ignore")
-    page_response = requests.get(
-        page_url,
-        headers={"User-Agent": UA},
-        timeout=120,
-    )
-    page_response.raise_for_status()
-    refuse_shared_worktree_directory_write(page_html_cache_path)
-    page_html_cache_path.parent.mkdir(parents=True, exist_ok=True)
-    page_html_cache_path.write_text(page_response.text, encoding="utf-8")
-    return page_response.text
-
-
-def _read_cached_web_page_html_or_fetch_when_allowed(
-    page_url: str,
+def _read_legacy_website_html_cache_without_network_requests(
     page_html_cache_path: Path,
     *,
-    refresh_requested: bool,
     allow_artificial_analysis_website_page_fetch: bool,
 ) -> str | None:
-    """暂停抓取时只读缓存（refresh 被忽略），缓存缺失返回 None；显式开启时保留旧行为。"""
+    """旧单页接口只读 HTML 缓存；新网页请求统一经过受限批次入口，不再保存新 HTML。"""
     if not allow_artificial_analysis_website_page_fetch:
         _print_artificial_analysis_website_page_fetch_paused_notice_once()
-        if page_html_cache_path.exists():
-            return page_html_cache_path.read_text(encoding="utf-8", errors="ignore")
-        return None
-    return _fetch_and_cache_web_page_html(page_url, page_html_cache_path, refresh_requested)
+    if page_html_cache_path.exists():
+        return page_html_cache_path.read_text(encoding="utf-8", errors="ignore")
+    return None
 
 
 def fetch_artificial_analysis_models_page_html(
@@ -725,10 +695,8 @@ def fetch_artificial_analysis_models_page_html(
     allow_artificial_analysis_website_page_fetch: bool = False,
 ) -> str | None:
     """旧调用方兼容入口；`build_dataframe` 已不调用它（列表页只读缓存、从不联网，R3-F3）。"""
-    return _read_cached_web_page_html_or_fetch_when_allowed(
-        PAGE_URL,
+    return _read_legacy_website_html_cache_without_network_requests(
         ARTIFICIAL_ANALYSIS_MODELS_LIST_PAGE_HTML_CACHE_PATH,
-        refresh_requested=refresh,
         allow_artificial_analysis_website_page_fetch=allow_artificial_analysis_website_page_fetch,
     )
 
@@ -740,15 +708,14 @@ def fetch_artificial_analysis_model_detail_page_html(
     allow_artificial_analysis_website_page_fetch: bool = False,
     model_detail_page_html_cache_directory: Path | None = None,
 ) -> str | None:
+    """兼容旧调用，只读既有 HTML；受限网页刷新通过 build_dataframe 执行。"""
     cache_directory = (
         Path(model_detail_page_html_cache_directory)
         if model_detail_page_html_cache_directory is not None
         else ARTIFICIAL_ANALYSIS_MODEL_DETAIL_PAGE_HTML_CACHE_DIRECTORY
     )
-    return _read_cached_web_page_html_or_fetch_when_allowed(
-        f"{PAGE_URL}/{model_slug}",
+    return _read_legacy_website_html_cache_without_network_requests(
         cache_directory / f"{model_slug}.html",
-        refresh_requested=refresh,
         allow_artificial_analysis_website_page_fetch=allow_artificial_analysis_website_page_fetch,
     )
 
@@ -1534,51 +1501,6 @@ def load_artificial_analysis_embedded_model_catalog_from_cached_model_detail_pag
     )
 
 
-def fetch_missing_artificial_analysis_model_detail_pages_for_models_lacking_current_output_token_count(
-    models_dataframe: pd.DataFrame,
-    *,
-    refresh: bool = False,
-    model_detail_page_html_cache_directory: Path | None = None,
-) -> int:
-    """仅在显式开启网页抓取时调用：对「智能/速度/成本已齐、仅缺当期 token」的行抓详情页进缓存。
-
-    返回真正发出网络请求并写入缓存的页数；调用方随后重新走目录加载器（分区规则不变）。
-    已有缓存且未 refresh 的页不重抓（与旧行为一致）。
-    TODO(卡 fc98a 最小化抓取)：每页都内嵌整份目录，逐模型抓页是旧行为；只抓 2–3 页的设计在该卡里做
-    """
-    cache_directory = (
-        Path(model_detail_page_html_cache_directory)
-        if model_detail_page_html_cache_directory is not None
-        else ARTIFICIAL_ANALYSIS_MODEL_DETAIL_PAGE_HTML_CACHE_DIRECTORY
-    )
-    rows_requiring_model_detail_page = (
-        ~models_dataframe["output_token_count_value_is_from_current_intelligence_index_version"].astype(bool)
-        & (models_dataframe["intelligence"].fillna(-1) > 0)
-        & (models_dataframe["output_speed"].fillna(-1) > 0)
-        & models_dataframe["cost_to_run"].notna()
-        & models_dataframe["slug"].notna()
-    )
-    fetched_page_count = 0
-    for model_slug in dict.fromkeys(models_dataframe.loc[rows_requiring_model_detail_page, "slug"]):
-        model_slug = str(model_slug)
-        if (cache_directory / f"{model_slug}.html").exists() and not refresh:
-            continue
-        try:
-            fetch_artificial_analysis_model_detail_page_html(
-                model_slug,
-                refresh=refresh,
-                allow_artificial_analysis_website_page_fetch=True,
-                model_detail_page_html_cache_directory=cache_directory,
-            )
-        except requests.RequestException as request_error:
-            print(f"[warn] 详情页拉取失败 {model_slug}: {request_error}")
-            continue
-        fetched_page_count += 1
-    if fetched_page_count:
-        print(f"[info] 已抓取 {fetched_page_count} 个详情页进缓存，重新加载内嵌目录")
-    return fetched_page_count
-
-
 # ----------------------------------------------------------------------------- 混合价（规格 1.3）
 def calculate_blended_price_cache_input_output_7_to_2_to_1_with_cache_hit_price_source(
     pricing: dict,
@@ -2047,16 +1969,17 @@ def _assemble_models_dataframe_with_value_provenance(
 def build_dataframe(
     refresh: bool = False,
     *,
-    allow_artificial_analysis_website_page_fetch: bool = False,
+    allow_artificial_analysis_website_page_fetch: bool | None = None,
     use_previous_run_processed_models_csv_as_fallback: bool = False,
     embedded_model_catalog_cache_directory: Path | None = None,
     versioned_fallback_snapshot_path: Path | None = None,
     artificial_analysis_raw_data_directory: Path | None = None,
     previous_run_processed_models_csv_path: Path | None = None,
+    catalog_refresh_health_store=None,
 ) -> pd.DataFrame:
     """取数并合并成模型表（每行一个 API 模型，带值溯源列）。
 
-    - 默认暂停网页抓取（D-12）：列表页/详情页只读缓存；`refresh=True` 只刷新 API；
+    - 默认离线读取；`refresh=True` 在 24 小时冷却期结束后自动受限刷新目录；
       列表页不再是值来源，无论是否开启网页抓取都只读缓存、从不联网（R3-F3）；
     - `artificial_analysis_raw_data_directory` 缺省按 checkout 选择独立缓存目录（主 checkout 仍为 `data/raw`）；给出时 API 缓存、API 响应历史、
       列表页缓存与详情页缓存都改在该目录下读写（R1-07：可在 scratch 副本上完整彩排 `--refresh`）；
@@ -2101,8 +2024,12 @@ def build_dataframe(
         if embedded_model_catalog_cache_directory is not None
         else default_embedded_model_catalog_cache_directory
     )
-    if not allow_artificial_analysis_website_page_fetch:
+    website_page_fetch_enabled=(refresh if allow_artificial_analysis_website_page_fetch is None
+                                else allow_artificial_analysis_website_page_fetch)
+    if allow_artificial_analysis_website_page_fetch is False:
         _print_artificial_analysis_website_page_fetch_paused_notice_once()
+    elif not website_page_fetch_enabled:
+        print("[info] 本次未请求网页刷新，读取已验证目录缓存")
 
     api_model_rows, api_response_metadata = (
         load_artificial_analysis_api_language_models_with_response_metadata(
@@ -2146,17 +2073,31 @@ def build_dataframe(
         for m in api_model_rows
     }
 
-    def load_catalog_and_assemble_models_dataframe():
-        embedded_model_catalog_load_result = (
-            load_artificial_analysis_embedded_model_catalog_from_cached_model_detail_pages(
-                embedded_model_catalog_cache_directory,
-                api_intelligence_by_model_id,
-                api_response_metadata.get("intelligence_index_version"),
-                api_intelligence_index_cost_total_usd_by_model_id=(
-                    api_intelligence_index_cost_total_usd_by_model_id
-                ),
+    from .artificial_analysis_minimal_model_catalog_refresh import (
+        NUMERIC_CATALOG_RESPONSE_FILENAME, load_numeric_model_catalog_response,
+        prepare_minimal_model_catalog_refresh, seed_verified_numeric_catalog_from_legacy_load_result,
+    )
+    from .artificial_analysis_catalog_refresh_health import CatalogRefreshHealthStore
+    numeric_catalog_raw_directory=api_language_models_cache_path.parent
+    numeric_catalog_response_path=numeric_catalog_raw_directory/NUMERIC_CATALOG_RESPONSE_FILENAME
+    catalog_refresh_preparation=None
+
+    def load_catalog_and_assemble_models_dataframe(prepared_catalog=None):
+        embedded_model_catalog_load_result=prepared_catalog
+        if embedded_model_catalog_load_result is None and numeric_catalog_response_path.exists():
+            embedded_model_catalog_load_result=load_numeric_model_catalog_response(
+                numeric_catalog_response_path,api_model_rows,api_response_metadata.get("intelligence_index_version"))
+        if embedded_model_catalog_load_result is None:
+            embedded_model_catalog_load_result = (
+                load_artificial_analysis_embedded_model_catalog_from_cached_model_detail_pages(
+                    embedded_model_catalog_cache_directory,
+                    api_intelligence_by_model_id,
+                    api_response_metadata.get("intelligence_index_version"),
+                    api_intelligence_index_cost_total_usd_by_model_id=(
+                        api_intelligence_index_cost_total_usd_by_model_id
+                    ),
+                )
             )
-        )
         current_intelligence_index_version, current_intelligence_index_version_source = (
             _determine_current_intelligence_index_version(
                 api_response_metadata, embedded_model_catalog_load_result
@@ -2182,21 +2123,22 @@ def build_dataframe(
         current_intelligence_index_version,
         current_intelligence_index_version_source,
     ) = load_catalog_and_assemble_models_dataframe()
-    if allow_artificial_analysis_website_page_fetch:
-        fetched_model_detail_page_count = (
-            fetch_missing_artificial_analysis_model_detail_pages_for_models_lacking_current_output_token_count(
-                df,
-                refresh=refresh,
-                model_detail_page_html_cache_directory=embedded_model_catalog_cache_directory,
-            )
+    if website_page_fetch_enabled:
+        catalog_refresh_preparation=prepare_minimal_model_catalog_refresh(
+            api_model_rows,api_response_metadata.get("intelligence_index_version"),
+            numeric_catalog_raw_directory,
+            catalog_refresh_health_store or CatalogRefreshHealthStore(ROOT),
+            previous_verified_catalog_load_result=embedded_model_catalog_load_result,
         )
-        if fetched_model_detail_page_count:
+        if catalog_refresh_preparation.catalog_load_result is not None:
             (
                 df,
                 embedded_model_catalog_load_result,
                 current_intelligence_index_version,
                 current_intelligence_index_version_source,
-            ) = load_catalog_and_assemble_models_dataframe()
+            ) = load_catalog_and_assemble_models_dataframe(catalog_refresh_preparation.catalog_load_result)
+        if catalog_refresh_preparation.warning_text:
+            print("[warn] "+catalog_refresh_preparation.warning_text)
 
     _add_effective_speed(df)
     refreshed_response_pending_cache_replacement_path = api_response_metadata.get(
@@ -2217,6 +2159,8 @@ def build_dataframe(
             api_language_models_response_history_directory=api_language_models_response_history_directory,
         )
     except ArtificialAnalysisDataQualityGuardrailViolationError:
+        if catalog_refresh_preparation:
+            catalog_refresh_preparation.reject_after_final_guardrails()
         rejected_response_history_file_path = None
         if refreshed_response_history_file_path_pending_guardrail_validation is not None:
             rejected_response_history_file_path = (
@@ -2245,6 +2189,12 @@ def build_dataframe(
             Path(refreshed_response_pending_cache_replacement_path), api_language_models_cache_path
         )
         print(f"[info] 护栏全部通过，已用刷新得到的 API 新响应替换缓存 {api_language_models_cache_path}")
+    # API 历史与 active 都成功持久化后，目录才可晋升并解除 incident。
+    if catalog_refresh_preparation:
+        catalog_refresh_preparation.accept_after_final_guardrails()
+    # 迁移本身不 resolve 异常；只在刷新或显式指定隔离缓存路径时写入数值缓存。
+    if refresh or artificial_analysis_raw_data_directory is not None:
+        seed_verified_numeric_catalog_from_legacy_load_result(numeric_catalog_raw_directory,embedded_model_catalog_load_result)
     df.attrs[MODELS_DATAFRAME_ATTRS_KEY_ARTIFICIAL_ANALYSIS_DATA_PROVENANCE] = {
         "artificial_analysis_api_response_fetched_at_utc": api_response_metadata["fetched_at_utc"],
         "artificial_analysis_api_response_fetched_at_utc_source": api_response_metadata[
@@ -2267,7 +2217,14 @@ def build_dataframe(
         "embedded_model_catalog_partition_rejection_warning_text": (
             embedded_model_catalog_partition_rejection_warning_text(embedded_model_catalog_load_result)
         ),
-        "artificial_analysis_website_page_fetch_paused": not allow_artificial_analysis_website_page_fetch,
+        "artificial_analysis_website_page_fetch_paused": allow_artificial_analysis_website_page_fetch is False,
+        "artificial_analysis_website_page_fetch_policy": (
+            "automatic_on_api_refresh" if allow_artificial_analysis_website_page_fetch is None else
+            "explicitly_requested" if allow_artificial_analysis_website_page_fetch else "explicitly_disabled"),
+        "artificial_analysis_embedded_model_catalog_refresh_status": (
+            catalog_refresh_preparation.status if catalog_refresh_preparation else "not_requested_using_cached_catalog"),
+        "artificial_analysis_embedded_model_catalog_refresh_warning_text": (
+            catalog_refresh_preparation.warning_text if catalog_refresh_preparation else None),
         "reference_output_million_tokens_for_effective_speed_normalization_by_intelligence_index_version_family": dict(
             REFERENCE_OUTPUT_MILLION_TOKENS_FOR_EFFECTIVE_SPEED_NORMALIZATION_BY_INTELLIGENCE_INDEX_VERSION_FAMILY
         ),
@@ -2756,7 +2713,7 @@ def save(df: pd.DataFrame, processed_models_csv_output_path: Path | None = None)
 def main(
     refresh: bool = False,
     *,
-    allow_artificial_analysis_website_page_fetch: bool = False,
+    allow_artificial_analysis_website_page_fetch: bool | None = None,
     use_previous_run_processed_models_csv_as_fallback: bool = False,
     processed_models_csv_output_path: Path | None = None,
     artificial_analysis_raw_data_directory: Path | None = None,
@@ -2823,16 +2780,13 @@ def main(
 
 def _parse_fetch_data_command_line_arguments(command_line_arguments: list[str] | None = None):
     command_line_argument_parser = argparse.ArgumentParser(
-        description="拉取 Artificial Analysis API（默认暂停网页抓取），合并离线目录与回退值，写出 models.csv"
+        description="刷新 Artificial Analysis API 与受限网页目录，合并值溯源并写出 models.csv"
     )
     command_line_argument_parser.add_argument(
-        "--refresh", action="store_true", help="强制重拉 API（网页抓取暂停时只刷新 API）"
+        "--refresh", action="store_true", help="重拉 API，并在目录冷却期结束后自动抓取 2–3 页"
     )
-    command_line_argument_parser.add_argument(
-        "--allow-artificial-analysis-website-page-fetch",
-        action="store_true",
-        help="显式开启网页抓取（默认暂停，D-12）",
-    )
+    from .artificial_analysis_minimal_model_catalog_refresh import add_website_catalog_fetch_policy_arguments
+    add_website_catalog_fetch_policy_arguments(command_line_argument_parser)
     command_line_argument_parser.add_argument(
         "--use-previous-run-processed-models-csv-as-fallback",
         action="store_true",

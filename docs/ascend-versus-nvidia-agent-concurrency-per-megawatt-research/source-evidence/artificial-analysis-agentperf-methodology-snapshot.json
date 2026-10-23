@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "artificial-analysis-agentperf-methodology-observations",
+  "source": {
+    "requestedUrl": "https://artificialanalysis.ai/methodology/agentperf",
+    "resolvedUrl": "https://artificialanalysis.ai/methodology/agentperf",
+    "retrievalStartedUtc": "2026-10-22T16:56:34.070178+00:00",
+    "retrievalCompletedUtc": "2026-10-22T16:56:47.345586+00:00",
+    "httpStatus": 200,
+    "responseBodySha256": "074b03863c3a1ff5b9f72c5ab5074c4aa7138bfbb7cab7779ceedfdae302a96c",
+    "responseBodyBytes": 354639,
+    "httpResponseHeaders": {
+      "Content-Length": "354639",
+      "Content-Type": "text/html; charset=utf-8",
+      "Date": "Thu, 22 Oct 2026 14:39:46 GMT",
+      "Etag": "\"jamqcfgyia7ln1\""
+    },
+    "extractionMethod": "读取官方方法页，使用标准库 HTMLParser 排除 script/style 后检查可见文本；仅保存与研究口径直接相关的结构化观察及一条短引文。"
+  },
+  "sourceTextChecks": {
+    "containsP25": true,
+    "containsCachedPromptTokens": true,
+    "containsMeasuredAcceleratorPower": true,
+    "containsRatedTdp": true,
+    "containsFixed20TokensPerSecond": false,
+    "containsFixed60TokensPerSecond": false
+  },
+  "methodObservations": {
+    "primaryPresentation": "逐配置、逐并发测点构建总吞吐量与逐请求输出速度的 Pareto 前沿。",
+    "speed": "输出速度在收到首 token 后计算；默认使用请求级 P25。",
+    "ttft": "从发送请求到收到首输出 token 的请求级延迟。",
+    "throughput": "服务端报告的输入与输出 token 吞吐量；输入包含 KV-cache 命中的 prompt tokens。",
+    "power": "实测加速卡 GPU die + HBM 功耗，不采用额定 TDP；非整机/设施功耗。",
+    "fixedSloStatus": "当前方法页未重申旧版 20/60 tokens/s 和 P95 TTFT 10/5 秒固定档位。本研究沿用门槛必须单独标明。",
+    "steadyState": "目标并发下所有 Agent 活跃至少 30 秒后的稳态；每阶段还需达到至少 10 分钟、至少 30 条轨迹完成、每 Agent 至少 3 条轨迹完成。",
+    "trajectoryAvailability": "完整测试轨迹集不公开；供应方获得 500 条轨迹的调优子集，研究外部复算不能冒充同轨迹重测。",
+    "powerQuote": "Per-MW figures are based on measured accelerator power under load (GPU die + HBM) rather than rated TDP."
+  }
+}

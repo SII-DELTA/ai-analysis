@@ -1,0 +1,11 @@
+hbm_decimal_gigabytes_per_physical_package,assumed_physical_package_count,published_checkpoint_payload_bytes,aggregate_capacity_bytes,aggregate_capacity_minus_published_payload_bytes,minimum_packages_for_published_payload_only,evidence_tier,assumption
+32,8,892727580904,256000000000,-636727580904,28,conditional_aggregate_memory_necessary_condition,发布权重完整驻留、无重编码/裁剪/卸载、单副本；不含KV/工作区/复制/分片约束
+64,8,892727580904,512000000000,-380727580904,14,conditional_aggregate_memory_necessary_condition,发布权重完整驻留、无重编码/裁剪/卸载、单副本；不含KV/工作区/复制/分片约束
+80,8,892727580904,640000000000,-252727580904,12,conditional_aggregate_memory_necessary_condition,发布权重完整驻留、无重编码/裁剪/卸载、单副本；不含KV/工作区/复制/分片约束
+96,8,892727580904,768000000000,-124727580904,10,conditional_aggregate_memory_necessary_condition,发布权重完整驻留、无重编码/裁剪/卸载、单副本；不含KV/工作区/复制/分片约束
+112,8,892727580904,896000000000,3272419096,8,conditional_aggregate_memory_necessary_condition,发布权重完整驻留、无重编码/裁剪/卸载、单副本；不含KV/工作区/复制/分片约束
+128,8,892727580904,1024000000000,131272419096,7,conditional_aggregate_memory_necessary_condition,发布权重完整驻留、无重编码/裁剪/卸载、单副本；不含KV/工作区/复制/分片约束
+141,8,892727580904,1128000000000,235272419096,7,conditional_aggregate_memory_necessary_condition,发布权重完整驻留、无重编码/裁剪/卸载、单副本；不含KV/工作区/复制/分片约束
+144,8,892727580904,1152000000000,259272419096,7,conditional_aggregate_memory_necessary_condition,发布权重完整驻留、无重编码/裁剪/卸载、单副本；不含KV/工作区/复制/分片约束
+180,8,892727580904,1440000000000,547272419096,5,conditional_aggregate_memory_necessary_condition,发布权重完整驻留、无重编码/裁剪/卸载、单副本；不含KV/工作区/复制/分片约束
+192,8,892727580904,1536000000000,643272419096,5,conditional_aggregate_memory_necessary_condition,发布权重完整驻留、无重编码/裁剪/卸载、单副本；不含KV/工作区/复制/分片约束

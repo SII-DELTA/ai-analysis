@@ -132,6 +132,7 @@ def render_frontier_3d_self_contained_html_report(
     *,
     generator_git_commit: str | None = None,
     rendered_at_utc: str | None = None,
+    report_deployment_environment: str = "development",
 ) -> str:
     """渲染单文件 HTML；指纹参数缺省时现场计算（测试可注入固定值）。"""
     validate_frontier_3d_visualization_dataset(dataset)
@@ -160,21 +161,27 @@ def render_frontier_3d_self_contained_html_report(
             threejs_interactive_renderer_javascript
         ),
     }
-    return substitute_frontier_3d_report_template_placeholders_in_single_pass(
+    document = substitute_frontier_3d_report_template_placeholders_in_single_pass(
         template,
         replacement_text_by_placeholder_name,
     )
+    from .frontier_3d_development_catalog_refresh_incident_banner import add_unresolved_catalog_refresh_development_banner
+    return add_unresolved_catalog_refresh_development_banner(document,
+        report_deployment_environment=report_deployment_environment,
+        catalog_captured_at_utc=(dataset.get("artificial_analysis_data_provenance") or {}).get("embedded_model_catalog_captured_at_utc"))
 
 
 def write_frontier_3d_self_contained_html_report(
     dataset: dict[str, Any],
     output_html_path: Path,
+    *,
+    report_deployment_environment: str = "development",
 ) -> Path:
     from .frontier_3d_worktree_storage_paths import refuse_shared_worktree_directory_write
     refuse_shared_worktree_directory_write(output_html_path)
     output_html_path.parent.mkdir(parents=True, exist_ok=True)
     output_html_path.write_text(
-        render_frontier_3d_self_contained_html_report(dataset),
+        render_frontier_3d_self_contained_html_report(dataset,report_deployment_environment=report_deployment_environment),
         encoding="utf-8",
     )
     return output_html_path

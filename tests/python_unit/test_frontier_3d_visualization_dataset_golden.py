@@ -48,6 +48,25 @@ METRIC_VARIANT_KEYS_EXCLUDED_FROM_GOLDEN_PROJECTION = frozenset(
     {"plotly_static_export_trace_data", "plotly_static_export_layout"}
 )
 ORGANIZATION_IDENTITY_KEYS_EXCLUDED_FROM_GOLDEN_PROJECTION = frozenset({"logo_visualization_data_url"})
+RECENT_RELEASE_GRACE_PERIOD_ADDITIVE_KEYS_EXCLUDED_FROM_LEGACY_GOLDEN = frozenset({
+    "recent_release_frontier_distance_grace_period_months",
+    "displayed_only_because_of_recent_release_grace_period",
+    "recent_release_grace_period_only_model_count",
+    "kept_model_count_without_recent_release_grace_period",
+})
+
+
+def _without_recent_release_grace_period_additions(value):
+    """旧 golden 验证零宽限旧行为；新增字段由专门的宽限契约测试验证。"""
+    if isinstance(value, dict):
+        return {
+            key: _without_recent_release_grace_period_additions(child)
+            for key, child in value.items()
+            if key not in RECENT_RELEASE_GRACE_PERIOD_ADDITIVE_KEYS_EXCLUDED_FROM_LEGACY_GOLDEN
+        }
+    if isinstance(value, list):
+        return [_without_recent_release_grace_period_additions(child) for child in value]
+    return value
 
 
 def _round_floats_to_significant_digits(json_value):
@@ -93,6 +112,9 @@ def project_frontier_3d_visualization_dataset_for_golden_comparison(
         for variant_key, variant in dataset["metric_variants"].items()
         if metric_variant_keys_to_keep is None or variant_key in metric_variant_keys_to_keep
     }
+    projected_dataset = _without_recent_release_grace_period_additions(projected_dataset)
+    for variant in projected_dataset["metric_variants"].values():
+        variant["three_dimensional_scene"]["current_view"].pop("pruning_reference_date", None)
     # 经一次严格 JSON 往返：确认可序列化（无 NaN、无 numpy 标量），并统一 tuple → list
     return _round_floats_to_significant_digits(
         json.loads(json.dumps(projected_dataset, ensure_ascii=False, allow_nan=False))
@@ -109,6 +131,7 @@ def _golden_projection_of_synthetic_fixture_dataset_for_every_speed_scale() -> d
                 hard_age_cutoff_months=36,
                 speed_scale=speed_scale,
                 pruning_reference_date=FRONTIER_3D_SYNTHETIC_FIXTURE_PRUNING_REFERENCE_DATE,
+                recent_release_frontier_distance_grace_period_months=0,
             ),
             METRIC_VARIANT_KEYS_IN_GOLDEN_PROJECTION_BY_SPEED_SCALE[speed_scale],
         )
