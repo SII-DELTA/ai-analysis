@@ -1,0 +1,4228 @@
+{
+  "schema_version": 1,
+  "title": "OpenAnalysis.ai 开发 agent、插件与 skill 生态项目及证据目录",
+  "research_cutoff_date": "2026-10-23",
+  "language": "zh-CN",
+  "task_id": "effe6",
+  "research_provenance": {
+    "original_request_source": "本任务会话中的用户原始请求与 Kanban task effe6 的持久 prompt",
+    "user_confirmed_preferences": {
+      "primary_scenario": "软件开发 agent 为主，包含通用呈现与提问能力",
+      "delivery_emphasis": "生态与证据地图，含首批基线候选及评测方向"
+    },
+    "implementation_authorization": "用户在本会话明确要求 Implement the plan",
+    "agent_authored_recommendations": "分类、选样、八个基线候选、测量方案和栏目建议均为本次分析，非用户原话或已批准的网站实现规范",
+    "execution_status": "公开资料调查与结构验证；未安装扩展、未运行被测模型、未复跑公开 benchmark",
+    "source_preservation": "保存抽取事实、来源链接、检查日期及可得版本身份；未镜像上游全文或全部轨迹。动态网页将来可变化，URL本身不证明历史内容。"
+  },
+  "comparison_axes": {
+    "artifact_packaging": [
+      "harness/runtime",
+      "rules file",
+      "skill",
+      "skillset",
+      "plugin",
+      "MCP/CLI/proxy",
+      "workflow"
+    ],
+    "intervention_mechanisms": [
+      "回答精简",
+      "实现精简",
+      "上下文选择或压缩",
+      "批量工具执行",
+      "状态与记忆",
+      "信息呈现",
+      "需求澄清",
+      "完整流程约束"
+    ],
+    "measurement_scopes": [
+      "成稿",
+      "单轮",
+      "工具payload",
+      "完整会话",
+      "跨会话项目"
+    ],
+    "activation_states": [
+      "项目声明支持",
+      "已安装",
+      "宿主已发现",
+      "已激活或注入",
+      "执行行为已验证",
+      "收益已测量"
+    ]
+  },
+  "evidence_interpretation": {
+    "source_origin_and_strength_are_separate": true,
+    "source_origins": [
+      "项目声明",
+      "维护者公开实验",
+      "外部使用者或厂商实验",
+      "论文报告",
+      "本次分析"
+    ],
+    "reproduction_states": [
+      "材料可读但未执行",
+      "材料部分可达",
+      "材料身份或版本未知",
+      "本任务独立复跑"
+    ],
+    "independent_reproduction_in_this_task": false,
+    "absence_claim_policy": "未找到只描述本次所读版本和材料；不推断生态不存在或项目从未测试",
+    "license_policy": "按组件与版本记录；unknown/NOASSERTION不视为开源，公开仓库不等于产品引擎开源",
+    "quality_policy": "短文字、少代码、少问题及统计不显著均不单独证明质量达标或等价"
+  },
+  "projects": [
+    {
+      "project_id": "caveman",
+      "name": "Caveman",
+      "repository_url": "https://github.com/JuliusBrussee/caveman",
+      "revision_observation": {
+        "commit_sha": "b4531dfc05a3ef0ba93b57e8bfa5f48564a4b4d6",
+        "default_branch": "main",
+        "commit_committed_at_utc": "2026-10-23T04:57:51Z",
+        "checked_at_utc": "2026-10-23T16:05:26Z",
+        "verification": "由 GitHub commits API 获取 commit，再按该 commit 读取文件；blob SHA 与 commit SHA 分开"
+      },
+      "capability_categories": [
+        "回答精简",
+        "工具输出压缩",
+        "模型与 effort 路由",
+        "代码执行批处理"
+      ],
+      "intervention_mechanism": "原版用自然语言指令删去回答中的礼貌、赘词与部分语法；当前另有输入压缩、Auto 路由等独立组件，需分别评测。",
+      "packaging": [
+        "原版 SKILL.md/.skill",
+        "当前 skillset、插件、CLI、代理、SDK"
+      ],
+      "components_and_license": [
+        {
+          "component": "原版 skill",
+          "commit_sha": "af5375d6f0151b1441f638d855f6829f5e6724df",
+          "license": "MIT",
+          "source_ids": [
+            "eff-caveman-original-license"
+          ]
+        },
+        {
+          "component": "3.0.0 及之后仓库代码",
+          "license": "Apache-2.0",
+          "notes": "旧版保留原条款；Cloud 不在本仓库许可证范围，第三方 notices 另列。",
+          "source_ids": [
+            "eff-caveman-license",
+            "eff-caveman-licensing"
+          ]
+        }
+      ],
+      "activation_and_host_support": {
+        "declared": "多宿主 skill/plugin 与代理路径；只启用风格 skill 和启用整个 CLI 不是同一处理。",
+        "verification_in_this_research": "仅文档，不安装或运行",
+        "source_ids": [
+          "eff-caveman-readme",
+          "eff-caveman-skill"
+        ]
+      },
+      "historical_components": [
+        {
+          "component": "首次加入的纯风格 skill",
+          "commit_sha": "af5375d6f0151b1441f638d855f6829f5e6724df",
+          "committed_at_utc": "2026-04-04T10:06:14Z",
+          "path": "caveman/SKILL.md",
+          "notes": "针对英文；保留代码、技术名词、报错和正常 commit/PR。",
+          "source_ids": [
+            "eff-caveman-original-skill"
+          ]
+        }
+      ],
+      "declared_claims": [
+        {
+          "claim": "原版约 75% token 减少",
+          "measurement_scope": "手写示例与技能描述，没有统计评测或等价检验",
+          "source_ids": [
+            "eff-caveman-original-readme",
+            "eff-caveman-original-skill"
+          ]
+        },
+        {
+          "claim": "普通 caveman 相对简洁提示额外中位减少 3%，ultracave 为 35%",
+          "measurement_scope": "当前 README 引用 3.1.0 规则，尚未重跑；回答长度，不是完整成本；规则约有 1,160 输入 token 开销",
+          "source_ids": [
+            "eff-caveman-readme",
+            "eff-caveman-eval-method"
+          ]
+        }
+      ],
+      "published_evaluation_evidence": [
+        "jetbrains-caveman-2026-07",
+        "cavewoman-linguistic-compression",
+        "tura-eza-plugin-comparison"
+      ],
+      "limitations": [
+        "历史 skill、当前风格、proxy、Auto 不能共用节省率。",
+        "eval 文档称已提交长度快照缺 provider usage，o200k 为近似 tokenizer；未提交 fidelity 结果，不能据此断言质量等价。"
+      ],
+      "source_ids": [
+        "eff-caveman-readme",
+        "eff-caveman-skill",
+        "eff-caveman-license",
+        "eff-caveman-licensing",
+        "eff-caveman-original-skill",
+        "eff-caveman-original-readme",
+        "eff-caveman-original-license",
+        "eff-caveman-eval-method"
+      ],
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "project_id": "ponytail",
+      "name": "Ponytail",
+      "repository_url": "https://github.com/DietrichGebert/ponytail",
+      "revision_observation": {
+        "commit_sha": "09c434ab73ca43761c5d8b0c5d341926c2fba710",
+        "default_branch": "main",
+        "commit_committed_at_utc": "2026-10-18T01:55:14Z",
+        "checked_at_utc": "2026-10-23T16:05:26Z",
+        "verification": "由 GitHub commits API 获取 commit，再按该 commit 读取文件；blob SHA 与 commit SHA 分开"
+      },
+      "capability_categories": [
+        "实现精简",
+        "复用现有能力",
+        "回答精简",
+        "review"
+      ],
+      "intervention_mechanism": "先追踪改动影响，再优先现有代码、标准库、平台和现有依赖，选择完整解决问题的最小改动；排除删除必要校验/安全/可访问性。",
+      "packaging": [
+        "SKILL.md",
+        "多宿主 lifecycle hooks 与插件",
+        "review/audit/debt/gain 技能"
+      ],
+      "components_and_license": [
+        {
+          "component": "仓库",
+          "license": "MIT",
+          "source_ids": [
+            "eff-ponytail-license"
+          ]
+        }
+      ],
+      "activation_and_host_support": {
+        "declared": "skill 显式调用与持续 hook 注入分开；宿主路径影响是否实际生效。",
+        "verification_in_this_research": "仅文档；外部历史评测有激活审计",
+        "source_ids": [
+          "eff-ponytail-skill",
+          "eff-jetbrains-ponytail"
+        ]
+      },
+      "declared_claims": [
+        {
+          "claim": "作者最新评测：代码 -53%，输出 token -45%，成本 -26%，时间 -41%",
+          "measurement_scope": "2026-10-07；Opus 5.5 default；Claude Code 2.1.288；39 任务 × 每组 5 次；任务中位比值几何平均",
+          "source_ids": [
+            "eff-ponytail-self-eval"
+          ]
+        }
+      ],
+      "published_evaluation_evidence": [
+        "ponytail-5-author-agentic",
+        "jetbrains-ponytail-2026-07",
+        "tura-eza-plugin-comparison"
+      ],
+      "limitations": [
+        "作者评测禁用 Bash，代码/测试由外部执行，不能当完整调试循环。",
+        "仅 18 个任务有隐藏执行检查，其余完整性借助 judge。",
+        "外部 v4.8.4 结果不能当当前 Ponytail 5 的复现。"
+      ],
+      "source_ids": [
+        "eff-ponytail-skill",
+        "eff-ponytail-license",
+        "eff-ponytail-self-eval",
+        "eff-jetbrains-ponytail"
+      ],
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "project_id": "rtk",
+      "name": "RTK",
+      "repository_url": "https://github.com/rtk-ai/rtk",
+      "revision_observation": {
+        "commit_sha": "5f6111b90931c0e63e38a3af129cf3aeba10cefa",
+        "default_branch": "develop",
+        "commit_committed_at_utc": "2026-10-23T15:59:25Z",
+        "checked_at_utc": "2026-10-23T16:05:26Z",
+        "verification": "由 GitHub commits API 获取 commit，再按该 commit 读取文件；blob SHA 与 commit SHA 分开"
+      },
+      "capability_categories": [
+        "shell 工具输出过滤",
+        "可选代理压缩和路由"
+      ],
+      "intervention_mechanism": "宿主 hook 重写匹配的 shell 命令，将压缩/过滤输出返回 agent；当前 Engine/Proxy 要单独处理。",
+      "packaging": [
+        "Rust CLI",
+        "宿主 hooks",
+        "可选 Engine",
+        "独立 Proxy daemon"
+      ],
+      "components_and_license": [
+        {
+          "component": "CLI/hooks/filter/rtk-oss",
+          "license": "Apache-2.0",
+          "source_ids": [
+            "eff-rtk-license",
+            "eff-rtk-readme"
+          ]
+        },
+        {
+          "component": "engine 与 proxy",
+          "license": "BUSL-1.1",
+          "classification": "source-available",
+          "source_ids": [
+            "eff-rtk-engine-license",
+            "eff-rtk-proxy-license"
+          ]
+        }
+      ],
+      "activation_and_host_support": {
+        "declared": "Claude Code、Codex、Gemini、Cursor、Cline、OpenCode、pi/OMP 等有配置路径；内建 Read/Grep 未必经过 shell hook。",
+        "verification_in_this_research": "仅文档，未安装",
+        "source_ids": [
+          "eff-rtk-readme"
+        ]
+      },
+      "declared_claims": [
+        {
+          "claim": "bash 输出最高约 90% 压缩",
+          "measurement_scope": "被过滤命令的 payload；自带计数按 bytes/4 估计，不是 provider tokenizer 或账单",
+          "source_ids": [
+            "eff-rtk-readme"
+          ]
+        }
+      ],
+      "published_evaluation_evidence": [
+        "jetbrains-rtk-2026-07",
+        "tura-eza-plugin-comparison",
+        "thol-end-to-end-optimizer-benchmark"
+      ],
+      "limitations": [
+        "重写命令覆盖只占工具流一部分；重读、补救和额外 turn 可抵消局部收益。",
+        "默认分支为 develop，正式评测应固定 release/commit。",
+        "bytes/4 对内容类型敏感，应重新 tokenize。"
+      ],
+      "source_ids": [
+        "eff-rtk-readme",
+        "eff-rtk-license",
+        "eff-rtk-engine-license",
+        "eff-rtk-proxy-license",
+        "eff-jetbrains-rtk"
+      ],
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "project_id": "headroom",
+      "name": "Headroom",
+      "repository_url": "https://github.com/headroomlabs-ai/headroom",
+      "revision_observation": {
+        "commit_sha": "e995eb9f1dacac7ed548758406de6c1508caef95",
+        "default_branch": "main",
+        "commit_committed_at_utc": "2026-10-21T20:02:54Z",
+        "checked_at_utc": "2026-10-23T16:05:26Z",
+        "verification": "由 GitHub commits API 获取 commit，再按该 commit 读取文件；blob SHA 与 commit SHA 分开"
+      },
+      "capability_categories": [
+        "输入压缩",
+        "内容类型路由",
+        "原文按需取回",
+        "可选输出与 effort 调整"
+      ],
+      "intervention_mechanism": "按 JSON/日志/代码/自然语言选择压缩路径；本地缓存原文供检索；output shaper 应另作处理。",
+      "packaging": [
+        "Python/TypeScript 库",
+        "proxy",
+        "agent wrapper",
+        "MCP"
+      ],
+      "components_and_license": [
+        {
+          "component": "仓库",
+          "license": "Apache-2.0",
+          "source_ids": [
+            "eff-headroom-license"
+          ]
+        }
+      ],
+      "activation_and_host_support": {
+        "declared": "SDK、proxy 与多宿主 wrapper；实际 API 登录/计量路径需分别验证。",
+        "verification_in_this_research": "仅文档",
+        "source_ids": [
+          "eff-headroom-readme"
+        ]
+      },
+      "declared_claims": [
+        {
+          "claim": "四类 proof payload 的 token 减少为 21%、57%、42%、30%",
+          "measurement_scope": "seeded 格式 fixture 离线压缩，不是 agent 完成任务结果",
+          "source_ids": [
+            "eff-headroom-readme"
+          ]
+        },
+        {
+          "claim": "GSM8K、TruthfulQA 表各 N=100；前者相同，后者 +0.03",
+          "measurement_scope": "README 没完整给出表内模型/运行版本；作者也称未检出差异，不能视为开发任务质量等价",
+          "source_ids": [
+            "eff-headroom-readme"
+          ]
+        }
+      ],
+      "published_evaluation_evidence": [],
+      "limitations": [
+        "benchmarks 页面与 README 覆盖不同用途/版本；HTML recall 不等于任务质量。",
+        "输出节省示例标 estimated；需 holdout 才能叫 measured。",
+        "缓存、检索补救、压缩计算和完整会话都须计费。"
+      ],
+      "source_ids": [
+        "eff-headroom-readme",
+        "eff-headroom-license",
+        "eff-headroom-benchmark-method"
+      ],
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "project_id": "context-mode",
+      "name": "Context Mode",
+      "repository_url": "https://github.com/mksglu/context-mode",
+      "revision_observation": {
+        "commit_sha": "fc0fda3d2bf62c9c35e085f9a28985088ba5fbca",
+        "default_branch": "main",
+        "commit_committed_at_utc": "2026-10-23T12:06:06Z",
+        "checked_at_utc": "2026-10-23T16:05:26Z",
+        "verification": "由 GitHub commits API 获取 commit，再按该 commit 读取文件；blob SHA 与 commit SHA 分开"
+      },
+      "capability_categories": [
+        "工具数据外置",
+        "沙箱代码处理",
+        "全文检索",
+        "会话连续性"
+      ],
+      "intervention_mechanism": "原始数据留在沙箱/索引，仅返回脚本结果、检索片段或长输出指针；后续按需取回。",
+      "packaging": [
+        "MCP server",
+        "宿主 plugin/hook/routing 配置"
+      ],
+      "components_and_license": [
+        {
+          "component": "仓库",
+          "license": "Elastic-2.0",
+          "classification": "source-available",
+          "source_ids": [
+            "eff-context-mode-license"
+          ]
+        }
+      ],
+      "activation_and_host_support": {
+        "declared": "文档区分程序拦截与指令路由；Codex hooks 受版本/feature 影响；MCP-only 与有 hook 路径不同。",
+        "verification_in_this_research": "仅文档，未核实作者合规率",
+        "source_ids": [
+          "eff-context-mode-readme"
+        ]
+      },
+      "declared_claims": [
+        {
+          "claim": "21 场景，376 KB 输出变为 16.5 KB context，约 96% 减少",
+          "measurement_scope": "工具输出字节/局部检索结果，不是 provider 总 token 或端到端成功成本",
+          "source_ids": [
+            "eff-context-mode-bench"
+          ]
+        }
+      ],
+      "published_evaluation_evidence": [],
+      "limitations": [
+        "应计入索引、执行、检索与漏召回补救成本，不能拿摘要字节量证明正确性。",
+        "当前 README 明确不强制最终回答文风，旧搜索摘要可能过时。",
+        "许可证与开源分类分别展示，研究比较不等于批准产品嵌入。"
+      ],
+      "source_ids": [
+        "eff-context-mode-readme",
+        "eff-context-mode-license",
+        "eff-context-mode-bench"
+      ],
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "project_id": "i-have-adhd",
+      "name": "i-have-adhd",
+      "repository_url": "https://github.com/ayghri/i-have-adhd",
+      "revision_observation": {
+        "commit_sha": "1ecea1993b7fce257ffbd686c070948b5e07eda6",
+        "commit_date": "2026-10-11T16:03:54Z",
+        "tree_sha": "d4775095f471d938babccea77838d43b7fd39bc3",
+        "default_branch": "main",
+        "archived": false,
+        "license_spdx": "MIT",
+        "observed_ref": "refs/heads/main",
+        "checked_at_utc": "2026-10-23T16:07:49Z"
+      },
+      "capability_categories": [
+        "信息呈现",
+        "跨轮状态呈现",
+        "用户认知负担",
+        "适时澄清"
+      ],
+      "intervention_mechanism": "将每轮回复组织为动作优先、编号步骤、显式进展、聚焦当前问题；真实歧义时要求短问。属于会话输出策略，目标比单纯删字更广。",
+      "packaging": [
+        "Agent Skill",
+        "Claude Code plugin 与条件式 SessionStart hook",
+        "Codex plugin",
+        "其他宿主适配器"
+      ],
+      "components_and_license": [
+        {
+          "component": "skill 与本仓库适配器",
+          "license": "MIT",
+          "source_ids": [
+            "interaction-adhd-license"
+          ]
+        }
+      ],
+      "activation_and_host_support": {
+        "support_basis": "上游文档与配置检查，本次未安装或行为实测",
+        "claude_code": "默认显式 /i-have-adhd；可用 flag 启用 SessionStart 注入",
+        "codex": "policy.allow_implicit_invocation=false，需显式 $i-have-adhd；常驻可另加规则",
+        "gemini_cli": "command 为按需；extension 会从 GEMINI.md 加载规则",
+        "session_persistence": "技能指令要求持续至 stop adhd mode/normal mode；这是声明的行为，不等于所有宿主均已通过持久性评测",
+        "source_ids": [
+          "interaction-adhd-activation",
+          "interaction-adhd-codex-policy",
+          "interaction-adhd-skill"
+        ]
+      },
+      "declared_claims": [
+        {
+          "claim": "动作优先、减少旁支、具体进展与可执行下一步改善可操作性；无须将其理解为医学疗效。",
+          "claim_type": "作者设计目标",
+          "source_ids": [
+            "interaction-adhd-skill"
+          ]
+        }
+      ],
+      "published_evaluation_evidence": [
+        {
+          "evidence_id": "interaction-adhd-self-evaluation-2026-08-02",
+          "evidence_origin": "项目内公开自测",
+          "evaluated_component_version": "unknown；报告日期早于本次冻结提交，未确认当时 skill body 的 commit",
+          "evaluation_date": "2026-08-02",
+          "model": "claude-opus-4-8",
+          "harness": "Claude Code 2.1.220",
+          "sample": {
+            "cases": 14,
+            "trials_per_case_per_condition": 3,
+            "conditions": 2,
+            "responses_total": 84
+          },
+          "comparison": "裸任务 prompt 对相同 prompt 加 skill body，工具被禁用；单轮响应评测",
+          "judge": "同一模型与 runner；按 case/trial 组盲评，非人类受试者",
+          "metrics": {
+            "weighted_score_baseline": 4.045,
+            "weighted_score_candidate": 4.473,
+            "reported_delta": 0.427,
+            "baseline_blocking_findings": 7,
+            "candidate_blocking_findings": 3,
+            "candidate_case_wins": 10,
+            "ties": 2,
+            "losses": 2
+          },
+          "release_gate": "FAILED：仍有 blocking findings",
+          "quality_limits": [
+            "agent-owned-edit 要求真正修改仓库，但 runner 禁用全部工具，使该案例不可满足。",
+            "partial-success 平均下降 0.63；报告记录了候选无证据断言根因的 blocker。",
+            "每 case 仅 3 次、同模型家族自评，无真人阅读或认知负担实验；加权分提高不证明质量等价或对所有读者有效。",
+            "报告成本是记录的生成与评分费用，不是可直接泛化的每任务节省率。"
+          ],
+          "source_ids": [
+            "interaction-adhd-evaluation",
+            "interaction-adhd-evaluation-protocol",
+            "interaction-adhd-evaluation-rubric"
+          ]
+        }
+      ],
+      "limitations": [
+        "固定每轮状态与具体时间估计可能与某些读者偏好冲突；应以任务和用户指令控制，不能把越短或越确定视为越好（本次分析）。",
+        "当前跨宿主兼容文档不等于对应宿主已有同一套结果。",
+        "应测试重要但非当前事项是否保留、解释请求是否充分、已完成任务是否引入多余下一步。"
+      ],
+      "source_ids": [
+        "interaction-adhd-skill",
+        "interaction-adhd-activation",
+        "interaction-adhd-codex-policy",
+        "interaction-adhd-evaluation",
+        "interaction-adhd-evaluation-protocol",
+        "interaction-adhd-evaluation-rubric",
+        "interaction-adhd-license"
+      ],
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "project_id": "humanizer",
+      "name": "Humanizer",
+      "repository_url": "https://github.com/blader/humanizer",
+      "revision_observation": {
+        "commit_sha": "8c307f367c91bd974002f10f2be2965d642c13df",
+        "commit_date": "2026-10-16T19:12:03Z",
+        "tree_sha": "4f4bcb932f6ac43860277b2c35f48d4d07a7dc9f",
+        "default_branch": "main",
+        "archived": false,
+        "license_spdx": "MIT",
+        "observed_ref": "refs/heads/main",
+        "checked_at_utc": "2026-10-23T16:07:49Z",
+        "skill_metadata_version": "3.1.0"
+      },
+      "capability_categories": [
+        "成稿文风编辑",
+        "事实保留",
+        "信息结构",
+        "去除空话"
+      ],
+      "intervention_mechanism": "识别机械句式、夸大、排版和无信息铺垫；改写后检查新增/丢失事实，并按写作样本保留个人声音。",
+      "packaging": [
+        "Agent Skill",
+        "Claude Code plugin",
+        "文件编辑或嵌入其他写作任务的模式"
+      ],
+      "components_and_license": [
+        {
+          "component": "skill 与项目文件",
+          "license": "MIT",
+          "source_ids": [
+            "interaction-humanizer-license"
+          ]
+        }
+      ],
+      "activation_and_host_support": {
+        "support_basis": "上游文档与技能检查；本次未行为实测",
+        "trigger": "面向编辑/审阅已有 prose；可显式调用",
+        "modes": "粘贴文本默认给草稿、残留问题与最终稿；文件模式仅改 prose；嵌入模式仅交付最终文本。默认多稿输出可能增加 token。",
+        "declared_hosts": [
+          "Claude Code",
+          "Codex",
+          "支持 Agent Skills 的其他 agent"
+        ],
+        "source_ids": [
+          "interaction-humanizer-skill",
+          "interaction-humanizer-readme"
+        ]
+      },
+      "declared_claims": [
+        {
+          "claim": "改善人类读者的可读性并保持意思；规避 AI detector 不是目标。",
+          "claim_type": "作者设计目标",
+          "source_ids": [
+            "interaction-humanizer-skill",
+            "interaction-humanizer-readme"
+          ]
+        },
+        {
+          "claim": "README 引用外部盲评中 16/16 偏好改写稿。",
+          "claim_type": "作者引用外部使用者实验",
+          "source_ids": [
+            "interaction-humanizer-readme",
+            "interaction-humanizer-external-evaluation"
+          ]
+        }
+      ],
+      "published_evaluation_evidence": [
+        {
+          "evidence_id": "interaction-humanizer-external-user-study-2026-08-19",
+          "evidence_origin": "外部使用者 issue 报告；原始仓库 itsryanlenk/humanist 作为可追溯线索，本次未重跑",
+          "evaluation_date": "2026-08-19",
+          "evaluated_component_version": "unknown；不能据此证明当前 3.1.0 的效果",
+          "sample": {
+            "raw_vs_rewrite_pairwise_trials": 16,
+            "preferred_rewrite_trials": 16,
+            "all_completed_pairwise_trials": 77,
+            "planned_pairwise_trials": 144
+          },
+          "judge": "单一模型家族的语言模型盲评，质量比较不提示作者身份；不是人类用户研究",
+          "quality_limits": [
+            "基础设施失败导致未完成全部计划试次。",
+            "报告中的人类控制文本只匹配 register 与长度，未匹配主题。",
+            "外部报告同时指出词汇/标点痕迹减少，而某些节奏与收尾模式增加；去掉禁词不等同整体可读性或真人风格达标。"
+          ],
+          "source_ids": [
+            "interaction-humanizer-external-evaluation",
+            "interaction-humanizer-evaluation-comments"
+          ]
+        }
+      ],
+      "limitations": [
+        "主要是成稿编辑干预，不直接解决 agent 何时汇报、如何处理长期任务或何时向开发者提问。",
+        "不能以 AI detector 通过率作为本项目目标的替代指标。",
+        "需增加事实保持、技术标识符不变、长短文和中文语境的独立配对评测。"
+      ],
+      "source_ids": [
+        "interaction-humanizer-skill",
+        "interaction-humanizer-readme",
+        "interaction-humanizer-external-evaluation",
+        "interaction-humanizer-evaluation-comments",
+        "interaction-humanizer-license"
+      ],
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "project_id": "no-ai-slop",
+      "name": "No AI Slop",
+      "repository_url": "https://github.com/petergyang/no-ai-slop",
+      "revision_observation": {
+        "commit_sha": "000650b156983f5159695b441477f4e63b25dc85",
+        "commit_date": "2026-09-02T04:19:00Z",
+        "tree_sha": "782e26a87b532a2859e7ee515deac6afdcb11612",
+        "default_branch": "main",
+        "archived": false,
+        "license_spdx": "MIT",
+        "observed_ref": "refs/heads/main",
+        "checked_at_utc": "2026-10-23T16:07:49Z"
+      },
+      "capability_categories": [
+        "成稿文风编辑",
+        "去除空话",
+        "保留作者声音",
+        "编辑任务的最小澄清"
+      ],
+      "intervention_mechanism": "以最小有效编辑处理空泛句式，同时保留语气、细节与不确定性；若缺草稿、受众/发布格式或写作目标，则先索取必要信息。",
+      "packaging": [
+        "Agent Skill",
+        "Codex/ChatGPT plugin metadata"
+      ],
+      "components_and_license": [
+        {
+          "component": "skill 与 eval 自检清单",
+          "license": "MIT",
+          "source_ids": [
+            "interaction-no-ai-slop-license"
+          ]
+        }
+      ],
+      "activation_and_host_support": {
+        "support_basis": "检查技能正文；未验证宿主运行行为",
+        "trigger": "用户要求编辑、审计已有文本或去除 AI 文风；默认 Edit，也支持 Detect",
+        "edit_output": "完整改稿加 What changed",
+        "detect_output": "指出模式、引用原句与短修正；正文明确禁止将此当作 AI 作者身份鉴定或给分",
+        "host_support": "标准 skill 分发与插件元数据；不同宿主发现/自动触发仍须分别验证",
+        "source_ids": [
+          "interaction-no-ai-slop-skill"
+        ]
+      },
+      "declared_claims": [
+        {
+          "claim": "保留作者个性，去掉模板化文风与空话；不是以最短文本为目标。",
+          "claim_type": "作者设计目标",
+          "source_ids": [
+            "interaction-no-ai-slop-skill"
+          ]
+        }
+      ],
+      "published_evaluation_evidence": [
+        {
+          "evidence_id": "interaction-no-ai-slop-self-check-contract",
+          "evidence_origin": "项目内 eval.md 自我复核清单",
+          "evaluation_type": "规则与工作流检查，不是公开样本集的基准分数",
+          "model": "unknown",
+          "harness": "unknown",
+          "sample_size": "unknown",
+          "results": "unknown",
+          "source_ids": [
+            "interaction-no-ai-slop-self-check"
+          ]
+        }
+      ],
+      "limitations": [
+        "未在本次检查的固定提交与相关文件中找到独立、可比较的有/无 skill 实验；eval.md 不能被登记为量化成效。",
+        "文风禁词属于写作偏好，技术文章中的术语及有意义的保留语不能按命中次数机械扣分。",
+        "编辑一份成稿的收益不能推断为整段开发任务的 token 或交互收益。"
+      ],
+      "source_ids": [
+        "interaction-no-ai-slop-skill",
+        "interaction-no-ai-slop-self-check",
+        "interaction-no-ai-slop-license"
+      ],
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "project_id": "mattpocock-skills",
+      "name": "Matt Pocock Skills：grilling／grill-me／grill-with-docs",
+      "repository_url": "https://github.com/mattpocock/skills",
+      "revision_observation": {
+        "commit_sha": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+        "commit_date": "2026-10-19T15:51:40Z",
+        "tree_sha": "b4ff05745c3973fe0e0a777a354a4470243e75bb",
+        "default_branch": "main",
+        "archived": false,
+        "license_spdx": "MIT",
+        "observed_ref": "refs/heads/main",
+        "checked_at_utc": "2026-10-23T16:07:49Z"
+      },
+      "capability_categories": [
+        "需求澄清",
+        "分轮提问",
+        "决策依赖",
+        "术语与决策文档",
+        "面向 agent 的信息结构"
+      ],
+      "intervention_mechanism": "grilling 将决策映射为设计树，每轮询问依赖已满足的整组问题，附推荐答案；环境事实由 agent 调查，用户回答决策。grill-me 为显式入口；grill-with-docs 组合 grilling 与 domain-modeling。",
+      "packaging": [
+        "可组合 Agent Skills",
+        "Claude Code/Codex/Copilot plugin",
+        "skills CLI 或手动分发"
+      ],
+      "components_and_license": [
+        {
+          "component": "本仓库技能与相关文档",
+          "license": "MIT",
+          "source_ids": [
+            "interaction-mattpocock-license"
+          ]
+        }
+      ],
+      "activation_and_host_support": {
+        "support_basis": "上游 README、frontmatter 与 Codex policy 检查；未运行",
+        "grill_me": "disable-model-invocation=true，Codex allow_implicit_invocation=false；入口正文调用 grilling",
+        "grill_with_docs": "显式入口，调用 grilling 与 domain-modeling",
+        "grilling": "可作为被组合的原语，frontmatter 自带适用语境描述",
+        "declared_hosts": [
+          "Claude Code",
+          "Codex",
+          "GitHub Copilot",
+          "Gemini CLI",
+          "可通过 skills CLI 分发的其他 agent"
+        ],
+        "source_ids": [
+          "interaction-mattpocock-readme",
+          "interaction-mattpocock-grill-me",
+          "interaction-mattpocock-grill-with-docs",
+          "interaction-mattpocock-grill-me-policy"
+        ]
+      },
+      "declared_claims": [
+        {
+          "claim": "以可组合小技能改善需求误解与协作；README 称可适用于任意模型。",
+          "claim_type": "作者目标与兼容性声明，非本次已验证结果",
+          "source_ids": [
+            "interaction-mattpocock-readme"
+          ]
+        }
+      ],
+      "published_evaluation_evidence": [
+        {
+          "evidence_id": "interaction-mattpocock-evaluation-gap",
+          "evidence_origin": "固定提交的 README、相关 skill 与目录结构检查",
+          "evaluation_type": "行为规范可读；本次未找到与这些交互技能对应的公开配对结果",
+          "model": "unknown",
+          "harness": "unknown",
+          "sample_size": "unknown",
+          "results": "unknown",
+          "source_ids": [
+            "interaction-mattpocock-readme",
+            "interaction-mattpocock-grilling"
+          ]
+        }
+      ],
+      "related_capabilities": [
+        {
+          "name": "to-questionnaire",
+          "finding": "先确认收件人及所需决策，再将知识缺口写成异步问卷；是收集第三方信息的文档工作流，不应与当轮 ask-user 工具混为一类。",
+          "source_ids": [
+            "interaction-mattpocock-questionnaire"
+          ]
+        },
+        {
+          "name": "writing-for-agents",
+          "finding": "区分常驻上下文负担与人类认知负担，以上下文指针和渐进披露组织 agent 所读文档；不应把它直接记为面向人的 anti-slop skill。",
+          "source_ids": [
+            "interaction-mattpocock-writing-for-agents"
+          ]
+        }
+      ],
+      "limitations": [
+        "要求遍历全部设计树、每轮给出全部 frontier 问题，可能增加决策负担与会话长度；是需实验的权衡，不是本次证明的缺陷。",
+        "推荐答案可降低回复成本，也可能引导用户迎合；评测应检查反对、改主意和不完整回答时的表现。",
+        "完整性优先的 grilling 应与低风险明确任务中的少打扰策略分别评价。",
+        "本次没有证明自动调用、跨模型稳定收益或实际减少返工。"
+      ],
+      "source_ids": [
+        "interaction-mattpocock-readme",
+        "interaction-mattpocock-grilling",
+        "interaction-mattpocock-grill-me",
+        "interaction-mattpocock-grill-with-docs",
+        "interaction-mattpocock-questionnaire",
+        "interaction-mattpocock-writing-for-agents",
+        "interaction-mattpocock-grill-me-policy",
+        "interaction-mattpocock-license"
+      ],
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "project_id": "superpowers",
+      "name": "Superpowers",
+      "repository_url": "https://github.com/obra/superpowers",
+      "revision_observation": {
+        "commit_sha": "2ce8aa15d05bd57213e6f746f953aafb7ded7a8b",
+        "default_branch": "main",
+        "version": "v7.0.1",
+        "release_published_at": "2026-10-21T21:05:11Z",
+        "version_status": "latest_non_prerelease_observed",
+        "source_ids": [
+          "wf-superpowers-revision",
+          "wf-superpowers-release"
+        ]
+      },
+      "capability_categories": [
+        "完整开发工作流",
+        "需求澄清",
+        "信息分段呈现",
+        "TDD 与验证"
+      ],
+      "intervention_mechanism": "用可组合 skill 与启动指令串联澄清、设计、计划、实现、审查。brainstorming 先读项目上下文，明确任务可直接处理；有重要未知时通过开放式问题澄清，并在实现前呈现方案与设计。",
+      "packaging": [
+        "skillset",
+        "plugin",
+        "宿主适配器",
+        "可选视觉伴随工具"
+      ],
+      "components_and_license": [
+        {
+          "component": "主仓库 skill、脚本和文档",
+          "license": "MIT",
+          "license_source_id": "wf-superpowers-license",
+          "license_scope_note": "本次仅核对主仓库 LICENSE，外部宿主及依赖另计。"
+        }
+      ],
+      "activation_and_host_support": {
+        "declared_hosts": [
+          "Claude Code",
+          "Codex",
+          "Gemini CLI",
+          "OpenCode",
+          "Pi",
+          "Cursor",
+          "Kimi Code",
+          "GitHub Copilot CLI",
+          "Hermes",
+          "其他 README 列明宿主"
+        ],
+        "activation": "每个宿主分别安装；README 宣称自动触发。Pi 适配器在启动与 compaction 后注入 using-superpowers；具体激活仍需逐宿主验证。",
+        "verification_by_this_investigation": "只读核对上游，未安装或行为实测",
+        "source_ids": [
+          "wf-superpowers-readme"
+        ]
+      },
+      "declared_claims": [
+        {
+          "claim": "通过需求澄清、TDD、分步实现及审查减少偏离计划。",
+          "source_ids": [
+            "wf-superpowers-readme"
+          ]
+        }
+      ],
+      "interaction_policy": {
+        "presentation": "分段回放理解，正文尽量简洁；brainstorming 对已充分描述的请求首段约 200 英文词、理解回放约 200—300 词，均为指令目标而非效果统计。",
+        "questions": "优先开放式提问，每条消息一个问题；先读环境事实；用户卡住再给菜单。用户未主动要求 brainstorming 时提供跳过提问的出口。",
+        "risk": "强制方案选择和设计批准可能增加明确任务的交互成本；要测试这些分支在真实宿主是否被正确区分。",
+        "source_ids": [
+          "wf-superpowers-brainstorming"
+        ]
+      },
+      "published_evaluation_evidence": [
+        {
+          "evidence_type": "maintainer_behavior_evaluation_infrastructure",
+          "summary": "docs/testing 将非 LLM 插件测试与真实 CLI 行为 eval 分开；后者使用 actor/verifier、场景验收及确定性后检查。部分行为记录位于维护者外部 eval lab，不能把测试入口当全流程外部横评。",
+          "source_ids": [
+            "wf-superpowers-testing"
+          ]
+        },
+        {
+          "evidence_type": "maintainer_narrow_regression_study",
+          "scope": "2026-07-06 SDD 工作区恢复；fresh Sonnet subagents、手工逐条评分，非完整开发能力评测。",
+          "sample_size": "RED 阶段 25 次 controller repetitions",
+          "finding": "预期的盲信异任务 ledger 错误没有复现，25/25 拒绝错误完成声明；作者据结构性问题继续修改，并明确不声称该实验展示原先假设的错误率。",
+          "source_ids": [
+            "wf-superpowers-resume-eval"
+          ]
+        }
+      ],
+      "longitudinal_observation": {
+        "change": "v7.0.1 发布说明承认 v7.0.0 默认提问令人厌烦、公式化，随后调整为先查上下文、问题贴合已有请求。",
+        "interpretation": "即使项目名称不变，交互策略也会显著变化，评价必须固定 skill 版本。",
+        "source_ids": [
+          "wf-superpowers-release"
+        ]
+      },
+      "limitations": [
+        "未观察到覆盖上述完整工作流、与同类方案配对的独立公开效益评测；这仅描述本次检索范围。",
+        "窄场景行为合规不能证明质量、成本和用户体验整体更优。",
+        "英文 word budget 不能直接转换为中文可读性结论。"
+      ],
+      "source_ids": [
+        "wf-superpowers-readme",
+        "wf-superpowers-brainstorming",
+        "wf-superpowers-license",
+        "wf-superpowers-testing",
+        "wf-superpowers-release",
+        "wf-superpowers-revision",
+        "wf-superpowers-resume-eval"
+      ],
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "project_id": "gstack",
+      "name": "gstack",
+      "repository_url": "https://github.com/garrytan/gstack",
+      "revision_observation": {
+        "commit_sha": "b04cc35832183a89ed71eed628de15a6f315a1a8",
+        "default_branch": "main",
+        "version": "1.91.182.0",
+        "version_source": "VERSION",
+        "github_releases_observation": "releases?per_page=3 返回空列表，不据此推断不存在标签或其他发行渠道。",
+        "source_ids": [
+          "wf-gstack-version",
+          "wf-gstack-revision",
+          "wf-gstack-releases"
+        ]
+      },
+      "capability_categories": [
+        "角色化开发工作流",
+        "需求与产品决策澄清",
+        "信息呈现",
+        "验证与审查"
+      ],
+      "intervention_mechanism": "通过角色化 slash commands、运行时脚本、问题记录与偏好控制组合产品判断、设计、工程审查和验证。office-hours 把选择组织成包含背景、推荐和权衡的 decision brief。",
+      "packaging": [
+        "skillset",
+        "CLI 辅助工具",
+        "运行时状态与偏好记录",
+        "宿主集成"
+      ],
+      "components_and_license": [
+        {
+          "component": "主仓库",
+          "license": "MIT",
+          "license_source_id": "wf-gstack-license",
+          "license_scope_note": "外部浏览器、宿主及模型服务未计入。"
+        }
+      ],
+      "activation_and_host_support": {
+        "declared_primary_host": "Claude Code",
+        "other_support": "README 说明 OpenClaw 经 ACP 启动已安装 gstack 的 Claude Code；其他宿主逐适配器核对，不能自动视为同等能力。",
+        "activation": "通过命令显式调用工作流；运行时 preamble 和状态门控会影响行为。",
+        "verification_by_this_investigation": "只读核对，未安装或运行工作流",
+        "source_ids": [
+          "wf-gstack-readme",
+          "wf-gstack-office-hours"
+        ]
+      },
+      "declared_claims": [
+        {
+          "claim": "README 用维护者跨年份自身产出及 logical code change 展示生产率提升；这些观察不是将 gstack 与无扩展配对的因果实验证据。",
+          "source_ids": [
+            "wf-gstack-readme"
+          ]
+        }
+      ],
+      "interaction_policy": {
+        "presentation": "decision brief 解释决策背景和 stakes，给推荐、选项权衡；覆盖程度不同才使用 Completeness 分数，类型不同的方案不应伪造分数。要求报告 DONE 等状态时带执行证据和未独立验证内容。",
+        "questions": "高影响歧义先澄清；问题偏好系统可自动处理已记录的用户偏好。实际 native 工具、prose fallback 与 spawned/unattended 路径不同。",
+        "tradeoff": "结构与证据要求有助审阅，但长 preamble、多项 pros/cons 和完整度导向也可能增加阅读量；需要真实用户任务的评价。",
+        "source_ids": [
+          "wf-gstack-office-hours"
+        ]
+      },
+      "published_evaluation_evidence": [
+        {
+          "evidence_type": "maintainer_native_interaction_and_runtime_tests",
+          "summary": "测试文档说明隔离配置、真实 native AskUserQuestion payload 与当前界面的配对抓取。question_captured 明确 workflowCompleted:false；第一题捕获不是完整工作流成功。",
+          "source_ids": [
+            "wf-gstack-testing"
+          ]
+        },
+        {
+          "evidence_type": "maintainer_model_eval_policy",
+          "summary": "支持以配置限制评测模型及最新代次，记录 scope 和来源；这是项目内模型选择与评测治理机制，并不等于跨所有插件的独立持续排行榜。",
+          "source_ids": [
+            "wf-gstack-eval-model-rules"
+          ]
+        }
+      ],
+      "limitations": [
+        "未在本次读取的材料中确认完整工作流对照用户实验或统一成本/质量改善幅度。",
+        "内部原生交互测试验证行为与证据链，不直接测量人类认知负担。",
+        "自动更新和运行时偏好可能改变同一项目名下的干预，基准须冻结版本与状态。"
+      ],
+      "source_ids": [
+        "wf-gstack-readme",
+        "wf-gstack-office-hours",
+        "wf-gstack-license",
+        "wf-gstack-testing",
+        "wf-gstack-eval-model-rules",
+        "wf-gstack-version",
+        "wf-gstack-revision",
+        "wf-gstack-releases"
+      ],
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "project_id": "gsd-core",
+      "name": "GSD Core",
+      "repository_url": "https://github.com/open-gsd/gsd-core",
+      "revision_observation": {
+        "commit_sha": "6ddd0cef9cb26673bd8321c5480c0814a92d54cb",
+        "default_branch": "next",
+        "latest_non_prerelease_tag": "v1.18.0",
+        "latest_non_prerelease_commit_sha": "35f5a452239b897b8d6352c973e1e4efd683370f",
+        "release_published_at": "2026-10-19T00:04:03Z",
+        "stable_and_default_comparison": "本次读取的 README 与 questioning.md 在 next 和 v1.18.0 的文件 blob SHA 相同；仓库 commit 不同，不能推断其他行为也相同。",
+        "source_ids": [
+          "wf-gsd-revision",
+          "wf-gsd-release",
+          "wf-gsd-stable-revision",
+          "wf-gsd-readme",
+          "wf-gsd-stable-readme",
+          "wf-gsd-questioning",
+          "wf-gsd-stable-questioning"
+        ]
+      },
+      "capability_categories": [
+        "完整分阶段开发工作流",
+        "上下文管理",
+        "需求澄清",
+        "决策持久化"
+      ],
+      "intervention_mechanism": "Discuss→Plan→Execute→Verify→Ship 分阶段推进，重任务交给 fresh-context 执行者，主会话保留协调与持久化文档。讨论阶段将决策写入 CONTEXT.md，供研究与计划阶段消费。",
+      "packaging": [
+        "workflow framework",
+        "commands",
+        "agents",
+        "宿主适配安装器",
+        "持久化项目工件"
+      ],
+      "components_and_license": [
+        {
+          "component": "主仓库",
+          "license": "MIT",
+          "license_source_id": "wf-gsd-license",
+          "license_scope_note": "不包含宿主与外部服务的许可判断。"
+        }
+      ],
+      "activation_and_host_support": {
+        "declared_hosts": [
+          "Claude Code",
+          "OpenCode",
+          "Codex",
+          "Kimi CLI",
+          "Kilo",
+          "GitHub Copilot",
+          "Cursor",
+          "Windsurf",
+          "Antigravity CLI",
+          "其他 README 列明宿主"
+        ],
+        "activation": "文档要求通过安装器生成 runtime 适配，不应仅复制 agents/commands 后认定兼容；流程支持显式命令与不同讨论模式。",
+        "verification_by_this_investigation": "只读核对，未安装和实测",
+        "source_ids": [
+          "wf-gsd-readme"
+        ]
+      },
+      "declared_claims": [
+        {
+          "claim": "通过 fresh context 与持久状态缓解 context rot，并用阶段验证提升可靠性；未给可直接比较的统一效率数值。",
+          "source_ids": [
+            "wf-gsd-readme"
+          ]
+        }
+      ],
+      "interaction_policy": {
+        "presentation": "将当前阶段、已锁定偏好和下游可消费的 CONTEXT.md 分开；discussion audit trail 记录讨论。",
+        "questions": "初始化先开放探索、沿用户线索追问，明确目的、受众和完成条件；具体选项有助确认，不应使用诱导选项。阶段讨论只问未在先前 CONTEXT.md 解决的问题，并在发现灰区前 scout 代码。",
+        "modes": "支持 --auto 推荐默认、--batch 分组及其他懒加载模式；对非技术用户转为产品结果语言。",
+        "source_ids": [
+          "wf-gsd-questioning",
+          "wf-gsd-phase-discussion",
+          "wf-gsd-discussion-audit",
+          "wf-gsd-discuss-workflow"
+        ]
+      },
+      "published_evaluation_evidence": [
+        {
+          "evidence_type": "implementation_and_release_evidence_only",
+          "summary": "本次核查了实际讨论规则、阶段工件契约与稳定发布；没有运行项目测试，也未确认与其他完整 workflow 在同组任务上的独立效益评测。",
+          "source_ids": [
+            "wf-gsd-discuss-workflow",
+            "wf-gsd-release"
+          ]
+        }
+      ],
+      "limitations": [
+        "主会话上下文变小并不代表所有 subagents 的总 token 或总成本降低。",
+        "版本、讨论模式、并行度、状态文件与自动默认会共同影响结果，必须作为实验条件冻结。",
+        "仓库默认分支 next 与稳定 tag 分开；旧 gsd-build/get-shit-done 名称不能作为当前版本身份。"
+      ],
+      "source_ids": [
+        "wf-gsd-readme",
+        "wf-gsd-questioning",
+        "wf-gsd-phase-discussion",
+        "wf-gsd-discussion-audit",
+        "wf-gsd-discuss-workflow",
+        "wf-gsd-license",
+        "wf-gsd-release",
+        "wf-gsd-revision",
+        "wf-gsd-stable-revision",
+        "wf-gsd-stable-readme",
+        "wf-gsd-stable-questioning"
+      ],
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    }
+  ],
+  "harnesses": [
+    {
+      "harness_id": "codex-cli",
+      "name": "Codex CLI",
+      "repository_url": "https://github.com/openai/codex",
+      "previous_repository_url": null,
+      "revision_observation": {
+        "commit_sha": "1c0c45bfc372fb7d7d581508fdef5eef8235eab7",
+        "default_branch": "main",
+        "observation_kind": "default_branch_snapshot",
+        "stable_release_version": "unknown",
+        "checked_at_utc": "2026-10-23T16:07:37Z"
+      },
+      "intervention_scope": "agent_host_runtime",
+      "summary": "本地运行的编程 agent；在本调查中作为宿主与无扩展对照，而不是一种节省 token 的 skill。",
+      "extension_surfaces_documented": [
+        "AGENTS.md 项目指令",
+        "Agent Skills（上游 docs/skills.md 指向官方文档）",
+        "非交互执行接口"
+      ],
+      "license_observation": "Apache-2.0（仓库 API 标识；README亦声明）",
+      "host_behavior_validation_status": "not_run_in_this_investigation",
+      "limitations": [
+        "固定的仓库源码 commit 不等于本机已安装或实测的 CLI 二进制版本。",
+        "本次没有核验任何具体扩展在该宿主的运行结果。"
+      ],
+      "source_ids": [
+        "host-codex-cli-readme",
+        "host-codex-cli-repository-metadata",
+        "official-codex-skills-redirect",
+        "host-codex-agents-md",
+        "host-codex-exec-mode",
+        "host-codex-skills-documentation-pointer"
+      ],
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "harness_id": "claude-code",
+      "name": "Claude Code",
+      "repository_url": "https://github.com/anthropics/claude-code",
+      "previous_repository_url": null,
+      "revision_observation": {
+        "commit_sha": "65823ec0034ed0aa0266bc43903fefd3ff94a327",
+        "default_branch": "main",
+        "observation_kind": "default_branch_snapshot",
+        "stable_release_version": "unknown",
+        "checked_at_utc": "2026-10-23T16:07:37Z"
+      },
+      "intervention_scope": "agent_host_runtime",
+      "summary": "主要扩展与横评的宿主；公开 GitHub 仓库含插件、文档与问题跟踪，不能据此称产品核心开源。",
+      "extension_surfaces_documented": [
+        "skills",
+        "agents",
+        "hooks / mods",
+        "MCP servers",
+        "marketplace"
+      ],
+      "license_observation": "专有产品；公开仓库 LICENSE.md 指向 Commercial Terms",
+      "host_behavior_validation_status": "not_run_in_this_investigation",
+      "limitations": [
+        "LICENSE.md 声明 all rights reserved，使用受 Commercial Terms 约束。",
+        "此仓库 commit 固定的是公开材料，不是产品引擎源码或发行 binary。"
+      ],
+      "source_ids": [
+        "host-claude-code-readme",
+        "host-claude-code-repository-metadata",
+        "host-claude-code-license",
+        "official-claude-code-plugins"
+      ],
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "harness_id": "gemini-cli",
+      "name": "Gemini CLI",
+      "repository_url": "https://github.com/google-gemini/gemini-cli",
+      "previous_repository_url": null,
+      "revision_observation": {
+        "commit_sha": "a713410aba5d594594e20d5c822e3aab8f822089",
+        "default_branch": "main",
+        "observation_kind": "default_branch_snapshot",
+        "stable_release_version": "unknown",
+        "checked_at_utc": "2026-10-23T16:07:37Z"
+      },
+      "intervention_scope": "agent_host_runtime",
+      "summary": "开源终端 agent；README 同时说明部分用户已转向 Antigravity CLI，最新模型适配不应从旧横评外推。",
+      "extension_surfaces_documented": [
+        "MCP",
+        "custom extensions",
+        "项目指令"
+      ],
+      "license_observation": "Apache-2.0（仓库 API 标识）",
+      "host_behavior_validation_status": "not_run_in_this_investigation",
+      "limitations": [
+        "当前 README 有迁移和最新模型适配提示；历史 Gemini CLI 结果不能自动代表 Antigravity CLI。",
+        "没有核验全部 Agent Skills 适配或模型组合。"
+      ],
+      "source_ids": [
+        "host-gemini-cli-readme",
+        "host-gemini-cli-repository-metadata"
+      ],
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "harness_id": "opencode",
+      "name": "OpenCode",
+      "repository_url": "https://github.com/anomalyco/opencode",
+      "previous_repository_url": null,
+      "revision_observation": {
+        "commit_sha": "f6e202cb7b5d3a3a65c00ae25c77865f62c04369",
+        "default_branch": "dev",
+        "observation_kind": "default_branch_snapshot",
+        "stable_release_version": "unknown",
+        "checked_at_utc": "2026-10-23T16:07:37Z"
+      },
+      "intervention_scope": "agent_host_runtime",
+      "summary": "开源编程 agent；官方文档将按需 SKILL.md 加载与 JavaScript/TypeScript 事件插件分开。",
+      "extension_surfaces_documented": [
+        "按需 skill 工具",
+        "JavaScript/TypeScript 事件插件",
+        "MCP",
+        "自定义工具"
+      ],
+      "license_observation": "MIT（仓库 API 标识）",
+      "host_behavior_validation_status": "not_run_in_this_investigation",
+      "limitations": [
+        "默认分支为 dev；该源码观察不是稳定发行版身份。",
+        "官网文档是动态观察，未证明与本次 dev commit 完全同版。"
+      ],
+      "source_ids": [
+        "host-opencode-readme",
+        "host-opencode-repository-metadata",
+        "official-opencode-plugins",
+        "official-opencode-skills"
+      ],
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "harness_id": "oh-my-pi",
+      "name": "oh-my-pi（OMP）",
+      "repository_url": "https://github.com/can1357/oh-my-pi",
+      "previous_repository_url": null,
+      "revision_observation": {
+        "commit_sha": "0b5c27ab24719c86a5986b95ee55f4e75bc1aaa0",
+        "default_branch": "main",
+        "observation_kind": "default_branch_snapshot",
+        "stable_release_version": "unknown",
+        "checked_at_utc": "2026-10-23T16:07:37Z"
+      },
+      "intervention_scope": "agent_host_runtime",
+      "summary": "Pi 的独立 fork，内建编辑、检索、模型角色、记忆及技能管理；可用于研究宿主工具设计本身带来的效率差异。",
+      "extension_surfaces_documented": [
+        "MCP",
+        "skill:// 与技能管理",
+        "model roles",
+        "SDK / RPC / ACP"
+      ],
+      "license_observation": "MIT（仓库 API 标识）",
+      "host_behavior_validation_status": "not_run_in_this_investigation",
+      "limitations": [
+        "不能把 OMP 与 Pi 合并成同一宿主版本。",
+        "README 的性能数字是作者主张，本概览没有审计其因果证据。"
+      ],
+      "source_ids": [
+        "host-oh-my-pi-readme",
+        "host-oh-my-pi-repository-metadata"
+      ],
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "harness_id": "openhands",
+      "name": "OpenHands",
+      "repository_url": "https://github.com/OpenHands/OpenHands",
+      "previous_repository_url": null,
+      "revision_observation": {
+        "commit_sha": "8fdd6859aee5779ebbc12e44dc32823d7cb08527",
+        "default_branch": "main",
+        "observation_kind": "default_branch_snapshot",
+        "stable_release_version": "unknown",
+        "checked_at_utc": "2026-10-23T16:07:37Z"
+      },
+      "intervention_scope": "agent_host_runtime",
+      "summary": "当前主仓库为 Agent Canvas 控制界面；真正 agent loop 与 Agent Server 由 software-agent-sdk 仓库提供。",
+      "extension_surfaces_documented": [
+        "Software Agent SDK / Agent Server",
+        "多后端与 ACP agent 接入",
+        "独立控制界面"
+      ],
+      "license_observation": "MIT（两个仓库 API 标识）",
+      "host_behavior_validation_status": "not_run_in_this_investigation",
+      "limitations": [
+        "比较 benchmark 中的 OpenHands 时须追到 SDK、agent 实现和配置，不能只固定 Agent Canvas commit。",
+        "本次分别固定主仓库和 SDK 源码观察，未运行它们。"
+      ],
+      "source_ids": [
+        "host-openhands-readme",
+        "host-openhands-repository-metadata",
+        "host-openhands-sdk-readme"
+      ],
+      "runtime_repository_observation": {
+        "repository_url": "https://github.com/OpenHands/software-agent-sdk",
+        "commit_sha": "dd0892c80fffb1e59bac77242adafbd8b1168649",
+        "default_branch": "main"
+      },
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "harness_id": "cline",
+      "name": "Cline",
+      "repository_url": "https://github.com/cline/cline",
+      "previous_repository_url": null,
+      "revision_observation": {
+        "commit_sha": "1619168bdeb570aa233d0f0a9af1d332d83a2816",
+        "default_branch": "main",
+        "observation_kind": "default_branch_snapshot",
+        "stable_release_version": "unknown",
+        "checked_at_utc": "2026-10-23T16:07:37Z"
+      },
+      "intervention_scope": "agent_host_runtime",
+      "summary": "共享 agent 引擎，覆盖 CLI、桌面和 IDE；README 明确列出 rules、按需 skills、插件与 MCP。",
+      "extension_surfaces_documented": [
+        ".clinerules",
+        "按需 skills",
+        "plugins",
+        "MCP",
+        "SDK"
+      ],
+      "license_observation": "Apache-2.0（主仓库 API 标识）；JetBrains plugin 源码边界另列",
+      "host_behavior_validation_status": "not_run_in_this_investigation",
+      "limitations": [
+        "CLI、桌面与 IDE 的能力需要按具体表面验证。",
+        "README 明确 JetBrains plugin 当前不公开源码，不能把所有产品表面概称为开源。"
+      ],
+      "source_ids": [
+        "host-cline-readme",
+        "host-cline-repository-metadata"
+      ],
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "harness_id": "aider",
+      "name": "Aider",
+      "repository_url": "https://github.com/Aider-AI/aider",
+      "previous_repository_url": null,
+      "revision_observation": {
+        "commit_sha": "5dc9490bb35f9729ef2c95d00a19ccd30c26339c",
+        "default_branch": "main",
+        "observation_kind": "default_branch_snapshot",
+        "stable_release_version": "unknown",
+        "checked_at_utc": "2026-10-23T16:07:37Z"
+      },
+      "intervention_scope": "agent_host_runtime",
+      "summary": "终端结对编程宿主；以 repository map 提供代码上下文，是内建上下文选择机制的参照。",
+      "extension_surfaces_documented": [
+        "repository map",
+        "Git 集成",
+        "模型配置"
+      ],
+      "license_observation": "Apache-2.0（仓库 API 标识）",
+      "host_behavior_validation_status": "not_run_in_this_investigation",
+      "limitations": [
+        "本次未确认原生 SKILL.md/plugin 装载接口，不将其他宿主的扩展安装方法类推到 Aider。",
+        "README 列举的模型名称不视为当期推荐或完整兼容清单。"
+      ],
+      "source_ids": [
+        "host-aider-readme",
+        "host-aider-repository-metadata"
+      ],
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "harness_id": "pi",
+      "name": "Pi",
+      "repository_url": "https://github.com/earendil-works/pi",
+      "previous_repository_url": "https://github.com/badlogic/pi-mono",
+      "revision_observation": {
+        "commit_sha": "ede2c9b468d8e061c557d16957513715e6d49cd6",
+        "default_branch": "main",
+        "observation_kind": "default_branch_snapshot",
+        "stable_release_version": "unknown",
+        "checked_at_utc": "2026-10-23T16:07:37Z"
+      },
+      "intervention_scope": "agent_host_runtime",
+      "summary": "最小、可扩展的编程宿主；已从 badlogic/pi-mono 迁至 earendil-works/pi。",
+      "extension_surfaces_documented": [
+        "extensions",
+        "skills",
+        "prompt templates",
+        "themes",
+        "Pi packages",
+        "JSON / RPC / SDK"
+      ],
+      "license_observation": "MIT（仓库 API 标识）",
+      "host_behavior_validation_status": "not_run_in_this_investigation",
+      "limitations": [
+        "包名与仓库已迁移，历史锁文件应保留别名及来源。",
+        "本次只核对公开接口说明，没有加载扩展。"
+      ],
+      "source_ids": [
+        "host-pi-readme",
+        "host-pi-repository-metadata",
+        "host-pi-repository-redirect"
+      ],
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    }
+  ],
+  "adjacent_projects": [
+    {
+      "project_id": "serena",
+      "name": "Serena",
+      "repository_url": "https://github.com/oraios/serena",
+      "review_depth": "overview_only",
+      "revision_observation": {
+        "commit_sha": "abb0a0f01b94bc8050086f0fb860077d17730324",
+        "default_branch": "main",
+        "observation_kind": "default_branch_snapshot",
+        "checked_at_utc": "2026-10-23T16:07:37Z"
+      },
+      "capability_categories": [
+        "semantic-code-tooling"
+      ],
+      "intervention_mechanism": "通过符号、引用和语义操作减少粗粒度全文读取与文本改写；MCP 工具服务器，当前还有 REPL 接口。",
+      "license_observation": "Serena application GPL-3.0-or-later；SolidLSP MIT（固定 LICENSE 已核对）",
+      "why_relevant": "作为精准上下文选择的参照，避免把所有输入节省都归为有损压缩。",
+      "published_evaluation_status": "not_audited_in_overview",
+      "limitations": [
+        "agent 自述推荐不是独立成功率或用户体验证据。"
+      ],
+      "source_ids": [
+        "adjacent-serena-readme",
+        "adjacent-serena-license",
+        "adjacent-serena-repository-metadata"
+      ],
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "project_id": "llmlingua",
+      "name": "LLMLingua",
+      "repository_url": "https://github.com/microsoft/LLMLingua",
+      "review_depth": "overview_only",
+      "revision_observation": {
+        "commit_sha": "5a4c78ae18ab17a98cf997e8259354e546081d64",
+        "default_branch": "main",
+        "observation_kind": "default_branch_snapshot",
+        "checked_at_utc": "2026-10-23T16:07:37Z"
+      },
+      "capability_categories": [
+        "learned-prompt-compression"
+      ],
+      "intervention_mechanism": "使用小模型或编码器识别可删除 token，服务 prompt / RAG 压缩。",
+      "license_observation": "MIT（仓库 API 标识）",
+      "why_relevant": "解释 Headroom 一类压缩方案的研究邻域与压缩成本。",
+      "published_evaluation_status": "not_audited_in_overview",
+      "limitations": [
+        "RAG 或单轮压缩效果不能直接外推到长程软件开发任务。"
+      ],
+      "source_ids": [
+        "adjacent-llmlingua-readme",
+        "adjacent-llmlingua-repository-metadata"
+      ],
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "project_id": "toon",
+      "name": "TOON",
+      "repository_url": "https://github.com/toon-format/toon",
+      "review_depth": "overview_only",
+      "revision_observation": {
+        "commit_sha": "e247c423e0a38bca3477b17fecdf6ef4feeb5584",
+        "default_branch": "main",
+        "observation_kind": "default_branch_snapshot",
+        "checked_at_utc": "2026-10-23T16:07:37Z"
+      },
+      "capability_categories": [
+        "structured-data-encoding"
+      ],
+      "intervention_mechanism": "以更紧凑的结构化表示编码 JSON 数据模型，尤其针对字段一致的数据。",
+      "license_observation": "MIT（仓库 API 标识）",
+      "why_relevant": "提供无损表示层优化的参照；数据形状可能比 skill 提示更重要。",
+      "published_evaluation_status": "not_audited_in_overview",
+      "limitations": [
+        "复杂嵌套或异构对象未必更省；序列化 token 降幅不等于任务总成本降幅。"
+      ],
+      "source_ids": [
+        "adjacent-toon-readme",
+        "adjacent-toon-repository-metadata"
+      ],
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "project_id": "karpathy-inspired-guidelines",
+      "name": "Karpathy-Inspired Claude Code Guidelines",
+      "repository_url": "https://github.com/multica-ai/andrej-karpathy-skills",
+      "review_depth": "overview_only",
+      "revision_observation": {
+        "commit_sha": "2c606141936f1eeef17fa3043a72095b4765b9c2",
+        "default_branch": "main",
+        "observation_kind": "default_branch_snapshot",
+        "checked_at_utc": "2026-10-23T16:07:37Z"
+      },
+      "capability_categories": [
+        "minimal-coding-guidelines"
+      ],
+      "intervention_mechanism": "以四项原则约束假设、复杂度、修改范围和可验证目标。",
+      "license_observation": "unknown（本次未核对实际 LICENSE；仓库 API 未给出 SPDX）",
+      "why_relevant": "作为 Ponytail 邻近的短指令方案；可检验详细 skill 是否优于简单行为原则。",
+      "published_evaluation_status": "not_audited_in_overview",
+      "limitations": [
+        "该项目是作者依据 Karpathy 观点整理的指南，不是 Karpathy 本人发布或背书的已验证产品。"
+      ],
+      "source_ids": [
+        "adjacent-karpathy-inspired-guidelines-readme",
+        "adjacent-karpathy-inspired-guidelines-repository-metadata"
+      ],
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "project_id": "spec-kit",
+      "name": "Spec Kit",
+      "repository_url": "https://github.com/github/spec-kit",
+      "review_depth": "overview_only",
+      "revision_observation": {
+        "commit_sha": "27d14e20c187c1f2916540ea201ecbdc9f8ed588",
+        "default_branch": "main",
+        "observation_kind": "default_branch_snapshot",
+        "checked_at_utc": "2026-10-23T16:07:37Z"
+      },
+      "capability_categories": [
+        "specification-driven-workflow"
+      ],
+      "intervention_mechanism": "用规格、模板、可组合流程与质量关口连接需求和实施。",
+      "license_observation": "MIT（仓库 API 标识）",
+      "why_relevant": "完整 workflow 对照扩展，检验流程开销与需求一致性的取舍。",
+      "published_evaluation_status": "not_audited_in_overview",
+      "limitations": [
+        "原生流程、扩展、预设与 bundle 不能当作单一不变处理。"
+      ],
+      "source_ids": [
+        "adjacent-spec-kit-readme",
+        "adjacent-spec-kit-repository-metadata"
+      ],
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "project_id": "bmad-method",
+      "name": "BMad Method",
+      "repository_url": "https://github.com/bmad-code-org/BMAD-METHOD",
+      "review_depth": "overview_only",
+      "revision_observation": {
+        "commit_sha": "61e01f82644c4bb533750cfa0d6d61ab61d2cc9b",
+        "default_branch": "main",
+        "observation_kind": "default_branch_snapshot",
+        "checked_at_utc": "2026-10-23T16:07:37Z"
+      },
+      "capability_categories": [
+        "specification-driven-workflow"
+      ],
+      "intervention_mechanism": "通过明确决策、角色与持久上下文组织开发流程。",
+      "license_observation": "MIT（固定 LICENSE 已核对）",
+      "why_relevant": "与 GSD、Superpowers 形成范围较大的流程邻域。",
+      "published_evaluation_status": "not_audited_in_overview",
+      "limitations": [
+        "固定 main README 自称 V7 preview alpha，并另列 v6.12 稳定线；需实际固定 release，不能由预计发布日期推断已经发布。"
+      ],
+      "source_ids": [
+        "adjacent-bmad-method-readme",
+        "adjacent-bmad-method-license",
+        "adjacent-bmad-method-repository-metadata"
+      ],
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    }
+  ],
+  "directories_and_specifications": [
+    {
+      "directory_id": "skills-sh",
+      "name": "skills.sh",
+      "role": "技能发现与分发",
+      "ranking_basis": "官方说明按Skills CLI匿名安装遥测排名，衡量安装流行度；不是成功率、成本或交互效果排名。",
+      "source_ids": [
+        "directory-skills-sh-documentation"
+      ],
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "directory_id": "agent-skills-specification",
+      "name": "Agent Skills Specification",
+      "role": "文件包装与渐进加载规范",
+      "ranking_basis": "不提供项目效果排行榜。",
+      "comparability_limit": "SKILL.md 可携带脚本与参考文件；共同文件格式不能保证各宿主以相同触发、注入和工具权限运行。",
+      "source_ids": [
+        "specification-agent-skills"
+      ],
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    }
+  ],
+  "benchmarks": [
+    {
+      "benchmark_id": "thol-end-to-end-optimizer-benchmark",
+      "name": "THOL",
+      "repository_url": "https://github.com/pi-infected/token-harness-optimizer-leaderboard",
+      "revision_observation": {
+        "commit_sha": "5ee6ea7f81dc21db1aae8d359cda3e1f7ded6dde",
+        "default_branch": "main",
+        "commit_committed_at_utc": "2026-07-18T14:43:15Z",
+        "checked_at_utc": "2026-10-23T16:05:26Z"
+      },
+      "purpose": "同任务/模型/仓库/环境测相对 vanilla Claude Code 的成功率、session 成本、时间与调用率。",
+      "model_and_harness": "claude-sonnet-4-6；Claude Code 2.1.183",
+      "measurement_scope": "12 个正式计分任务，单格约 10 次，仓库/fixture/manifest 固定",
+      "quality_verification": "隐藏 ground truth 程序 verifier；单独报告成功率、adoption、setup/indexing。",
+      "aggregation": "先比较每任务成功 runs 的平均成本，再对任务比值做几何平均与 bootstrap CI。",
+      "limitations": [
+        "成本在成功 runs 条件下聚合，不是含全部失败重试的总花费/解决任务数；应同时发布总花费。",
+        "已发布 campaign 仅一个模型/harness；不是新模型持续重测服务。",
+        "早期 campaign 没保留 transcript，只有 DB/结果，文档明确披露。",
+        "单会话隔离不适合跨会话记忆。"
+      ],
+      "conflict_of_interest": "维护者同时开发参评 tokenade；统一 pipeline 不能消除任务选择偏差。",
+      "source_ids": [
+        "eff-thol-method"
+      ],
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "benchmark_id": "cavewoman-linguistic-compression",
+      "name": "CAVEWOMAN",
+      "repository_url": "https://github.com/danielle34/cavewoman",
+      "revision_observation": {
+        "commit_sha": "28875b39a6c957a0ae96950538cdacfcd0eff0b3",
+        "default_branch": "main",
+        "commit_committed_at_utc": "2026-10-15T21:19:12Z",
+        "checked_at_utc": "2026-10-23T16:05:26Z"
+      },
+      "purpose": "分离输入语法删减和输出风格约束，测准确率、定价成本与相对无约束回答的语义一致性。",
+      "model_and_harness": "研究 runner；当前总规模含 9 模型，headline grid 是 8 模型/5 benchmarks/5 levels/两方向，不能混用。",
+      "measurement_scope": "主要为单轮短答案，不是开发 harness 多轮任务",
+      "published_findings": [
+        {
+          "claim": "输出压缩成本约低 1.7 倍，最高 3 倍；输入语法删减最高增成本 96%",
+          "measurement_scope": "该研究的模型/数据/per-token API 定价；不是 Caveman 当前所有组件",
+          "source_ids": [
+            "eff-cavewoman-method"
+          ]
+        }
+      ],
+      "quality_verification": "准确率提取失败有 LLM judge/人工校对，另测文本/语义一致性。",
+      "limitations": [
+        "语法删词的结论不能外推至结构化过滤、检索或无损序列化。",
+        "准确答案不代表解释信息保持。",
+        "总规模与 headline panel 范围不同，需分别引用。"
+      ],
+      "source_ids": [
+        "eff-cavewoman-method"
+      ],
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "benchmark_id": "reqclarifybench",
+      "name": "ReqClarifyBench",
+      "canonical_url": "https://arxiv.org/abs/2610.13022v1",
+      "revision_observation": {
+        "paper_version": "arXiv:2610.13022v1",
+        "paper_date": "2026-10-09",
+        "archive_version": "Zenodo v1",
+        "archive_doi": "10.5281/zenodo.23031774",
+        "repository_commit_sha": null,
+        "repository_url": "unknown；本文直接指向 Zenodo 归档",
+        "archive_locally_verified": false
+      },
+      "capability_scope": "从模糊意图经多轮澄清生成需求文档，并考察后续仓库级实现；不是 token 优化排行榜。",
+      "task_count": 341,
+      "domains": [
+        "game",
+        "miniapp",
+        "web"
+      ],
+      "comparison_unit": "模型/agent-harness 配置 × 任务 × 用户 persona",
+      "user_simulation": {
+        "model": "GPT-5.6-Sol",
+        "temperature": 0.7,
+        "personas": [
+          "Expert Nitpicker",
+          "Vague Requester",
+          "Mind Changer"
+        ],
+        "ground_truth": "提供人工校验的需求文档，按 persona 回答"
+      },
+      "evaluation": {
+        "models_count": 6,
+        "max_interaction_rounds": 20,
+        "judge": "DeepSeek-V4.1-Flash",
+        "metrics": [
+          "Effective Question Rate",
+          "AvgClarified",
+          "BERTScore F1",
+          "ReqAlign：atomic requirement 的 covered/omitted/violated"
+        ],
+        "key_finding": "论文报告提问有效性与最终需求文档质量并不一致；harness 提升某些提问指标并不保证文档更好。"
+      },
+      "reuse_recommendation": "借鉴多 persona、逐需求覆盖与最终文档/代码结果分开评分的设计；优先作为澄清实验模板。",
+      "limitations": [
+        "模拟用户与 LLM judge 不等同真人可用性；persona 可辨识性也不证明真实人类行为被完整复现。",
+        "基于已有产品生成基准重建参考需求，外推到开放式真实产品决策需要另验。",
+        "归档存在和页面所报 MD5 已检查，但本次未下载或执行；代码/数据实际许可尚未核实，不能直接声称可自由再分发。"
+      ],
+      "source_ids": [
+        "interaction-reqclarifybench-paper",
+        "interaction-reqclarifybench-archive"
+      ],
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "benchmark_id": "askbench",
+      "name": "AskBench",
+      "canonical_url": "https://arxiv.org/abs/2602.11199v2",
+      "repository_url": "https://github.com/jialeuuz/askbench",
+      "revision_observation": {
+        "commit_sha": "f35da92feda34504f10413313554438e7abaeb08",
+        "commit_date": "2026-02-14T07:16:15Z",
+        "tree_sha": "bfa4bf929f5ebd61a465be4b12f42a212d38685a",
+        "default_branch": "main",
+        "archived": false,
+        "license_spdx": "MIT",
+        "observed_ref": "refs/heads/main",
+        "checked_at_utc": "2026-10-23T16:07:49Z",
+        "paper_version": "arXiv:2602.11199v2",
+        "paper_revision_date": "2026-04-20"
+      },
+      "capability_scope": "通用问答中的何时澄清、应问什么与误导前提纠正。",
+      "conditions": [
+        "AskMind：缺少关键信息",
+        "AskOverconfidence：带错误前提"
+      ],
+      "task_count": "unknown；未将组合子集数误记为总样本量",
+      "user_simulation": "统一 judge loop 在被测模型主动询问时模拟回复，并评价最后回答及 required/misleading checkpoints。",
+      "evaluation": {
+        "metrics": [
+          "final-answer accuracy",
+          "checkpoint coverage",
+          "interaction efficiency"
+        ],
+        "protocols": [
+          "standard multi-turn",
+          "strict two-turn"
+        ],
+        "judge": "README 指出使用开源 judge，例如 Qwen3-30B-A3B-Instruct-2507；具体复现必须固定配置",
+        "public_numeric_results_included": false
+      },
+      "license": {
+        "code": "MIT",
+        "dataset_reuse_license": "unknown；需逐数据源核查",
+        "source_ids": [
+          "interaction-askbench-license"
+        ]
+      },
+      "reuse_recommendation": "借鉴缺失信息/错误前提双场景与 checklist 覆盖；作为开发澄清集的补充对照，不能取代仓库级任务。",
+      "limitations": [
+        "同一 judge 承担模拟与评分可能耦合偏差；应另做人工抽检或异模型评分。",
+        "QA 改写任务与真实开发者的决策成本差距较大。",
+        "冻结代码提交日期为 2026-02-14，而论文 v2 于 2026-04-20 修订；不能仅凭 README 链接认定此代码完整复现 v2。",
+        "本次未运行实验，未把论文训练收益写成第三方 skill 收益。"
+      ],
+      "source_ids": [
+        "interaction-askbench-paper",
+        "interaction-askbench-readme",
+        "interaction-askbench-license"
+      ],
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "benchmark_id": "ask-or-assume",
+      "name": "Ask or Assume? Uncertainty-Aware Clarification-Seeking in Coding Agents",
+      "canonical_url": "https://arxiv.org/abs/2603.26233v1",
+      "repository_url": "https://github.com/nedwards99/ask-or-assume",
+      "revision_observation": {
+        "commit_sha": "ee8603e8f4d96ace56abef2ad900c75f25bc59be",
+        "commit_date": "2026-09-05T08:57:16Z",
+        "tree_sha": "93231426ec5d97634b207be37fdcd9a9b17d5fab",
+        "default_branch": "main",
+        "archived": false,
+        "license_spdx": "NOASSERTION",
+        "observed_ref": "refs/heads/main",
+        "checked_at_utc": "2026-10-23T16:07:49Z",
+        "paper_version": "arXiv:2603.26233v1",
+        "paper_date": "2026-03-27"
+      },
+      "capability_scope": "欠明确真实 GitHub issue 的交互式修复，将是否需要澄清与代码执行分离。",
+      "task_count": 500,
+      "harness": "OpenHands 的研究 scaffold",
+      "user_simulation": {
+        "model": "GPT-5.1",
+        "ground_truth": "原始完整 issue 中隐藏的信息"
+      },
+      "conditions": [
+        "Full",
+        "Hidden",
+        "Interactive Baseline",
+        "UA-Single",
+        "UA-Multi"
+      ],
+      "evaluation": {
+        "model_for_primary_paper_result": "Claude Sonnet 4.5",
+        "additional_model_in_current_repository": "Kimi K2.6",
+        "metric": "SWE-bench task resolve rate",
+        "published_result": {
+          "ua_multi_percent": 69.4,
+          "ua_single_percent": 61.2
+        },
+        "result_scope": "论文 Sonnet 4.5 的 500 issue 结果，不是当前全部模型或任意 skill 的效果"
+      },
+      "license": {
+        "code_outside_enterprise": "MIT",
+        "enterprise_directory": "单独许可证，未核查",
+        "source_ids": [
+          "interaction-ask-or-assume-license"
+        ]
+      },
+      "reuse_recommendation": "借鉴完整信息、隐藏信息、强制问一次、单 agent 与分离检测角色的多组对照；保留最终测试通过率及全部模型调用成本。",
+      "limitations": [
+        "论文承认 oracle 模拟用户过于合作，真实开发者可能提供不完整或变化的信息。",
+        "每主 agent turn 加入 Intent Agent 带来额外推理/延迟成本；不能仅以主 agent 的 token 计算效率。",
+        "README 记录 SWE-bench patch-revert 评估 bug，复现需固定对应修复。",
+        "本次未运行，不能证明对新模型版本的持续效果。"
+      ],
+      "source_ids": [
+        "interaction-ask-or-assume-paper",
+        "interaction-ask-or-assume-readme",
+        "interaction-ask-or-assume-license"
+      ],
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "benchmark_id": "skillsbench",
+      "name": "SkillsBench",
+      "repository_url": "https://github.com/benchflow-ai/skillsbench",
+      "revision_observation": {
+        "commit_sha": "f860ecf02ef53412a030f8661c83d644b739ff01",
+        "default_branch": "main",
+        "current_published_task_set": "v1.1",
+        "published_task_set_commit_sha": "b63b7b2850226b6aa4fb5929a8c1ac7bc4d9a6af",
+        "registry_file_blob_sha": "c3888744899679548beaa65d147369535de85135",
+        "runner_constraint": ">=0.6.3,<0.7",
+        "source_ids": [
+          "bench-skillsbench-registry",
+          "bench-skillsbench-release",
+          "bench-skillsbench-revision"
+        ]
+      },
+      "comparison_unit": "同一个任务、模型+harness 配置，在 no-Skills 与任务专属 curated Skills bundle 条件下的配对差异；不是任意同类插件的直接横向排行榜。",
+      "dataset": {
+        "task_count": 87,
+        "domains": 8,
+        "software_engineering_tasks": 16,
+        "excluded_extra_tasks": 14,
+        "source_ids": [
+          "bench-skillsbench-release",
+          "bench-skillsbench-v1-1-post"
+        ]
+      },
+      "intervention": "挂载任务专属 Skills；指令不显式点名 Skills。self-generated 条件另行评价。harness 自带 Skills 当作宿主一部分，和外部任务 Skills 分开。",
+      "published_evaluation_evidence": [
+        {
+          "evidence_type": "upstream_paper_aggregate_and_current_public_leaderboard",
+          "measurement_scope": "发布说明对 v1.1 论文汇总及当前公共排行榜的说明，非本任务复跑",
+          "models_and_harnesses": "论文 18 个 model-harness 配置，四类宿主 Claude Code、Codex、Gemini CLI、OpenHands；当前网站 24 个配对配置与 1 个单边 with-Skills 配置。",
+          "tasks_and_repetitions": "87 tasks × 3 trials × 18 configs × 2 paired conditions = 9,396 scored trajectories（上游汇总）。",
+          "reported_result": {
+            "mean_resolution_without_skills_percent": 33.9,
+            "mean_resolution_with_skills_percent": 50.5,
+            "absolute_gain_percentage_points": 16.6
+          },
+          "quality_verification": "任务 deterministic tests、withheld oracle；先验证 oracle；记录 skill-invocation rate。",
+          "source_ids": [
+            "bench-skillsbench-v1-1-post",
+            "bench-skillsbench-current-site"
+          ]
+        }
+      ],
+      "public_reproduction_materials": "GitHub versioned tasks/registry/digests、HF 数据及公开 trajectory 数据集；本次核对 registry 每个 v1.1 条目都固定到上述 task-set commit。",
+      "model_release_tracking": {
+        "observed": "网站展示多代模型的 release-date 图，注明发布日期月份部分是近似编辑估计；网站当前快照写 recomputed 2026-07-16。",
+        "not_established": "没有在本次核查材料中确认每次模型发布都触发完整重跑、固定扩展版本及固定宿主版本的公开保证。不能将多代模型点图本身当连续受控监测。",
+        "source_ids": [
+          "bench-skillsbench-current-site",
+          "bench-skillsbench-agentbeats-sync"
+        ]
+      },
+      "license": {
+        "identifier": "Apache-2.0",
+        "source_ids": [
+          "bench-skillsbench-license"
+        ]
+      },
+      "limitations": [
+        "同一任务的 bundled domain skills 与 Caveman/Ponytail 等通用干预不是同一个比较问题。",
+        "论文历史 v1 是 86 个构造任务／84 个实际评估任务；不得和当前 87-task v1.1 的汇总混用。",
+        "AgentBeats 同步文档维护任务集版本，不能据此断言所有新模型自动纳入。",
+        "公开展示支持跨模型查询，但因果比较仍须匹配 harness、skill 内容、任务版本、日期和采样条件。"
+      ],
+      "source_ids": [
+        "bench-skillsbench-readme",
+        "bench-skillsbench-license",
+        "bench-skillsbench-registry",
+        "bench-skillsbench-agentbeats-sync",
+        "bench-skillsbench-release",
+        "bench-skillsbench-revision",
+        "bench-skillsbench-current-site",
+        "bench-skillsbench-v1-1-post"
+      ],
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "benchmark_id": "swe-skills-bench",
+      "name": "SWE-Skills-Bench",
+      "repository_url": "https://github.com/GeniusHTX/SWE-Skills-Bench",
+      "revision_observation": {
+        "github_commit_sha": "unknown",
+        "github_access": "本次 GitHub API 返回 404",
+        "paper_version": "arXiv:2603.15401v1 (2026-03-16)",
+        "dataset_repository_url": "https://huggingface.co/datasets/GeniusHTX/SWE-Skills-Bench",
+        "dataset_commit_sha": "a111a9d9e53722c7aafd951830b459b08439f2da",
+        "dataset_last_modified": "2026-08-19T00:14:01.000Z",
+        "source_ids": [
+          "bench-swe-skills-paper-v1",
+          "bench-swe-skills-hf-card",
+          "bench-swe-skills-hf-metadata",
+          "bench-swe-skills-github-unavailable"
+        ]
+      },
+      "comparison_unit": "每个 curated skill 所配真实仓库任务，在 with-skill 与 no-skill 下满足 acceptance criteria 的差异。",
+      "dataset": {
+        "skill_count": 49,
+        "reported_task_instances_approximately": 565,
+        "domains": 6,
+        "public_hf_row_count": 49,
+        "row_count_note": "49 是 HF skills/task bundles 行数，不是 565 个断言或实验实例的同一计量单位。",
+        "source_ids": [
+          "bench-swe-skills-paper-v1",
+          "bench-swe-skills-hf-card",
+          "bench-swe-skills-hf-metadata"
+        ]
+      },
+      "published_evaluation_evidence": [
+        {
+          "evidence_type": "paper_reported_preliminary_experiment",
+          "model": "Claude Haiku 4.5",
+          "harness": "Claude Code；论文未在读取段落精确固定 CLI 版本",
+          "environment": "Ubuntu 24.04 CPU-only Docker，per-task resource limits",
+          "activation": "SKILL.md 放项目根目录，agent 自主发现应用；没有显式激活提示。",
+          "repetitions": "论文读取的实验设置未明确给每个相同 task-condition 的独立重复次数，记 unknown。",
+          "reported_result": {
+            "skills_without_pass_rate_change": 39,
+            "total_skills": 49,
+            "mean_without_skills_pass_rate_percent": 89.8,
+            "mean_with_skills_pass_rate_percent": 91,
+            "absolute_gain_percentage_points": 1.2,
+            "mean_total_token_change_percent": 10.5,
+            "max_zero_gain_token_overhead_percent": 450.8
+          },
+          "measurement_denominator": "论文 Token Cost 为 agent 总 input+output tokens；不是 USD 实际账单，未分 cached input/reasoning streams。",
+          "quality_verification": "文档定义的确定性 pytest acceptance checks；论文标注 preliminary results/work in progress。",
+          "source_ids": [
+            "bench-swe-skills-paper-v1"
+          ]
+        }
+      ],
+      "public_reproduction_materials": "作者 HF 数据卡与 dataset API 当前可达，含 skill_document、test_code、repo_url、repo_commit、docker_image 字段；论文所指 GitHub repo 当前连接返回 404，不能在本次确认完整 runner 及原始轨迹可复现。",
+      "model_release_tracking": {
+        "observed": "读取的原始论文是单一 Haiku 4.5/Claude Code 实验；HF 当前卡无公开多代模型持续排行榜。",
+        "not_established": "未核实新模型发布触发的重复评测或同一干预的时间序列。",
+        "source_ids": [
+          "bench-swe-skills-paper-v1",
+          "bench-swe-skills-hf-card"
+        ]
+      },
+      "license": {
+        "identifier": "MIT (HF 数据卡声明)",
+        "scope_note": "无法核对当前 GitHub LICENSE；不把 HF 元数据许可自动扩展到不可达 runner。",
+        "source_ids": [
+          "bench-swe-skills-hf-card"
+        ]
+      },
+      "limitations": [
+        "自主发现且不显式激活时，实际读到 skill 的比例是重要混杂；论文均值不能解释为所有已激活 skill 的因果收益。",
+        "该模型、任务和激活设置下的低平均增益不能推广到所有模型或所有 workflow。",
+        "+1.2 是百分点变化；450.8% 是总 token 增幅，不能写成美元成本增加 451%。",
+        "HF 字段定义声称固定 repo_commit；未逐行验证全部条目完整性。"
+      ],
+      "source_ids": [
+        "bench-swe-skills-paper-v1",
+        "bench-swe-skills-hf-card",
+        "bench-swe-skills-hf-metadata",
+        "bench-swe-skills-github-unavailable"
+      ],
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    }
+  ],
+  "external_evaluations": [
+    {
+      "evaluation_id": "ponytail-5-author-agentic",
+      "evidence_type": "作者自测",
+      "project_ids": [
+        "ponytail"
+      ],
+      "tested_revision": "Ponytail 5 对 v4.13 与无 skill，结果日期 2026-10-07",
+      "model": "Opus 5.5",
+      "reasoning_effort": "default",
+      "harness": "Claude Code 2.1.288 headless，Bash disabled",
+      "tasks_and_sample": "39 任务 × 3 arms × 5 次 = 585 sessions；18 任务有隐藏执行检查",
+      "metrics": [
+        {
+          "metric": "成本",
+          "relative_change_percent": -26,
+          "interval_95_percent": [
+            -36,
+            -16
+          ],
+          "measurement_scope": "任务中位比值的几何平均，相对无 skill",
+          "source_ids": [
+            "eff-ponytail-self-eval"
+          ]
+        },
+        {
+          "metric": "隐藏执行通过",
+          "treatment": "87/90",
+          "control": "86/90",
+          "measurement_scope": "18 个 surgical 任务各 5 次",
+          "source_ids": [
+            "eff-ponytail-self-eval"
+          ]
+        }
+      ],
+      "statistics": "任务中位数、几何平均、bootstrap CI",
+      "limitations": [
+        "Bash 禁用，agent 写代码/测试，benchmark 事后执行，未覆盖完整调试循环。",
+        "其余 21 个任务质量主要借助完整性 judge；不能宣称全任务安全等价。"
+      ],
+      "conflict_of_interest": "项目作者维护规则并选择任务。",
+      "source_ids": [
+        "eff-ponytail-self-eval"
+      ],
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "evaluation_id": "jetbrains-caveman-2026-07",
+      "evidence_type": "非项目作者实测",
+      "project_ids": [
+        "caveman"
+      ],
+      "tested_revision": "unknown：文章未给完整 skill commit",
+      "model": "claude-sonnet-5",
+      "reasoning_effort": "low",
+      "harness": "Claude Code 2.1.200；Harbor 0.17",
+      "tasks_and_sample": "SkillsBench 86/87 候选；完整运行 82 可比较配对任务",
+      "activation": "显式强制 skill 激活",
+      "metrics": [
+        {
+          "metric": "输出 tokens",
+          "relative_change_percent": -8.5,
+          "measurement_scope": "82 配对任务约 592k → 542k 输出 tokens；不是 LOC、不是全部 tokens",
+          "source_ids": [
+            "eff-jetbrains-caveman"
+          ]
+        },
+        {
+          "metric": "verifier 质量",
+          "control_mean": 0.326,
+          "treatment_mean": 0.311,
+          "p_value": 0.82,
+          "measurement_scope": "0–1 分；sign test",
+          "source_ids": [
+            "eff-jetbrains-caveman"
+          ]
+        }
+      ],
+      "statistics": "配对质量检验；成本对长上下文离群值敏感",
+      "limitations": [
+        "强制激活的该工作负载结果不是所有使用场景上限。",
+        "未检出质量差异不等于非劣效/安全等价。",
+        "原始 commit 与当前 proxy/Auto 都未被该文章测量。"
+      ],
+      "conflict_of_interest": "JetBrains 提供同领域开发工具/agent 产品；外部于被测项目但非无商业利益。",
+      "source_ids": [
+        "eff-jetbrains-caveman"
+      ],
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "evaluation_id": "jetbrains-rtk-2026-07",
+      "evidence_type": "非项目作者实测",
+      "project_ids": [
+        "rtk"
+      ],
+      "tested_revision": "v0.43.0",
+      "model": "claude-sonnet-5",
+      "reasoning_effort": "low 与 high 分组",
+      "harness": "Claude Code 2.1.201；Harbor 0.18",
+      "tasks_and_sample": "SkillsBench 86/87；low 为 80 clean pairs，high 为 71 quality pairs；整计划 425 billed trials",
+      "activation": "binary、PreToolUse 与 RTK.md，保留 audit/analytics",
+      "metrics": [
+        {
+          "metric": "成本",
+          "relative_change_percent": 7.6,
+          "p_value": 0.004,
+          "measurement_scope": "low effort 的 80 clean pairs，典型任务配对中位差",
+          "source_ids": [
+            "eff-jetbrains-rtk"
+          ]
+        },
+        {
+          "metric": "成本",
+          "relative_change_percent": 0.1,
+          "p_value": 0.99,
+          "measurement_scope": "high effort 配对结果",
+          "source_ids": [
+            "eff-jetbrains-rtk"
+          ]
+        }
+      ],
+      "statistics": "配对中位数/Wilcoxon；质量 sign test",
+      "limitations": [
+        "glibc 安装失败项被对称排除，须另报兼容失败。",
+        "旧过滤器结果不能外推当前 Engine/Proxy。",
+        "未节省仅限该模型、effort 和任务。"
+      ],
+      "conflict_of_interest": "JetBrains 同领域开发工具供应商。",
+      "source_ids": [
+        "eff-jetbrains-rtk"
+      ],
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "evaluation_id": "jetbrains-ponytail-2026-07",
+      "evidence_type": "非项目作者实测",
+      "project_ids": [
+        "ponytail"
+      ],
+      "tested_revision": "v4.8.4，文章短 commit 16f2980，未在本次展开",
+      "model": "claude-sonnet-5",
+      "reasoning_effort": "medium",
+      "harness": "Claude Code 2.1.201；Harbor 0.18",
+      "tasks_and_sample": "SkillsBench 80 配对；全计划 251 billed trials",
+      "activation": "上游 hook 生成的 ruleset 注入，未重现全部 first-run/subagent side effects；每组审计",
+      "metrics": [
+        {
+          "metric": "成本",
+          "relative_change_percent": -10.3,
+          "p_value": 0.004,
+          "measurement_scope": "80 配对任务典型中位差；bootstrap 中位区间触零",
+          "source_ids": [
+            "eff-jetbrains-ponytail"
+          ]
+        },
+        {
+          "metric": "累计写出代码",
+          "relative_change_percent": -15.4,
+          "p_value": 0.088,
+          "measurement_scope": "工具流重建的累计非空非注释行，不是最终 workspace diff",
+          "source_ids": [
+            "eff-jetbrains-ponytail"
+          ]
+        }
+      ],
+      "statistics": "配对检验；质量未检出差异",
+      "limitations": [
+        "计数遗漏部分子 agent/脚本生成；文件与解释器 heredoc 的计量不完全一致。",
+        "旧版和最新作者评测不是同模型/effort/任务，不能直接排输赢。",
+        "SkillsBench 未专项测试安全/可访问性，null 不等于等价。"
+      ],
+      "conflict_of_interest": "JetBrains 同领域开发工具供应商。",
+      "source_ids": [
+        "eff-jetbrains-ponytail"
+      ],
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "evaluation_id": "tura-eza-plugin-comparison",
+      "evidence_type": "同领域项目作者公开实测",
+      "project_ids": [
+        "caveman",
+        "ponytail",
+        "rtk"
+      ],
+      "tested_revision": {
+        "ponytail": "14a0d79548d4de8fc2de95c1b94bb0de63a739d3 / 4.8.4",
+        "rtk": "5d32d0736f686b69d1e8b9dc45c007d4eb77a0a2 / 0.42.4",
+        "caveman": "12aa8cc0e980b6d3310a5be4f477c434da51f4b0 / 2.0.0，skill pack 2.2.0"
+      },
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "high",
+      "harness": "Codex CLI 0.144.1",
+      "tasks_and_sample": "单个 eza Rust→Python 移植任务；52 断言，每 arm 2 次，共 8 次",
+      "activation": "隔离 home；Ponytail hooks，RTK awareness 原文注入，Caveman 20 skills 加主 skill 原文注入",
+      "metrics": [
+        {
+          "metric": "modeled cost",
+          "arm": "ponytail",
+          "relative_change_percent": -8.87,
+          "measurement_scope": "每组两次均值相对历史匹配基线",
+          "source_ids": [
+            "eff-tura-eza-results"
+          ]
+        },
+        {
+          "metric": "modeled cost",
+          "arm": "rtk",
+          "relative_change_percent": 7.18,
+          "measurement_scope": "每组两次均值",
+          "source_ids": [
+            "eff-tura-eza-results"
+          ]
+        },
+        {
+          "metric": "modeled cost",
+          "arm": "caveman",
+          "relative_change_percent": -3.9,
+          "measurement_scope": "每组两次均值",
+          "source_ids": [
+            "eff-tura-eza-results"
+          ]
+        }
+      ],
+      "statistics": "描述统计，n=2 不支持通用效应/显著性",
+      "quality_verification": "行为断言部分得分；进程 exit 0 不等于全部通过",
+      "limitations": [
+        "基线来自此前运行，非交错同轮；组内波动大。",
+        "cached 约占 97%，raw token 总量不是美元成本。",
+        "Caveman 测 skill 包，未测 proxy input compression。"
+      ],
+      "conflict_of_interest": "Tura 同时开发自己的 agent/harness。",
+      "source_ids": [
+        "eff-tura-eza-results",
+        "eff-tura-eza-method"
+      ],
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    }
+  ],
+  "sources": [
+    {
+      "source_id": "eff-caveman-readme",
+      "url": "https://github.com/JuliusBrussee/caveman/blob/b4531dfc05a3ef0ba93b57e8bfa5f48564a4b4d6/README.md",
+      "title": "JuliusBrussee/caveman README.md",
+      "checked_at_utc": "2026-10-23T16:05:26Z",
+      "repository_commit_sha": "b4531dfc05a3ef0ba93b57e8bfa5f48564a4b4d6",
+      "file_blob_sha": "12902ac5443fa6b951a46f119ce8808198b7db9f",
+      "source_type": "上游仓库文件",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "source_id": "eff-caveman-license",
+      "url": "https://github.com/JuliusBrussee/caveman/blob/b4531dfc05a3ef0ba93b57e8bfa5f48564a4b4d6/LICENSE",
+      "title": "JuliusBrussee/caveman LICENSE",
+      "checked_at_utc": "2026-10-23T16:05:26Z",
+      "repository_commit_sha": "b4531dfc05a3ef0ba93b57e8bfa5f48564a4b4d6",
+      "file_blob_sha": "d645695673349e3947e8e5ae42332d0ac3164cd7",
+      "source_type": "上游仓库文件",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "source_id": "eff-caveman-licensing",
+      "url": "https://github.com/JuliusBrussee/caveman/blob/b4531dfc05a3ef0ba93b57e8bfa5f48564a4b4d6/LICENSING.md",
+      "title": "JuliusBrussee/caveman LICENSING.md",
+      "checked_at_utc": "2026-10-23T16:05:26Z",
+      "repository_commit_sha": "b4531dfc05a3ef0ba93b57e8bfa5f48564a4b4d6",
+      "file_blob_sha": "e270852b0db7b031d9d47ee891023eb35ae166bd",
+      "source_type": "上游仓库文件",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "source_id": "eff-caveman-skill",
+      "url": "https://github.com/JuliusBrussee/caveman/blob/b4531dfc05a3ef0ba93b57e8bfa5f48564a4b4d6/skills/caveman/SKILL.md",
+      "title": "JuliusBrussee/caveman skills/caveman/SKILL.md",
+      "checked_at_utc": "2026-10-23T16:05:26Z",
+      "repository_commit_sha": "b4531dfc05a3ef0ba93b57e8bfa5f48564a4b4d6",
+      "file_blob_sha": "9a94044529e5ee1576361c891b4a271504518e6f",
+      "source_type": "上游仓库文件",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "source_id": "eff-caveman-original-readme",
+      "url": "https://github.com/JuliusBrussee/caveman/blob/af5375d6f0151b1441f638d855f6829f5e6724df/README.md",
+      "title": "JuliusBrussee/caveman README.md",
+      "checked_at_utc": "2026-10-23T16:05:26Z",
+      "repository_commit_sha": "af5375d6f0151b1441f638d855f6829f5e6724df",
+      "file_blob_sha": "b85b3ebdf1c2ebc98a5fd928ed3b37bdc14b2556",
+      "source_type": "上游仓库文件",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "source_id": "eff-caveman-original-skill",
+      "url": "https://github.com/JuliusBrussee/caveman/blob/af5375d6f0151b1441f638d855f6829f5e6724df/caveman/SKILL.md",
+      "title": "JuliusBrussee/caveman caveman/SKILL.md",
+      "checked_at_utc": "2026-10-23T16:05:26Z",
+      "repository_commit_sha": "af5375d6f0151b1441f638d855f6829f5e6724df",
+      "file_blob_sha": "4ebcea7c77afcb2b37f4703e3181098f7e4a3607",
+      "source_type": "上游仓库文件",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "source_id": "eff-caveman-original-license",
+      "url": "https://github.com/JuliusBrussee/caveman/blob/af5375d6f0151b1441f638d855f6829f5e6724df/LICENSE",
+      "title": "JuliusBrussee/caveman LICENSE",
+      "checked_at_utc": "2026-10-23T16:05:26Z",
+      "repository_commit_sha": "af5375d6f0151b1441f638d855f6829f5e6724df",
+      "file_blob_sha": "d8c0ee8a752aeb14ee42044c3238e191f7571ac6",
+      "source_type": "上游仓库文件",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "source_id": "eff-caveman-eval-method",
+      "url": "https://github.com/JuliusBrussee/caveman/blob/b4531dfc05a3ef0ba93b57e8bfa5f48564a4b4d6/evals/README.md",
+      "title": "JuliusBrussee/caveman evals/README.md",
+      "checked_at_utc": "2026-10-23T16:05:26Z",
+      "repository_commit_sha": "b4531dfc05a3ef0ba93b57e8bfa5f48564a4b4d6",
+      "file_blob_sha": "3eb54368c0f4f9e271d949df26e1de1b8ad003bf",
+      "source_type": "上游仓库文件",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "source_id": "eff-ponytail-skill",
+      "url": "https://github.com/DietrichGebert/ponytail/blob/09c434ab73ca43761c5d8b0c5d341926c2fba710/skills/ponytail/SKILL.md",
+      "title": "DietrichGebert/ponytail skills/ponytail/SKILL.md",
+      "checked_at_utc": "2026-10-23T16:05:26Z",
+      "repository_commit_sha": "09c434ab73ca43761c5d8b0c5d341926c2fba710",
+      "file_blob_sha": "d64edd32265ba21cbf5270158f04e97d96925f27",
+      "source_type": "上游仓库文件",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "source_id": "eff-ponytail-license",
+      "url": "https://github.com/DietrichGebert/ponytail/blob/09c434ab73ca43761c5d8b0c5d341926c2fba710/LICENSE",
+      "title": "DietrichGebert/ponytail LICENSE",
+      "checked_at_utc": "2026-10-23T16:05:26Z",
+      "repository_commit_sha": "09c434ab73ca43761c5d8b0c5d341926c2fba710",
+      "file_blob_sha": "715d483338cea4365f0d91a27799cf61226d6bcf",
+      "source_type": "上游仓库文件",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "source_id": "eff-ponytail-self-eval",
+      "url": "https://github.com/DietrichGebert/ponytail/blob/09c434ab73ca43761c5d8b0c5d341926c2fba710/benchmarks/results/2026-10-07-agentic.md",
+      "title": "DietrichGebert/ponytail benchmarks/results/2026-10-07-agentic.md",
+      "checked_at_utc": "2026-10-23T16:05:26Z",
+      "repository_commit_sha": "09c434ab73ca43761c5d8b0c5d341926c2fba710",
+      "file_blob_sha": "d016bbf73fd7e49906ff2ff2b3f2e7f4023b7ea1",
+      "source_type": "上游仓库文件",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "source_id": "eff-rtk-readme",
+      "url": "https://github.com/rtk-ai/rtk/blob/5f6111b90931c0e63e38a3af129cf3aeba10cefa/README.md",
+      "title": "rtk-ai/rtk README.md",
+      "checked_at_utc": "2026-10-23T16:05:26Z",
+      "repository_commit_sha": "5f6111b90931c0e63e38a3af129cf3aeba10cefa",
+      "file_blob_sha": "6c7f7de477856221d34f27053d882e969c896616",
+      "source_type": "上游仓库文件",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "source_id": "eff-rtk-license",
+      "url": "https://github.com/rtk-ai/rtk/blob/5f6111b90931c0e63e38a3af129cf3aeba10cefa/LICENSE",
+      "title": "rtk-ai/rtk LICENSE",
+      "checked_at_utc": "2026-10-23T16:05:26Z",
+      "repository_commit_sha": "5f6111b90931c0e63e38a3af129cf3aeba10cefa",
+      "file_blob_sha": "fb19f9923f93b788a02245f9a27f552aa7acb6ef",
+      "source_type": "上游仓库文件",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "source_id": "eff-rtk-engine-license",
+      "url": "https://github.com/rtk-ai/rtk/blob/5f6111b90931c0e63e38a3af129cf3aeba10cefa/engine/LICENSE",
+      "title": "rtk-ai/rtk engine/LICENSE",
+      "checked_at_utc": "2026-10-23T16:05:26Z",
+      "repository_commit_sha": "5f6111b90931c0e63e38a3af129cf3aeba10cefa",
+      "file_blob_sha": "c0f904dccb82648ff0664c0a733b61a3ad55711e",
+      "source_type": "上游仓库文件",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "source_id": "eff-rtk-proxy-license",
+      "url": "https://github.com/rtk-ai/rtk/blob/5f6111b90931c0e63e38a3af129cf3aeba10cefa/proxy/LICENSE",
+      "title": "rtk-ai/rtk proxy/LICENSE",
+      "checked_at_utc": "2026-10-23T16:05:26Z",
+      "repository_commit_sha": "5f6111b90931c0e63e38a3af129cf3aeba10cefa",
+      "file_blob_sha": "0829f2252ae763d3467fe2c3e7528da7eab7bab9",
+      "source_type": "上游仓库文件",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "source_id": "eff-headroom-readme",
+      "url": "https://github.com/headroomlabs-ai/headroom/blob/e995eb9f1dacac7ed548758406de6c1508caef95/README.md",
+      "title": "headroomlabs-ai/headroom README.md",
+      "checked_at_utc": "2026-10-23T16:05:26Z",
+      "repository_commit_sha": "e995eb9f1dacac7ed548758406de6c1508caef95",
+      "file_blob_sha": "adacc2f21f5667a0ff5a11435b81110be3a6dfee",
+      "source_type": "上游仓库文件",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "source_id": "eff-headroom-license",
+      "url": "https://github.com/headroomlabs-ai/headroom/blob/e995eb9f1dacac7ed548758406de6c1508caef95/LICENSE",
+      "title": "headroomlabs-ai/headroom LICENSE",
+      "checked_at_utc": "2026-10-23T16:05:26Z",
+      "repository_commit_sha": "e995eb9f1dacac7ed548758406de6c1508caef95",
+      "file_blob_sha": "6ee2620b190c4340d3f18e4ccc5ee111847b1ee3",
+      "source_type": "上游仓库文件",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "source_id": "eff-headroom-benchmark-method",
+      "url": "https://github.com/headroomlabs-ai/headroom/blob/e995eb9f1dacac7ed548758406de6c1508caef95/docs/content/docs/benchmarks.mdx",
+      "title": "headroomlabs-ai/headroom docs/content/docs/benchmarks.mdx",
+      "checked_at_utc": "2026-10-23T16:05:26Z",
+      "repository_commit_sha": "e995eb9f1dacac7ed548758406de6c1508caef95",
+      "file_blob_sha": "90408427b000b2db241c0d5c3297ec2387b7394f",
+      "source_type": "上游仓库文件",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "source_id": "eff-context-mode-readme",
+      "url": "https://github.com/mksglu/context-mode/blob/fc0fda3d2bf62c9c35e085f9a28985088ba5fbca/README.md",
+      "title": "mksglu/context-mode README.md",
+      "checked_at_utc": "2026-10-23T16:05:26Z",
+      "repository_commit_sha": "fc0fda3d2bf62c9c35e085f9a28985088ba5fbca",
+      "file_blob_sha": "b796169524473691594af24995d21ca94027f7c7",
+      "source_type": "上游仓库文件",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "source_id": "eff-context-mode-license",
+      "url": "https://github.com/mksglu/context-mode/blob/fc0fda3d2bf62c9c35e085f9a28985088ba5fbca/LICENSE",
+      "title": "mksglu/context-mode LICENSE",
+      "checked_at_utc": "2026-10-23T16:05:26Z",
+      "repository_commit_sha": "fc0fda3d2bf62c9c35e085f9a28985088ba5fbca",
+      "file_blob_sha": "15259beb88afda1c8790d41cdf948c9e0e4f211d",
+      "source_type": "上游仓库文件",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "source_id": "eff-context-mode-bench",
+      "url": "https://github.com/mksglu/context-mode/blob/fc0fda3d2bf62c9c35e085f9a28985088ba5fbca/BENCHMARK.md",
+      "title": "mksglu/context-mode BENCHMARK.md",
+      "checked_at_utc": "2026-10-23T16:05:26Z",
+      "repository_commit_sha": "fc0fda3d2bf62c9c35e085f9a28985088ba5fbca",
+      "file_blob_sha": "7328e5a405ed2e2f2ef9bc16776b6010c00b9bd9",
+      "source_type": "上游仓库文件",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "source_id": "eff-thol-method",
+      "url": "https://github.com/pi-infected/token-harness-optimizer-leaderboard/blob/5ee6ea7f81dc21db1aae8d359cda3e1f7ded6dde/README.md",
+      "title": "pi-infected/token-harness-optimizer-leaderboard README.md",
+      "checked_at_utc": "2026-10-23T16:05:26Z",
+      "repository_commit_sha": "5ee6ea7f81dc21db1aae8d359cda3e1f7ded6dde",
+      "file_blob_sha": "a21dc98fa2390afe821423770d6c25f31236ac7e",
+      "source_type": "上游仓库文件",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "source_id": "eff-cavewoman-method",
+      "url": "https://github.com/danielle34/cavewoman/blob/28875b39a6c957a0ae96950538cdacfcd0eff0b3/README.md",
+      "title": "danielle34/cavewoman README.md",
+      "checked_at_utc": "2026-10-23T16:05:26Z",
+      "repository_commit_sha": "28875b39a6c957a0ae96950538cdacfcd0eff0b3",
+      "file_blob_sha": "85597b7502a9f0adba1b9314f2a78962398f7deb",
+      "source_type": "上游仓库文件",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "source_id": "eff-tura-eza-results",
+      "url": "https://github.com/Tura-AI/benchmark/blob/da58a15d35b5284db2abfd233378093a2689dc5c/blog_data/token-saving-plugin-eza/README.md",
+      "title": "Tura-AI/benchmark blog_data/token-saving-plugin-eza/README.md",
+      "checked_at_utc": "2026-10-23T16:05:26Z",
+      "repository_commit_sha": "da58a15d35b5284db2abfd233378093a2689dc5c",
+      "file_blob_sha": "22fd31633d1ee15f16841feb6de90a2a8007fafd",
+      "source_type": "上游仓库文件",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "source_id": "eff-tura-eza-method",
+      "url": "https://github.com/Tura-AI/benchmark/blob/da58a15d35b5284db2abfd233378093a2689dc5c/blog_data/token-saving-plugin-eza/methodology.json",
+      "title": "Tura-AI/benchmark blog_data/token-saving-plugin-eza/methodology.json",
+      "checked_at_utc": "2026-10-23T16:05:26Z",
+      "repository_commit_sha": "da58a15d35b5284db2abfd233378093a2689dc5c",
+      "file_blob_sha": "07a271667f08706b2030dc23f3b61c9d3d5ce890",
+      "source_type": "上游仓库文件",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "source_id": "eff-jetbrains-caveman",
+      "url": "https://blog.jetbrains.com/ai/2026/07/speak-to-ai-agents-like-cavemen-tosave-tokens/",
+      "title": "JetBrains speak-to-ai-agents-like-cavemen-tosave-tokens",
+      "checked_at_utc": "2026-10-23T16:05:26Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "实测作者一手文章",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "source_id": "eff-jetbrains-rtk",
+      "url": "https://blog.jetbrains.com/ai/2026/07/rtk-claude-code-token-savings/",
+      "title": "JetBrains rtk-claude-code-token-savings",
+      "checked_at_utc": "2026-10-23T16:05:26Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "实测作者一手文章",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "source_id": "eff-jetbrains-ponytail",
+      "url": "https://blog.jetbrains.com/ai/2026/07/ponytail-skill-claude-tested/",
+      "title": "JetBrains ponytail-skill-claude-tested",
+      "checked_at_utc": "2026-10-23T16:05:26Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "实测作者一手文章",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "source_id": "interaction-adhd-skill",
+      "url": "https://github.com/ayghri/i-have-adhd/blob/1ecea1993b7fce257ffbd686c070948b5e07eda6/skills/i-have-adhd/SKILL.md",
+      "title": "ayghri/i-have-adhd：skills/i-have-adhd/SKILL.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "1ecea1993b7fce257ffbd686c070948b5e07eda6",
+      "file_blob_sha": "6c42757ffae37e442adfb52fbba2a8609f1cff00",
+      "source_type": "upstream_skill_instructions",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-adhd-activation",
+      "url": "https://github.com/ayghri/i-have-adhd/blob/1ecea1993b7fce257ffbd686c070948b5e07eda6/INSTALL.md",
+      "title": "ayghri/i-have-adhd：INSTALL.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "1ecea1993b7fce257ffbd686c070948b5e07eda6",
+      "file_blob_sha": "2d5d039a9c683595ce61b5c69f1ced7aabcc8a01",
+      "source_type": "upstream_installation_documentation",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-adhd-codex-policy",
+      "url": "https://github.com/ayghri/i-have-adhd/blob/1ecea1993b7fce257ffbd686c070948b5e07eda6/skills/i-have-adhd/agents/openai.yaml",
+      "title": "ayghri/i-have-adhd：skills/i-have-adhd/agents/openai.yaml",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "1ecea1993b7fce257ffbd686c070948b5e07eda6",
+      "file_blob_sha": "0e8285b9bb854e7ee4c25f4c48f593a87e9eb85d",
+      "source_type": "upstream_activation_configuration",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-adhd-evaluation",
+      "url": "https://github.com/ayghri/i-have-adhd/blob/1ecea1993b7fce257ffbd686c070948b5e07eda6/evals/RESULTS.md",
+      "title": "ayghri/i-have-adhd：evals/RESULTS.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "1ecea1993b7fce257ffbd686c070948b5e07eda6",
+      "file_blob_sha": "3379f3cbad4469640448850e2211614ff0124c4c",
+      "source_type": "upstream_evaluation_report",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-adhd-evaluation-protocol",
+      "url": "https://github.com/ayghri/i-have-adhd/blob/1ecea1993b7fce257ffbd686c070948b5e07eda6/evals/README.md",
+      "title": "ayghri/i-have-adhd：evals/README.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "1ecea1993b7fce257ffbd686c070948b5e07eda6",
+      "file_blob_sha": "98780bd30e54aab468eb3d0ca72335e82612e906",
+      "source_type": "upstream_evaluation_methodology",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-adhd-evaluation-rubric",
+      "url": "https://github.com/ayghri/i-have-adhd/blob/1ecea1993b7fce257ffbd686c070948b5e07eda6/evals/rubric.md",
+      "title": "ayghri/i-have-adhd：evals/rubric.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "1ecea1993b7fce257ffbd686c070948b5e07eda6",
+      "file_blob_sha": "0bd5424d60222f89acb7fa376a6d426bee9bb640",
+      "source_type": "upstream_evaluation_methodology",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-adhd-license",
+      "url": "https://github.com/ayghri/i-have-adhd/blob/1ecea1993b7fce257ffbd686c070948b5e07eda6/LICENSE",
+      "title": "ayghri/i-have-adhd：LICENSE",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "1ecea1993b7fce257ffbd686c070948b5e07eda6",
+      "file_blob_sha": "19db5f1b0ca65e277c158bd4c4263139ccfd859c",
+      "source_type": "repository_license",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-humanizer-skill",
+      "url": "https://github.com/blader/humanizer/blob/8c307f367c91bd974002f10f2be2965d642c13df/SKILL.md",
+      "title": "blader/humanizer：SKILL.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "8c307f367c91bd974002f10f2be2965d642c13df",
+      "file_blob_sha": "19fc634208e8cc6ae55d4ff287152583216fd244",
+      "source_type": "upstream_skill_instructions",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-humanizer-readme",
+      "url": "https://github.com/blader/humanizer/blob/8c307f367c91bd974002f10f2be2965d642c13df/README.md",
+      "title": "blader/humanizer：README.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "8c307f367c91bd974002f10f2be2965d642c13df",
+      "file_blob_sha": "f7d1508fcfb223697f69d25ebb844fcb7748373b",
+      "source_type": "upstream_project_documentation",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-humanizer-external-evaluation",
+      "url": "https://github.com/blader/humanizer/issues/229",
+      "title": "Humanizer 外部使用者的盲评与限制说明",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "external_user_evaluation_report",
+      "published_at_utc": "2026-08-19T04:43:08Z",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-humanizer-evaluation-comments",
+      "url": "https://github.com/blader/humanizer/issues/229",
+      "title": "Humanizer issue #229：作者对目标的澄清",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_issue_discussion",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-humanizer-license",
+      "url": "https://github.com/blader/humanizer/blob/8c307f367c91bd974002f10f2be2965d642c13df/LICENSE",
+      "title": "blader/humanizer：LICENSE",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "8c307f367c91bd974002f10f2be2965d642c13df",
+      "file_blob_sha": "625297fb778f32eb39d3a5b97e3e3b611b7304d6",
+      "source_type": "repository_license",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-no-ai-slop-skill",
+      "url": "https://github.com/petergyang/no-ai-slop/blob/000650b156983f5159695b441477f4e63b25dc85/skills/no-ai-slop/SKILL.md",
+      "title": "petergyang/no-ai-slop：skills/no-ai-slop/SKILL.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "000650b156983f5159695b441477f4e63b25dc85",
+      "file_blob_sha": "e2008aa08d688846b0373b83d7c3d33b85eaabdd",
+      "source_type": "upstream_skill_instructions",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-no-ai-slop-self-check",
+      "url": "https://github.com/petergyang/no-ai-slop/blob/000650b156983f5159695b441477f4e63b25dc85/skills/no-ai-slop/eval.md",
+      "title": "petergyang/no-ai-slop：skills/no-ai-slop/eval.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "000650b156983f5159695b441477f4e63b25dc85",
+      "file_blob_sha": "e912b3e9246ded24b14116682c23702a4d083dc7",
+      "source_type": "upstream_self_review_checklist",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-no-ai-slop-license",
+      "url": "https://github.com/petergyang/no-ai-slop/blob/000650b156983f5159695b441477f4e63b25dc85/LICENSE",
+      "title": "petergyang/no-ai-slop：LICENSE",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "000650b156983f5159695b441477f4e63b25dc85",
+      "file_blob_sha": "644ebee1944d0e7d03c66a25977ff0a8a8e1c7ae",
+      "source_type": "repository_license",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-mattpocock-readme",
+      "url": "https://github.com/mattpocock/skills/blob/5beb35b040e3de97e54fa9e386d7e42d15c295c2/README.md",
+      "title": "mattpocock/skills：README.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "file_blob_sha": "f7038f139299985eea6c3e18398dbafb379a0010",
+      "source_type": "upstream_project_documentation",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-mattpocock-grilling",
+      "url": "https://github.com/mattpocock/skills/blob/5beb35b040e3de97e54fa9e386d7e42d15c295c2/skills/productivity/grilling/SKILL.md",
+      "title": "mattpocock/skills：skills/productivity/grilling/SKILL.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "file_blob_sha": "df69d9936880cd3314c28858c6c52f48db23b856",
+      "source_type": "upstream_skill_instructions",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-mattpocock-grill-me",
+      "url": "https://github.com/mattpocock/skills/blob/5beb35b040e3de97e54fa9e386d7e42d15c295c2/skills/productivity/grill-me/SKILL.md",
+      "title": "mattpocock/skills：skills/productivity/grill-me/SKILL.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "file_blob_sha": "3947ff9c4ad980d14fc07fccbf659d47c114e81d",
+      "source_type": "upstream_skill_instructions",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-mattpocock-grill-with-docs",
+      "url": "https://github.com/mattpocock/skills/blob/5beb35b040e3de97e54fa9e386d7e42d15c295c2/skills/engineering/grill-with-docs/SKILL.md",
+      "title": "mattpocock/skills：skills/engineering/grill-with-docs/SKILL.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "file_blob_sha": "62b9efb6f991d1b229adee7506962f13ced0c499",
+      "source_type": "upstream_skill_instructions",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-mattpocock-questionnaire",
+      "url": "https://github.com/mattpocock/skills/blob/5beb35b040e3de97e54fa9e386d7e42d15c295c2/skills/productivity/to-questionnaire/SKILL.md",
+      "title": "mattpocock/skills：skills/productivity/to-questionnaire/SKILL.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "file_blob_sha": "dadd0c00d6a350acaa15bb9ca1b96b20ead684ca",
+      "source_type": "upstream_skill_instructions",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-mattpocock-writing-for-agents",
+      "url": "https://github.com/mattpocock/skills/blob/5beb35b040e3de97e54fa9e386d7e42d15c295c2/skills/productivity/writing-for-agents/SKILL.md",
+      "title": "mattpocock/skills：skills/productivity/writing-for-agents/SKILL.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "file_blob_sha": "a37608daf6e835e767deecfb498facecaaba82ba",
+      "source_type": "upstream_skill_instructions",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-mattpocock-grill-me-policy",
+      "url": "https://github.com/mattpocock/skills/blob/5beb35b040e3de97e54fa9e386d7e42d15c295c2/skills/productivity/grill-me/agents/openai.yaml",
+      "title": "mattpocock/skills：skills/productivity/grill-me/agents/openai.yaml",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "file_blob_sha": "4d6fb0c746c5d21364dce5d0cf8c51eab9712e7b",
+      "source_type": "upstream_activation_configuration",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-mattpocock-license",
+      "url": "https://github.com/mattpocock/skills/blob/5beb35b040e3de97e54fa9e386d7e42d15c295c2/LICENSE",
+      "title": "mattpocock/skills：LICENSE",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "file_blob_sha": "f1dd2c09108dde1a5f56097cee8461b3ea834499",
+      "source_type": "repository_license",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-reqclarifybench-paper",
+      "url": "https://arxiv.org/html/2610.13022v1",
+      "title": "Don’t Guess, Just Ask：ReqClarifyBench，arXiv v1",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "research_paper",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-reqclarifybench-archive",
+      "url": "https://zenodo.org/records/23031774",
+      "title": "ReqClarifyBench 软件与数据归档，Zenodo v1",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "research_artifact_archive",
+      "published_at_utc": "2026-09-29",
+      "artifact_doi": "10.5281/zenodo.23031774",
+      "archive_file": "ReqClarifyBench-main.zip",
+      "reported_archive_md5": "421b963803d9d9913d02468af9f0cf57",
+      "archive_downloaded_or_locally_verified": false,
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-askbench-paper",
+      "url": "https://arxiv.org/html/2602.11199v2",
+      "title": "When and What to Ask：AskBench，arXiv v2",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "research_paper",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-askbench-readme",
+      "url": "https://github.com/jialeuuz/askbench/blob/f35da92feda34504f10413313554438e7abaeb08/README.md",
+      "title": "jialeuuz/askbench：README.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "f35da92feda34504f10413313554438e7abaeb08",
+      "file_blob_sha": "eb5859899877ce57dbde2ff8e1e0cea35cb0364c",
+      "source_type": "upstream_benchmark_documentation",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-askbench-license",
+      "url": "https://github.com/jialeuuz/askbench/blob/f35da92feda34504f10413313554438e7abaeb08/LICENSE",
+      "title": "jialeuuz/askbench：LICENSE",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "f35da92feda34504f10413313554438e7abaeb08",
+      "file_blob_sha": "f86f84a8f82eb51623e7b06859e220d230e67cb5",
+      "source_type": "repository_license",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-ask-or-assume-paper",
+      "url": "https://arxiv.org/html/2603.26233v1",
+      "title": "Ask or Assume?，arXiv v1",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "research_paper",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-ask-or-assume-readme",
+      "url": "https://github.com/nedwards99/ask-or-assume/blob/ee8603e8f4d96ace56abef2ad900c75f25bc59be/README.md",
+      "title": "nedwards99/ask-or-assume：README.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "ee8603e8f4d96ace56abef2ad900c75f25bc59be",
+      "file_blob_sha": "121de827deed4c1e119086b485fadf8e45165ab2",
+      "source_type": "upstream_benchmark_documentation",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-ask-or-assume-license",
+      "url": "https://github.com/nedwards99/ask-or-assume/blob/ee8603e8f4d96ace56abef2ad900c75f25bc59be/LICENSE",
+      "title": "nedwards99/ask-or-assume：LICENSE",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "ee8603e8f4d96ace56abef2ad900c75f25bc59be",
+      "file_blob_sha": "572bb259491e4e2adafee0c03db0d4ed419e6b9a",
+      "source_type": "repository_license",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-revision-ayghri-i-have-adhd",
+      "url": "https://api.github.com/repos/ayghri/i-have-adhd/commits/1ecea1993b7fce257ffbd686c070948b5e07eda6",
+      "title": "ayghri/i-have-adhd：已观察 main 分支提交",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "1ecea1993b7fce257ffbd686c070948b5e07eda6",
+      "file_blob_sha": null,
+      "source_type": "repository_revision_metadata",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-revision-blader-humanizer",
+      "url": "https://api.github.com/repos/blader/humanizer/commits/8c307f367c91bd974002f10f2be2965d642c13df",
+      "title": "blader/humanizer：已观察 main 分支提交",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "8c307f367c91bd974002f10f2be2965d642c13df",
+      "file_blob_sha": null,
+      "source_type": "repository_revision_metadata",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-revision-petergyang-no-ai-slop",
+      "url": "https://api.github.com/repos/petergyang/no-ai-slop/commits/000650b156983f5159695b441477f4e63b25dc85",
+      "title": "petergyang/no-ai-slop：已观察 main 分支提交",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "000650b156983f5159695b441477f4e63b25dc85",
+      "file_blob_sha": null,
+      "source_type": "repository_revision_metadata",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-revision-mattpocock-skills",
+      "url": "https://api.github.com/repos/mattpocock/skills/commits/5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "title": "mattpocock/skills：已观察 main 分支提交",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "file_blob_sha": null,
+      "source_type": "repository_revision_metadata",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-revision-jialeuuz-askbench",
+      "url": "https://api.github.com/repos/jialeuuz/askbench/commits/f35da92feda34504f10413313554438e7abaeb08",
+      "title": "jialeuuz/askbench：已观察 main 分支提交",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "f35da92feda34504f10413313554438e7abaeb08",
+      "file_blob_sha": null,
+      "source_type": "repository_revision_metadata",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "interaction-revision-nedwards99-ask-or-assume",
+      "url": "https://api.github.com/repos/nedwards99/ask-or-assume/commits/ee8603e8f4d96ace56abef2ad900c75f25bc59be",
+      "title": "nedwards99/ask-or-assume：已观察 main 分支提交",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "ee8603e8f4d96ace56abef2ad900c75f25bc59be",
+      "file_blob_sha": null,
+      "source_type": "repository_revision_metadata",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "source_id": "wf-superpowers-readme",
+      "url": "https://github.com/obra/superpowers/blob/2ce8aa15d05bd57213e6f746f953aafb7ded7a8b/README.md",
+      "title": "obra/superpowers README.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "2ce8aa15d05bd57213e6f746f953aafb7ded7a8b",
+      "file_blob_sha": "c5bb59fdaf17ba154e803c549cd71a73ef36c24b",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "wf-superpowers-brainstorming",
+      "url": "https://github.com/obra/superpowers/blob/2ce8aa15d05bd57213e6f746f953aafb7ded7a8b/skills/brainstorming/SKILL.md",
+      "title": "obra/superpowers skills/brainstorming/SKILL.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "2ce8aa15d05bd57213e6f746f953aafb7ded7a8b",
+      "file_blob_sha": "7f5eef02f894c4f24cea313660c0465ce9c084ed",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "wf-superpowers-license",
+      "url": "https://github.com/obra/superpowers/blob/2ce8aa15d05bd57213e6f746f953aafb7ded7a8b/LICENSE",
+      "title": "obra/superpowers LICENSE",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "2ce8aa15d05bd57213e6f746f953aafb7ded7a8b",
+      "file_blob_sha": "abf0390320aa14406af7a520b9b0739fdda9bf08",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "wf-superpowers-testing",
+      "url": "https://github.com/obra/superpowers/blob/2ce8aa15d05bd57213e6f746f953aafb7ded7a8b/docs/testing.md",
+      "title": "obra/superpowers docs/testing.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "2ce8aa15d05bd57213e6f746f953aafb7ded7a8b",
+      "file_blob_sha": "19f8aed23a61da34675303825a54a7a4a62294c2",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "wf-superpowers-resume-eval",
+      "url": "https://github.com/obra/superpowers/blob/2ce8aa15d05bd57213e6f746f953aafb7ded7a8b/docs/superpowers/specs/2026-07-06-sdd-plan-scoped-workspace-eval-results.md",
+      "title": "obra/superpowers docs/superpowers/specs/2026-07-06-sdd-plan-scoped-workspace-eval-results.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "2ce8aa15d05bd57213e6f746f953aafb7ded7a8b",
+      "file_blob_sha": "2ee1872cf8587c2720215e473128552b32366c5e",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "wf-superpowers-release",
+      "url": "https://api.github.com/repos/obra/superpowers/releases/tags/v7.0.1",
+      "title": "obra/superpowers releases/tags/v7.0.1",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "2ce8aa15d05bd57213e6f746f953aafb7ded7a8b",
+      "file_blob_sha": null,
+      "source_type": "upstream_release",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "wf-superpowers-revision",
+      "url": "https://api.github.com/repos/obra/superpowers/branches/main",
+      "title": "obra/superpowers branches/main",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "2ce8aa15d05bd57213e6f746f953aafb7ded7a8b",
+      "file_blob_sha": null,
+      "source_type": "upstream_revision_metadata",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "wf-gstack-readme",
+      "url": "https://github.com/garrytan/gstack/blob/b04cc35832183a89ed71eed628de15a6f315a1a8/README.md",
+      "title": "garrytan/gstack README.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "b04cc35832183a89ed71eed628de15a6f315a1a8",
+      "file_blob_sha": "2e2fd0eaae60ec7641eac0177e4784d396ce9325",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "wf-gstack-office-hours",
+      "url": "https://github.com/garrytan/gstack/blob/b04cc35832183a89ed71eed628de15a6f315a1a8/office-hours/SKILL.md",
+      "title": "garrytan/gstack office-hours/SKILL.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "b04cc35832183a89ed71eed628de15a6f315a1a8",
+      "file_blob_sha": "c22b3db499f43f6c6a627f5d9f7a48c18ab0f0da",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "wf-gstack-license",
+      "url": "https://github.com/garrytan/gstack/blob/b04cc35832183a89ed71eed628de15a6f315a1a8/LICENSE",
+      "title": "garrytan/gstack LICENSE",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "b04cc35832183a89ed71eed628de15a6f315a1a8",
+      "file_blob_sha": "35029511144443297cad2d26e4bac17d0e352f93",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "wf-gstack-testing",
+      "url": "https://github.com/garrytan/gstack/blob/b04cc35832183a89ed71eed628de15a6f315a1a8/docs/TESTING_INTERNALS.md",
+      "title": "garrytan/gstack docs/TESTING_INTERNALS.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "b04cc35832183a89ed71eed628de15a6f315a1a8",
+      "file_blob_sha": "aec69f4e7d43b283be9996027761679b02bd867a",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "wf-gstack-eval-model-rules",
+      "url": "https://github.com/garrytan/gstack/blob/b04cc35832183a89ed71eed628de15a6f315a1a8/docs/eval-models.md",
+      "title": "garrytan/gstack docs/eval-models.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "b04cc35832183a89ed71eed628de15a6f315a1a8",
+      "file_blob_sha": "406149101787ffe3667cd3e340efee04d1ab153e",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "wf-gstack-version",
+      "url": "https://github.com/garrytan/gstack/blob/b04cc35832183a89ed71eed628de15a6f315a1a8/VERSION",
+      "title": "garrytan/gstack VERSION",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "b04cc35832183a89ed71eed628de15a6f315a1a8",
+      "file_blob_sha": "1f6481848c913474912ae4d271f862dce74beec9",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "wf-gstack-revision",
+      "url": "https://api.github.com/repos/garrytan/gstack/branches/main",
+      "title": "garrytan/gstack branches/main",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "b04cc35832183a89ed71eed628de15a6f315a1a8",
+      "file_blob_sha": null,
+      "source_type": "upstream_revision_metadata",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "wf-gstack-releases",
+      "url": "https://api.github.com/repos/garrytan/gstack/releases?per_page=3",
+      "title": "garrytan/gstack releases?per_page=3",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "b04cc35832183a89ed71eed628de15a6f315a1a8",
+      "file_blob_sha": null,
+      "source_type": "upstream_release_collection",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "wf-gsd-readme",
+      "url": "https://github.com/open-gsd/gsd-core/blob/6ddd0cef9cb26673bd8321c5480c0814a92d54cb/README.md",
+      "title": "open-gsd/gsd-core README.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "6ddd0cef9cb26673bd8321c5480c0814a92d54cb",
+      "file_blob_sha": "82770333164cd599dfa2f1ee44cc66997913cc40",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "wf-gsd-license",
+      "url": "https://github.com/open-gsd/gsd-core/blob/6ddd0cef9cb26673bd8321c5480c0814a92d54cb/LICENSE",
+      "title": "open-gsd/gsd-core LICENSE",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "6ddd0cef9cb26673bd8321c5480c0814a92d54cb",
+      "file_blob_sha": "d47f8ea21c0c46de01da7f0f61f92d4bee44631b",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "wf-gsd-questioning",
+      "url": "https://github.com/open-gsd/gsd-core/blob/6ddd0cef9cb26673bd8321c5480c0814a92d54cb/gsd-core/references/questioning.md",
+      "title": "open-gsd/gsd-core gsd-core/references/questioning.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "6ddd0cef9cb26673bd8321c5480c0814a92d54cb",
+      "file_blob_sha": "14a03db3873a70ea48655154eba8974dde13fce4",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "wf-gsd-phase-discussion",
+      "url": "https://github.com/open-gsd/gsd-core/blob/6ddd0cef9cb26673bd8321c5480c0814a92d54cb/docs/features/phase-discussion.md",
+      "title": "open-gsd/gsd-core docs/features/phase-discussion.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "6ddd0cef9cb26673bd8321c5480c0814a92d54cb",
+      "file_blob_sha": "3efef70948fb160f0c348583074549d9a9760fdd",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "wf-gsd-discussion-audit",
+      "url": "https://github.com/open-gsd/gsd-core/blob/6ddd0cef9cb26673bd8321c5480c0814a92d54cb/docs/features/discussion-audit-trail.md",
+      "title": "open-gsd/gsd-core docs/features/discussion-audit-trail.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "6ddd0cef9cb26673bd8321c5480c0814a92d54cb",
+      "file_blob_sha": "4b84a178f21561e11ec0b5300c683bc5fd5dddef",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "wf-gsd-discuss-workflow",
+      "url": "https://github.com/open-gsd/gsd-core/blob/6ddd0cef9cb26673bd8321c5480c0814a92d54cb/gsd-core/workflows/discuss-phase.md",
+      "title": "open-gsd/gsd-core gsd-core/workflows/discuss-phase.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "6ddd0cef9cb26673bd8321c5480c0814a92d54cb",
+      "file_blob_sha": "54068f0007ca0bc91573ccf935cd1af97a935380",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "wf-gsd-stable-readme",
+      "url": "https://github.com/open-gsd/gsd-core/blob/35f5a452239b897b8d6352c973e1e4efd683370f/README.md",
+      "title": "open-gsd/gsd-core README.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "35f5a452239b897b8d6352c973e1e4efd683370f",
+      "file_blob_sha": "82770333164cd599dfa2f1ee44cc66997913cc40",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "wf-gsd-stable-questioning",
+      "url": "https://github.com/open-gsd/gsd-core/blob/35f5a452239b897b8d6352c973e1e4efd683370f/gsd-core/references/questioning.md",
+      "title": "open-gsd/gsd-core gsd-core/references/questioning.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "35f5a452239b897b8d6352c973e1e4efd683370f",
+      "file_blob_sha": "14a03db3873a70ea48655154eba8974dde13fce4",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "wf-gsd-release",
+      "url": "https://api.github.com/repos/open-gsd/gsd-core/releases/tags/v1.18.0",
+      "title": "open-gsd/gsd-core releases/tags/v1.18.0",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "35f5a452239b897b8d6352c973e1e4efd683370f",
+      "file_blob_sha": null,
+      "source_type": "upstream_release",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "wf-gsd-revision",
+      "url": "https://api.github.com/repos/open-gsd/gsd-core/branches/next",
+      "title": "open-gsd/gsd-core branches/next",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "6ddd0cef9cb26673bd8321c5480c0814a92d54cb",
+      "file_blob_sha": null,
+      "source_type": "upstream_revision_metadata",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "wf-gsd-stable-revision",
+      "url": "https://api.github.com/repos/open-gsd/gsd-core/commits/v1.18.0",
+      "title": "open-gsd/gsd-core commits/v1.18.0",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "35f5a452239b897b8d6352c973e1e4efd683370f",
+      "file_blob_sha": null,
+      "source_type": "upstream_revision_metadata",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "bench-skillsbench-readme",
+      "url": "https://github.com/benchflow-ai/skillsbench/blob/f860ecf02ef53412a030f8661c83d644b739ff01/README.md",
+      "title": "benchflow-ai/skillsbench README.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "f860ecf02ef53412a030f8661c83d644b739ff01",
+      "file_blob_sha": "ad4487830652ebc8aad76040a0239e88d981a794",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "bench-skillsbench-license",
+      "url": "https://github.com/benchflow-ai/skillsbench/blob/f860ecf02ef53412a030f8661c83d644b739ff01/LICENSE",
+      "title": "benchflow-ai/skillsbench LICENSE",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "f860ecf02ef53412a030f8661c83d644b739ff01",
+      "file_blob_sha": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "bench-skillsbench-registry",
+      "url": "https://github.com/benchflow-ai/skillsbench/blob/f860ecf02ef53412a030f8661c83d644b739ff01/registry.json",
+      "title": "benchflow-ai/skillsbench registry.json",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "f860ecf02ef53412a030f8661c83d644b739ff01",
+      "file_blob_sha": "c3888744899679548beaa65d147369535de85135",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "bench-skillsbench-agentbeats-sync",
+      "url": "https://github.com/benchflow-ai/skillsbench/blob/f860ecf02ef53412a030f8661c83d644b739ff01/docs/agentbeats-leaderboard-sync.md",
+      "title": "benchflow-ai/skillsbench docs/agentbeats-leaderboard-sync.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "f860ecf02ef53412a030f8661c83d644b739ff01",
+      "file_blob_sha": "04b2fdd5c35dda38c1d997dedf5469e815423983",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "bench-skillsbench-release",
+      "url": "https://api.github.com/repos/benchflow-ai/skillsbench/releases/tags/v1.1",
+      "title": "benchflow-ai/skillsbench releases/tags/v1.1",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "b63b7b2850226b6aa4fb5929a8c1ac7bc4d9a6af",
+      "file_blob_sha": null,
+      "source_type": "upstream_release",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "bench-skillsbench-revision",
+      "url": "https://api.github.com/repos/benchflow-ai/skillsbench/branches/main",
+      "title": "benchflow-ai/skillsbench branches/main",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "f860ecf02ef53412a030f8661c83d644b739ff01",
+      "file_blob_sha": null,
+      "source_type": "upstream_revision_metadata",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "bench-skillsbench-current-site",
+      "url": "https://www.skillsbench.ai/",
+      "title": "SkillsBench 当前排行榜",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_benchmark_site",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "bench-skillsbench-v1-1-post",
+      "url": "https://www.skillsbench.ai/blogs/skillsbench-1-1",
+      "title": "SkillsBench 1.1 发布说明",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_benchmark_publication",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "bench-swe-skills-paper-v1",
+      "url": "https://arxiv.org/html/2603.15401v1",
+      "title": "SWE-Skills-Bench 论文 v1",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "research_paper",
+      "access_status": "retrieved",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "bench-swe-skills-hf-card",
+      "url": "https://huggingface.co/datasets/GeniusHTX/SWE-Skills-Bench/raw/a111a9d9e53722c7aafd951830b459b08439f2da/README.md",
+      "title": "SWE-Skills-Bench 数据卡",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "a111a9d9e53722c7aafd951830b459b08439f2da",
+      "file_blob_sha": null,
+      "source_type": "upstream_dataset_card",
+      "access_status": "retrieved",
+      "revision_host": "huggingface",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "bench-swe-skills-hf-metadata",
+      "url": "https://huggingface.co/api/datasets/GeniusHTX/SWE-Skills-Bench",
+      "title": "SWE-Skills-Bench 数据集 metadata",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "a111a9d9e53722c7aafd951830b459b08439f2da",
+      "file_blob_sha": null,
+      "source_type": "upstream_dataset_metadata",
+      "access_status": "retrieved",
+      "revision_host": "huggingface",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "bench-swe-skills-github-unavailable",
+      "url": "https://api.github.com/repos/GeniusHTX/SWE-Skills-Bench",
+      "title": "论文所指 GitHub 仓库可达性检查",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_repository_metadata",
+      "access_status": "github_api_404",
+      "access_limitation": "当前连接对该 URL 返回 404；不能据此区分仓库删除、改名、转私有或连接权限不足。",
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "source_id": "host-codex-cli-readme",
+      "url": "https://github.com/openai/codex/blob/1c0c45bfc372fb7d7d581508fdef5eef8235eab7/README.md",
+      "title": "Codex CLI 固定版本 README",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "1c0c45bfc372fb7d7d581508fdef5eef8235eab7",
+      "file_blob_sha": "06b02fced7db972084bf0188cb03f60375b51c1c",
+      "source_type": "upstream_repository_documentation",
+      "observation_scope": "固定源码文档，不是本机运行或稳定发行版验证",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "host-codex-cli-repository-metadata",
+      "url": "https://api.github.com/repos/openai/codex",
+      "title": "Codex CLI 仓库元数据",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_repository_metadata",
+      "observed_default_branch": "main",
+      "observed_license_spdx": "Apache-2.0",
+      "observed_archived": false,
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "host-claude-code-readme",
+      "url": "https://github.com/anthropics/claude-code/blob/65823ec0034ed0aa0266bc43903fefd3ff94a327/README.md",
+      "title": "Claude Code 固定版本 README",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "65823ec0034ed0aa0266bc43903fefd3ff94a327",
+      "file_blob_sha": "80aa75edf74a5f9e1269811b4e8b5852be91e66e",
+      "source_type": "upstream_repository_documentation",
+      "observation_scope": "固定源码文档，不是本机运行或稳定发行版验证",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "host-claude-code-repository-metadata",
+      "url": "https://api.github.com/repos/anthropics/claude-code",
+      "title": "Claude Code 仓库元数据",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_repository_metadata",
+      "observed_default_branch": "main",
+      "observed_license_spdx": "unknown",
+      "observed_archived": false,
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "host-gemini-cli-readme",
+      "url": "https://github.com/google-gemini/gemini-cli/blob/a713410aba5d594594e20d5c822e3aab8f822089/README.md",
+      "title": "Gemini CLI 固定版本 README",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "a713410aba5d594594e20d5c822e3aab8f822089",
+      "file_blob_sha": "97c6ce91bb25d217fa1a096e5ddc97a8190084dc",
+      "source_type": "upstream_repository_documentation",
+      "observation_scope": "固定源码文档，不是本机运行或稳定发行版验证",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "host-gemini-cli-repository-metadata",
+      "url": "https://api.github.com/repos/google-gemini/gemini-cli",
+      "title": "Gemini CLI 仓库元数据",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_repository_metadata",
+      "observed_default_branch": "main",
+      "observed_license_spdx": "Apache-2.0",
+      "observed_archived": false,
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "host-opencode-readme",
+      "url": "https://github.com/anomalyco/opencode/blob/f6e202cb7b5d3a3a65c00ae25c77865f62c04369/README.md",
+      "title": "OpenCode 固定版本 README",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "f6e202cb7b5d3a3a65c00ae25c77865f62c04369",
+      "file_blob_sha": "a8551f97c57f9140c4c2ce9f7c004dc4bc21954b",
+      "source_type": "upstream_repository_documentation",
+      "observation_scope": "固定源码文档，不是本机运行或稳定发行版验证",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "host-opencode-repository-metadata",
+      "url": "https://api.github.com/repos/anomalyco/opencode",
+      "title": "OpenCode 仓库元数据",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_repository_metadata",
+      "observed_default_branch": "dev",
+      "observed_license_spdx": "MIT",
+      "observed_archived": false,
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "host-oh-my-pi-readme",
+      "url": "https://github.com/can1357/oh-my-pi/blob/0b5c27ab24719c86a5986b95ee55f4e75bc1aaa0/README.md",
+      "title": "oh-my-pi（OMP） 固定版本 README",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "0b5c27ab24719c86a5986b95ee55f4e75bc1aaa0",
+      "file_blob_sha": "5a38c5af4d292056119f271c641466b860a43bca",
+      "source_type": "upstream_repository_documentation",
+      "observation_scope": "固定源码文档，不是本机运行或稳定发行版验证",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "host-oh-my-pi-repository-metadata",
+      "url": "https://api.github.com/repos/can1357/oh-my-pi",
+      "title": "oh-my-pi（OMP） 仓库元数据",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_repository_metadata",
+      "observed_default_branch": "main",
+      "observed_license_spdx": "MIT",
+      "observed_archived": false,
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "host-openhands-readme",
+      "url": "https://github.com/OpenHands/OpenHands/blob/8fdd6859aee5779ebbc12e44dc32823d7cb08527/README.md",
+      "title": "OpenHands 固定版本 README",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "8fdd6859aee5779ebbc12e44dc32823d7cb08527",
+      "file_blob_sha": "54f41832322ab4701c202a102cd4db23e3e4dc3a",
+      "source_type": "upstream_repository_documentation",
+      "observation_scope": "固定源码文档，不是本机运行或稳定发行版验证",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "host-openhands-repository-metadata",
+      "url": "https://api.github.com/repos/OpenHands/OpenHands",
+      "title": "OpenHands 仓库元数据",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_repository_metadata",
+      "observed_default_branch": "main",
+      "observed_license_spdx": "MIT",
+      "observed_archived": false,
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "host-cline-readme",
+      "url": "https://github.com/cline/cline/blob/1619168bdeb570aa233d0f0a9af1d332d83a2816/README.md",
+      "title": "Cline 固定版本 README",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "1619168bdeb570aa233d0f0a9af1d332d83a2816",
+      "file_blob_sha": "1b870599c7e12943b5a71b69c975744d61cbc25a",
+      "source_type": "upstream_repository_documentation",
+      "observation_scope": "固定源码文档，不是本机运行或稳定发行版验证",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "host-cline-repository-metadata",
+      "url": "https://api.github.com/repos/cline/cline",
+      "title": "Cline 仓库元数据",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_repository_metadata",
+      "observed_default_branch": "main",
+      "observed_license_spdx": "Apache-2.0",
+      "observed_archived": false,
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "host-aider-readme",
+      "url": "https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/README.md",
+      "title": "Aider 固定版本 README",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "5dc9490bb35f9729ef2c95d00a19ccd30c26339c",
+      "file_blob_sha": "816c876cb67021fa9f8d37267c8e57923eabdb07",
+      "source_type": "upstream_repository_documentation",
+      "observation_scope": "固定源码文档，不是本机运行或稳定发行版验证",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "host-aider-repository-metadata",
+      "url": "https://api.github.com/repos/Aider-AI/aider",
+      "title": "Aider 仓库元数据",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_repository_metadata",
+      "observed_default_branch": "main",
+      "observed_license_spdx": "Apache-2.0",
+      "observed_archived": false,
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "host-pi-readme",
+      "url": "https://github.com/earendil-works/pi/blob/ede2c9b468d8e061c557d16957513715e6d49cd6/packages/coding-agent/README.md",
+      "title": "Pi 固定版本 README",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "ede2c9b468d8e061c557d16957513715e6d49cd6",
+      "file_blob_sha": "db40c5e12c00d7a068a9642744dc6a9af528a099",
+      "source_type": "upstream_repository_documentation",
+      "observation_scope": "固定源码文档，不是本机运行或稳定发行版验证",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "host-pi-repository-metadata",
+      "url": "https://api.github.com/repos/earendil-works/pi",
+      "title": "Pi 仓库元数据",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_repository_metadata",
+      "observed_default_branch": "main",
+      "observed_license_spdx": "MIT",
+      "observed_archived": false,
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "adjacent-serena-readme",
+      "url": "https://github.com/oraios/serena/blob/abb0a0f01b94bc8050086f0fb860077d17730324/README.md",
+      "title": "Serena 固定版本 README",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "abb0a0f01b94bc8050086f0fb860077d17730324",
+      "file_blob_sha": "5cc92d57faf8fa44e9fb868ba69852314162888b",
+      "source_type": "upstream_repository_documentation",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "adjacent-llmlingua-readme",
+      "url": "https://github.com/microsoft/LLMLingua/blob/5a4c78ae18ab17a98cf997e8259354e546081d64/README.md",
+      "title": "LLMLingua 固定版本 README",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "5a4c78ae18ab17a98cf997e8259354e546081d64",
+      "file_blob_sha": "1ca17bc04f61ed8cad86d566a924d7e8f36e030a",
+      "source_type": "upstream_repository_documentation",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "adjacent-toon-readme",
+      "url": "https://github.com/toon-format/toon/blob/e247c423e0a38bca3477b17fecdf6ef4feeb5584/README.md",
+      "title": "TOON 固定版本 README",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "e247c423e0a38bca3477b17fecdf6ef4feeb5584",
+      "file_blob_sha": "afb4c23ddc542f9e598ded7165114856ee584656",
+      "source_type": "upstream_repository_documentation",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "adjacent-karpathy-inspired-guidelines-readme",
+      "url": "https://github.com/multica-ai/andrej-karpathy-skills/blob/2c606141936f1eeef17fa3043a72095b4765b9c2/README.md",
+      "title": "Karpathy-Inspired Claude Code Guidelines 固定版本 README",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "2c606141936f1eeef17fa3043a72095b4765b9c2",
+      "file_blob_sha": "7cf07a786532bebe01c65179c8e2c3a98cc0a09b",
+      "source_type": "upstream_repository_documentation",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "adjacent-spec-kit-readme",
+      "url": "https://github.com/github/spec-kit/blob/27d14e20c187c1f2916540ea201ecbdc9f8ed588/README.md",
+      "title": "Spec Kit 固定版本 README",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "27d14e20c187c1f2916540ea201ecbdc9f8ed588",
+      "file_blob_sha": "0d6d47f276feeda1afc2fe98b3ae653cd4b40fb4",
+      "source_type": "upstream_repository_documentation",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "adjacent-bmad-method-readme",
+      "url": "https://github.com/bmad-code-org/BMAD-METHOD/blob/61e01f82644c4bb533750cfa0d6d61ab61d2cc9b/README.md",
+      "title": "BMad Method 固定版本 README",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "61e01f82644c4bb533750cfa0d6d61ab61d2cc9b",
+      "file_blob_sha": "08c6425912ff5db8eff25559c4d9765b37877bff",
+      "source_type": "upstream_repository_documentation",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "host-claude-code-license",
+      "url": "https://github.com/anthropics/claude-code/blob/65823ec0034ed0aa0266bc43903fefd3ff94a327/LICENSE.md",
+      "title": "anthropics/claude-code LICENSE",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "65823ec0034ed0aa0266bc43903fefd3ff94a327",
+      "file_blob_sha": "645a5d67c6d1e16437bec850dad5bd3b6c81f77c",
+      "source_type": "upstream_license_file",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "adjacent-serena-license",
+      "url": "https://github.com/oraios/serena/blob/abb0a0f01b94bc8050086f0fb860077d17730324/LICENSE",
+      "title": "oraios/serena LICENSE",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "abb0a0f01b94bc8050086f0fb860077d17730324",
+      "file_blob_sha": "c738366dedbd850de1fc01a0d4d2777b23370e84",
+      "source_type": "upstream_license_file",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "adjacent-bmad-method-license",
+      "url": "https://github.com/bmad-code-org/BMAD-METHOD/blob/61e01f82644c4bb533750cfa0d6d61ab61d2cc9b/LICENSE",
+      "title": "bmad-code-org/BMAD-METHOD LICENSE",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "61e01f82644c4bb533750cfa0d6d61ab61d2cc9b",
+      "file_blob_sha": "557212d307dbed13aa72e8f158c9e4a626a3243a",
+      "source_type": "upstream_license_file",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "host-openhands-sdk-readme",
+      "url": "https://github.com/OpenHands/software-agent-sdk/blob/dd0892c80fffb1e59bac77242adafbd8b1168649/README.md",
+      "title": "OpenHands Software Agent SDK 固定版本 README",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "dd0892c80fffb1e59bac77242adafbd8b1168649",
+      "file_blob_sha": "386dc8945133cb51969192b0b29c8396719cbff6",
+      "source_type": "upstream_repository_documentation",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "official-opencode-plugins",
+      "url": "https://opencode.ai/docs/plugins/",
+      "title": "OpenCode Plugins",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "official_live_documentation",
+      "observation_scope": "动态网页；没有假称固定到对应宿主源码commit",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "official-opencode-skills",
+      "url": "https://opencode.ai/docs/skills/",
+      "title": "OpenCode Agent Skills",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "official_live_documentation",
+      "observation_scope": "动态网页；没有假称固定到对应宿主源码commit",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "directory-skills-sh-documentation",
+      "url": "https://skills.sh/docs",
+      "title": "Skills CLI 排行与目录说明",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "official_live_documentation",
+      "observation_scope": "动态网页；没有假称固定到对应宿主源码commit",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "specification-agent-skills",
+      "url": "https://agentskills.io/specification",
+      "title": "Agent Skills Specification",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "official_live_documentation",
+      "observation_scope": "动态网页；没有假称固定到对应宿主源码commit",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "official-claude-code-plugins",
+      "url": "https://code.claude.com/docs/en/plugins",
+      "title": "Claude Code Plugins overview",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "official_live_documentation",
+      "observation_scope": "动态网页；没有假称固定到对应宿主源码commit",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "official-codex-skills-redirect",
+      "url": "https://developers.openai.com/codex/skills",
+      "title": "Codex skills 文档入口（当前跳转 Build skills）",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "official_live_documentation",
+      "observation_scope": "动态网页；没有假称固定到对应宿主源码commit",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "host-codex-agents-md",
+      "url": "https://github.com/openai/codex/blob/1c0c45bfc372fb7d7d581508fdef5eef8235eab7/docs/agents_md.md",
+      "title": "Codex AGENTS.md 文档入口",
+      "checked_at_utc": "2026-10-23T16:15:27Z",
+      "repository_commit_sha": "1c0c45bfc372fb7d7d581508fdef5eef8235eab7",
+      "file_blob_sha": "4fa02abd1d78a779dc8b6295e69429bcb5d7a129",
+      "source_type": "upstream_repository_documentation",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "host-codex-exec-mode",
+      "url": "https://github.com/openai/codex/blob/1c0c45bfc372fb7d7d581508fdef5eef8235eab7/docs/exec.md",
+      "title": "Codex 非交互执行文档入口",
+      "checked_at_utc": "2026-10-23T16:15:27Z",
+      "repository_commit_sha": "1c0c45bfc372fb7d7d581508fdef5eef8235eab7",
+      "file_blob_sha": "57e432305bf70930fbbcbe808ab6c160dd266286",
+      "source_type": "upstream_repository_documentation",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "host-codex-skills-documentation-pointer",
+      "url": "https://github.com/openai/codex/blob/1c0c45bfc372fb7d7d581508fdef5eef8235eab7/docs/skills.md",
+      "title": "Codex Skills 固定文档入口",
+      "checked_at_utc": "2026-10-23T16:15:27Z",
+      "repository_commit_sha": "1c0c45bfc372fb7d7d581508fdef5eef8235eab7",
+      "file_blob_sha": "a45e7d73917e4a5b67e3f417f2caaa8db6be248d",
+      "source_type": "upstream_repository_documentation",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "host-pi-repository-redirect",
+      "url": "https://github.com/badlogic/pi-mono",
+      "title": "Pi 原仓库地址迁移观察",
+      "checked_at_utc": "2026-10-23T16:15:27Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_live_repository_redirect",
+      "observed_redirect_target": "https://github.com/earendil-works/pi",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "adjacent-serena-repository-metadata",
+      "url": "https://api.github.com/repos/oraios/serena",
+      "title": "Serena 仓库元数据",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_repository_metadata",
+      "observation_scope": "用于默认分支和仓库级许可标识；不代替组件许可审计",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "adjacent-llmlingua-repository-metadata",
+      "url": "https://api.github.com/repos/microsoft/LLMLingua",
+      "title": "LLMLingua 仓库元数据",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_repository_metadata",
+      "observation_scope": "用于默认分支和仓库级许可标识；不代替组件许可审计",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "adjacent-toon-repository-metadata",
+      "url": "https://api.github.com/repos/toon-format/toon",
+      "title": "TOON 仓库元数据",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_repository_metadata",
+      "observation_scope": "用于默认分支和仓库级许可标识；不代替组件许可审计",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "adjacent-karpathy-inspired-guidelines-repository-metadata",
+      "url": "https://api.github.com/repos/multica-ai/andrej-karpathy-skills",
+      "title": "Karpathy-Inspired Claude Code Guidelines 仓库元数据",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_repository_metadata",
+      "observation_scope": "用于默认分支和仓库级许可标识；不代替组件许可审计",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "adjacent-spec-kit-repository-metadata",
+      "url": "https://api.github.com/repos/github/spec-kit",
+      "title": "Spec Kit 仓库元数据",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_repository_metadata",
+      "observation_scope": "用于默认分支和仓库级许可标识；不代替组件许可审计",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "source_id": "adjacent-bmad-method-repository-metadata",
+      "url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD",
+      "title": "BMad Method 仓库元数据",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_repository_metadata",
+      "observation_scope": "用于默认分支和仓库级许可标识；不代替组件许可审计",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    }
+  ],
+  "research_contributions": [
+    {
+      "path": "research-contributions/token-efficiency-evidence.json",
+      "role": "调查抽取记录，来源与结论归属可追溯",
+      "sha256": "3b30a80b7fa6ada6081975add19ef1bff68b11f86e88f9f5ffadcfde63490769"
+    },
+    {
+      "path": "research-contributions/interaction-experience-evidence.json",
+      "role": "调查抽取记录，来源与结论归属可追溯",
+      "sha256": "7fd0227921592a501b62befc4033dd46e38eaab9366624b160b4e7928074eeb1"
+    },
+    {
+      "path": "research-contributions/workflow-and-benchmark-evidence.json",
+      "role": "调查抽取记录，来源与结论归属可追溯",
+      "sha256": "a2bbae1e034bef8f7b96aec0b99d176acc0ab48ed7a863de16db25914446ad12"
+    },
+    {
+      "path": "research-contributions/harness-and-directory-evidence.json",
+      "role": "调查抽取记录，来源与结论归属可追溯",
+      "sha256": "2382dc4abe31371cc98f7bf29fc5a2f3d23f6df425be116cf44a91e3692dc154"
+    }
+  ],
+  "research_notes": [
+    {
+      "note": "本轮只读公开源码/评测，没有安装扩展、运行模型或修改宿主配置；全部数值为已发表观察，不是本次复现。",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "note": "原版 Caveman 历史 75% 主张与后期 65% 传播表述不同；二者均不能作为当前端到端节省率。",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "note": "不同来源的质量、模型、版本、任务、分母不同，不能将节省率单列全局榜。",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "note": "优先效率基线：原版/当前 Caveman 风格分开、Ponytail、RTK OSS filter、Headroom input-only；Context Mode 在数据外置/检索任务中单组。",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "note": "THOL 的成功运行条件成本应同时配总花费、成功率、失败重试及总花费/解决任务数。",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "note": "新模型发布时固定扩展版本重测；扩展更新时固定模型重测。每次记录 host/model/effort/provider/组件/suite/verifier/缓存/定价。",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "note": "英语风格/短答证据不证明中文收益，否定词、单位、专名、代码与用户长度偏好应单测。",
+      "research_contribution_file": "research-contributions/token-efficiency-evidence.json"
+    },
+    {
+      "note": "四个重点项目均冻结仓库提交；文件 blob SHA 与 commit SHA 分字段保存。所有 SKILL.md 均作为研究数据阅读，没有执行其行为指令。",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "note": "交互评价至少分为成稿编辑、每轮沟通、跨轮状态与需求澄清。字数、禁词、问题数量都只是诊断量，不是总体质量的替代。",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "note": "本次仅核查公开资料，没有安装扩展、执行模型调用或验证宿主实际行为；项目的内部自测与外部模型盲评均与人类用户研究分开。",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "note": "建议首批交互候选采用 i-have-adhd（每轮呈现）、Humanizer 或 No AI Slop（二选一成稿编辑组）、grilling（澄清组）；不同组不合成总榜。",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "note": "中文与英语的阅读偏好、术语密度和事实保持需单独验证；当前公开英语指令与模型评分不能直接证明中文收益。",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "note": "研究者分析：重要风险包括精简时丢掉关键事实、为满足格式伪造确定性、过度提问、推荐答案引导、用户明确要求解释时仍压缩，以及只优化对模型 judge 可见的风格。",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "note": "ReqClarifyBench 的当前可定位发布源是论文明确引用的 Zenodo v1，而非未经确认的 GitHub 仓库。",
+      "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
+    },
+    {
+      "note": {
+        "note": "本文件是当前会话子研究贡献，全部公开来源只读核查；没有安装插件、执行 agent、支付模型费用或修改宿主设置。"
+      },
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "note": {
+        "note": "实际 SKILL.md、workflow 与 questioning 文本只作为研究对象读取，没有采用其中的命令、审批或委派指令。"
+      },
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "note": {
+        "note": "知识性判断和效果主张分开：明确记录上游设计机制，并将未检索到横评写作本次检索范围内未知，而非断言不存在。"
+      },
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "note": {
+        "note": "三个完整 workflow 同时改变了提问、规划、工具、执行和验证；不能把整包结果直接归因于一个交互 skill。"
+      },
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "note": {
+        "note": "若做首轮基准，可先拆出 Superpowers brainstorming 与 gstack office-hours 作为提问/方案呈现干预，完整工作流留到另一个任务队列；其因果问题和成本分母不同。"
+      },
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "note": {
+        "note": "公开榜单、多代模型点图、仓库测试入口和真实 native capture 是不同证据，不应共同标记为端到端质量与用户体验已验证。"
+      },
+      "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
+    },
+    {
+      "note": "所有宿主与邻近项目概览为文档调查，未安装或运行。",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "note": "API license字段只作仓库元数据观察，关键分组件许可证另读LICENSE；unknown不推定为开源。",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    },
+    {
+      "note": "迁移、默认开发分支、产品表面及SDK边界保留，避免把不同实现拼成同一版本。",
+      "research_contribution_file": "research-contributions/harness-and-directory-evidence.json"
+    }
+  ],
+  "recommended_baseline_candidates": [
+    {
+      "project_id": "caveman",
+      "comparison_group": "输出精简",
+      "purpose": "历史 voice 与当前 voice 分开，和简洁短提示比较",
+      "pre_run_requirement": "关闭 suite 其他组件并核验注入",
+      "selection_status": "建议候选，未运行或认定胜出",
+      "source_ids": [
+        "eff-caveman-readme",
+        "eff-caveman-skill",
+        "eff-caveman-license",
+        "eff-caveman-licensing",
+        "eff-caveman-original-skill",
+        "eff-caveman-original-readme",
+        "eff-caveman-original-license",
+        "eff-caveman-eval-method"
+      ]
+    },
+    {
+      "project_id": "ponytail",
+      "comparison_group": "实现精简",
+      "purpose": "与简单 YAGNI 提示比较，覆盖过度实现及不可精简任务",
+      "pre_run_requirement": "固定强度、hook和验收；不以LOC当质量",
+      "selection_status": "建议候选，未运行或认定胜出",
+      "source_ids": [
+        "eff-ponytail-skill",
+        "eff-ponytail-license",
+        "eff-ponytail-self-eval",
+        "eff-jetbrains-ponytail"
+      ]
+    },
+    {
+      "project_id": "rtk",
+      "comparison_group": "工具输出",
+      "purpose": "测命令密集任务中局部过滤能否降低总成本",
+      "pre_run_requirement": "固定OSS/core edition、过滤器和命令覆盖率",
+      "selection_status": "建议候选，未运行或认定胜出",
+      "source_ids": [
+        "eff-rtk-readme",
+        "eff-rtk-license",
+        "eff-rtk-engine-license",
+        "eff-rtk-proxy-license",
+        "eff-jetbrains-rtk"
+      ]
+    },
+    {
+      "project_id": "headroom",
+      "comparison_group": "上下文输入",
+      "purpose": "比较单一压缩模式、原文与确定性过滤",
+      "pre_run_requirement": "计入压缩、检索补救、cache及额外调用",
+      "selection_status": "建议候选，未运行或认定胜出",
+      "source_ids": [
+        "eff-headroom-readme",
+        "eff-headroom-license",
+        "eff-headroom-benchmark-method"
+      ]
+    },
+    {
+      "project_id": "i-have-adhd",
+      "comparison_group": "信息呈现",
+      "purpose": "测进度、失败、下一动作是否更清楚且准确",
+      "pre_run_requirement": "工具可用性与案例要求一致；保留解释请求",
+      "selection_status": "建议候选，未运行或认定胜出",
+      "source_ids": [
+        "interaction-adhd-skill",
+        "interaction-adhd-activation",
+        "interaction-adhd-codex-policy",
+        "interaction-adhd-evaluation",
+        "interaction-adhd-evaluation-protocol",
+        "interaction-adhd-evaluation-rubric",
+        "interaction-adhd-license"
+      ]
+    },
+    {
+      "project_id": "humanizer",
+      "comparison_group": "成稿文风",
+      "purpose": "与原文、no-ai-slop和简单写作提示配对",
+      "pre_run_requirement": "固定输入、当前skill、事实保持和语言条件",
+      "selection_status": "建议候选，未运行或认定胜出",
+      "source_ids": [
+        "interaction-humanizer-skill",
+        "interaction-humanizer-readme",
+        "interaction-humanizer-external-evaluation",
+        "interaction-humanizer-evaluation-comments",
+        "interaction-humanizer-license"
+      ]
+    },
+    {
+      "project_id": "no-ai-slop",
+      "comparison_group": "成稿文风",
+      "purpose": "检验规则清单是否超出廉价短提示的收益",
+      "pre_run_requirement": "固定编辑/检测模式，不按禁词数评分",
+      "selection_status": "建议候选，未运行或认定胜出",
+      "source_ids": [
+        "interaction-no-ai-slop-skill",
+        "interaction-no-ai-slop-self-check",
+        "interaction-no-ai-slop-license"
+      ]
+    },
+    {
+      "project_id": "mattpocock-skills",
+      "comparison_group": "需求澄清",
+      "purpose": "在明确、欠明确、可查事实和用户改意中比较提问价值",
+      "pre_run_requirement": "固定单skill/pack、持久上下文及模拟用户条件",
+      "selection_status": "建议候选，未运行或认定胜出",
+      "source_ids": [
+        "interaction-mattpocock-readme",
+        "interaction-mattpocock-grilling",
+        "interaction-mattpocock-grill-me",
+        "interaction-mattpocock-grill-with-docs",
+        "interaction-mattpocock-questionnaire",
+        "interaction-mattpocock-writing-for-agents",
+        "interaction-mattpocock-grill-me-policy",
+        "interaction-mattpocock-license"
+      ]
+    }
+  ],
+  "baseline_controls": [
+    {
+      "control_id": "native-host-without-target-extension",
+      "description": "保留宿主原生行为并移除被测扩展；记录内建技能、全局规则和工具，验证实际加载内容"
+    },
+    {
+      "control_id": "short-capability-specific-instruction",
+      "description": "与相应能力匹配的简洁短提示，如简洁回答、避免不必要实现或先查环境再澄清；与复杂扩展使用同一任务"
+    }
+  ],
+  "deferred_baseline_candidates": [
+    {
+      "project_id": "context-mode",
+      "reason": "需要工具执行、compaction和状态连续性专题，先固定组件和状态"
+    },
+    {
+      "project_id": "superpowers",
+      "reason": "完整多阶段工作流，需用户参与与全部执行者成本"
+    },
+    {
+      "project_id": "gstack",
+      "reason": "完整工作流与原生提问UI，应区别payload捕获和任务完成"
+    },
+    {
+      "project_id": "gsd-core",
+      "reason": "fresh-context委派与持久状态，需冷/热与所有执行者开销"
+    }
+  ],
+  "evaluation_recommendation": {
+    "quality_metrics": [
+      "隐藏/独立验收通过率",
+      "需求满足与工件完整性",
+      "事实准确及必要信息保持",
+      "信息可操作性",
+      "有价值的澄清与最终需求解决"
+    ],
+    "cost_and_time_metrics": [
+      "全部尝试总花费",
+      "成功率",
+      "每次成功交付成本",
+      "端到端wall-clock",
+      "用户交互次数与负担",
+      "失败和返工"
+    ],
+    "success_rate_formula": "成功运行数 / 全部运行数",
+    "cost_per_successful_delivery_formula": "全部运行总花费 / 成功运行数；失败花费进分子；零成功标为未定义/无成功交付",
+    "usage_accounting": "分别保存input、cache_read、cache_write、output、reasoning以及工具/压缩/子agent调用；provider字段重叠时不重复相加",
+    "cost_provenance": "区分实付美元、按版本化牌价计算的modeled cost、订阅限额与本地估算",
+    "required_scenarios": [
+      "明确小任务",
+      "改变验收的关键歧义",
+      "环境中可查事实",
+      "用户部分回答或改主意",
+      "长任务部分成功或测试失败",
+      "技术成稿事实和声音保持"
+    ],
+    "judging": "确定性验收优先；模型judge需盲化、换序、固定rubric/版本和人工抽检；模拟用户与真人结果分开",
+    "language_policy": "英文证据不直接外推中文，独立保留语言和用户偏好条件",
+    "first_stage_scope": "一次启用一个项目的选定组件；不宣称已隔离该组件内部所有机制",
+    "sample_size_policy": "本轮不指定假造的效应或预算；正式实验先校准基础对照方差再做样本/重复次数设计"
+  },
+  "model_release_tracking_recommendation": {
+    "fixed_extension_model_update": "固定任务、扩展内容、宿主、工具与配置，在受支持新模型上重跑基础对照和候选",
+    "fixed_model_extension_update": "固定模型与其他条件，比较扩展新旧版本，避免把模型改进归给扩展",
+    "run_identity_fields": [
+      "provider",
+      "model_id_or_snapshot",
+      "server_fingerprint_if_exposed",
+      "reasoning_effort",
+      "harness_version",
+      "extension_commit_and_components",
+      "activation_evidence",
+      "task_and_verifier_version",
+      "environment_and_tools",
+      "sampling_configuration",
+      "run_date",
+      "price_version",
+      "cache_and_initial_state"
+    ],
+    "historical_results": "历史身份保持不变；新模型/扩展/宿主条件标为待重测，不挪用旧分数",
+    "price_only_change": "可对冻结usage重新计价，明确为复算，不称模型重跑",
+    "trigger_and_coverage": "先运行标明覆盖范围的筛选面板；有差异再扩大任务，筛选与正式结果分开",
+    "shared_model_host_comparison": "仅对实际支持相同模型/端点和可对齐条件的宿主配对；其他组合分组呈现",
+    "state_isolation": "固定初始记忆/索引状态；区分冷启动和热复用，防止实验组互相污染"
+  },
+  "openanalysis_opportunity_assessment": {
+    "already_covered": [
+      "skills.sh的发现与安装排行",
+      "SkillsBench的任务专属技能有无配对与多模型展示",
+      "THOL的端到端token优化横评",
+      "JetBrains的配对效率研究"
+    ],
+    "hypothesis_to_validate": [
+      "独立且可审计的跨项目证据卡",
+      "按模型、宿主、组件与任务版本持续受控追踪",
+      "呈现与提问策略对需求解决和用户负担的比较"
+    ],
+    "not_claimed": "未声称首个或唯一平台，未证明整个市场没有持续监测，也未估算市场规模",
+    "theseus_future_comparison": "同一冻结规范、普通参评流程、披露共同所有者、允许负面结果；不直接把workflow成功率与模型智能指数混轴"
+  }
+}
