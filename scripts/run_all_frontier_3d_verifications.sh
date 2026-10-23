@@ -2,7 +2,7 @@
 # 依次运行 Frontier 3D 的全部验证，逐步汇总「通过 / 失败」；任一步失败时最终以非零码退出。
 #
 # 用法：
-#   scripts/run_all_frontier_3d_verifications.sh [--allow-html-renderer-bundle-differing-from-repository-renderer-bundle] <frontier_3d.html>
+#   scripts/run_all_frontier_3d_verifications.sh [--allow-html-renderer-bundle-differing-from-repository-renderer-bundle] [frontier_3d.html]
 #
 # 步骤（某一步失败不会中断后续步骤，全部跑完再汇总）：
 #   1. pytest（tests/python_unit；读本机 data/raw 缓存的测试默认跳过，见 tests/python_unit/conftest.py）
@@ -27,9 +27,9 @@ FRONTIER_3D_THREEJS_BUNDLE_BUILD_SCRIPT_RELATIVE_PATH="scripts/build_frontier_3d
 print_usage() {
   cat <<'EOF'
 用法：
-  scripts/run_all_frontier_3d_verifications.sh [--allow-html-renderer-bundle-differing-from-repository-renderer-bundle] <frontier_3d.html>
+  scripts/run_all_frontier_3d_verifications.sh [--allow-html-renderer-bundle-differing-from-repository-renderer-bundle] [frontier_3d.html]
 
-依次运行 pytest、bundle --check、HTML 内联 bundle 与仓库 bundle 一致性、指标口径回归、公共数据契约验证
+不传 HTML 时自建合成报告。依次运行 pytest、Node、三浏览器、bundle --check、HTML 内联 bundle 与仓库 bundle 一致性、指标口径回归、公共数据契约验证
 与四个 Playwright 浏览器验证，最后汇总每步通过/失败；任一步失败则以非零码退出。
 
   --allow-html-renderer-bundle-differing-from-repository-renderer-bundle
@@ -57,34 +57,23 @@ if [[ "${1:-}" == "--allow-html-renderer-bundle-differing-from-repository-render
 fi
 
 case "${1:-}" in
-  -h|--help)
-    print_usage
-    exit 0
-    ;;
-  "")
-    echo "错误：缺少 <frontier_3d.html> 参数" >&2
-    print_usage >&2
-    exit 2
-    ;;
+  -h|--help) print_usage; exit 0 ;;
 esac
-if [[ $# -ne 1 ]]; then
-  echo "错误：只接受一个参数 <frontier_3d.html>，实际收到 $# 个" >&2
-  print_usage >&2
+if [[ $# -gt 1 ]]; then
+  echo "错误：最多接受一个 HTML 路径" >&2
   exit 2
 fi
-
-if [[ ! -f "$1" ]]; then
-  echo "错误：HTML 文件不存在：$1" >&2
-  exit 2
-fi
-FRONTIER_3D_HTML_ABSOLUTE_PATH="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
-
 if ! command -v uv >/dev/null 2>&1; then
-  echo "错误：找不到 uv；本脚本的 Python 调用一律走 uv run --frozen" >&2
+  echo "错误：找不到 uv" >&2
   exit 2
 fi
 refuse_to_run_uv_against_symlinked_repository_virtual_environment
-
+if [[ $# -eq 0 ]]; then
+  FRONTIER_3D_HTML_ABSOLUTE_PATH="$(cd "$REPOSITORY_ROOT_DIRECTORY" && uv run --frozen --all-extras python scripts/build_frontier_3d_synthetic_fixture_report.py)"
+else
+  [[ -f "$1" ]] || { echo "错误：HTML 文件不存在：$1" >&2; exit 2; }
+  FRONTIER_3D_HTML_ABSOLUTE_PATH="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
+fi
 cd "$REPOSITORY_ROOT_DIRECTORY"
 
 VERIFICATION_STEP_NAMES=()
@@ -125,7 +114,7 @@ check_committed_bundle_matches_fresh_build_byte_for_byte() {
 
 check_html_inline_renderer_bundle_matches_repository_renderer_bundle() {
   # 浏览器验证测的是 HTML 里内联的前端；它必须就是（已通过 --check 的）仓库 bundle，否则两边脱节。
-  uv run --frozen python - "$FRONTIER_3D_HTML_ABSOLUTE_PATH" \
+  uv run --frozen --all-extras python - "$FRONTIER_3D_HTML_ABSOLUTE_PATH" \
     "src/frontier_3d_interactive_report_assets/frontier_3d_threejs_interactive_renderer_bundle.js" \
     "$ALLOW_HTML_RENDERER_BUNDLE_DIFFERING_FROM_REPOSITORY_RENDERER_BUNDLE" \
     <<'PYTHON_HTML_INLINE_RENDERER_BUNDLE_MATCHES_REPOSITORY_RENDERER_BUNDLE'
@@ -159,28 +148,32 @@ PYTHON_HTML_INLINE_RENDERER_BUNDLE_MATCHES_REPOSITORY_RENDERER_BUNDLE
 }
 
 run_verification_step "pytest" \
-  uv run --frozen --extra test pytest
+  uv run --frozen --all-extras pytest tests/python_unit
+run_verification_step "Node 纯函数" node --test tests/javascript_unit/*.test.js
+run_verification_step "合成页面浏览器矩阵" \
+  uv run --frozen --all-extras pytest tests/browser_playwright --browser chromium --browser firefox --browser webkit
 run_verification_step "bundle --check" \
   check_committed_bundle_matches_fresh_build_byte_for_byte
 run_verification_step "HTML 内联 bundle = 仓库 bundle" \
   check_html_inline_renderer_bundle_matches_repository_renderer_bundle
 run_verification_step "verify_metric_semantics.py" \
-  uv run --frozen python scripts/verify_metric_semantics.py
+  uv run --frozen --all-extras python scripts/verify_metric_semantics.py
 run_verification_step "verify_frontier_3d_threejs_public_contract.py" \
-  uv run --frozen python scripts/verify_frontier_3d_threejs_public_contract.py "$FRONTIER_3D_HTML_ABSOLUTE_PATH"
+  uv run --frozen --all-extras python scripts/verify_frontier_3d_threejs_public_contract.py "$FRONTIER_3D_HTML_ABSOLUTE_PATH"
 run_verification_step "verify_frontier_3d_threejs_browser_contract.py" \
-  uv run --frozen --extra browser-verification python scripts/verify_frontier_3d_threejs_browser_contract.py "$FRONTIER_3D_HTML_ABSOLUTE_PATH"
+  uv run --frozen --all-extras python scripts/verify_frontier_3d_threejs_browser_contract.py "$FRONTIER_3D_HTML_ABSOLUTE_PATH"
 run_verification_step "verify_interactions_headless.py" \
-  uv run --frozen --extra browser-verification python scripts/verify_interactions_headless.py "$FRONTIER_3D_HTML_ABSOLUTE_PATH"
+  uv run --frozen --all-extras python scripts/verify_interactions_headless.py "$FRONTIER_3D_HTML_ABSOLUTE_PATH"
 run_verification_step "verify_frontier_3d_adversarial_contract_rendering_safety.py" \
-  uv run --frozen --extra browser-verification python scripts/verify_frontier_3d_adversarial_contract_rendering_safety.py "$FRONTIER_3D_HTML_ABSOLUTE_PATH"
+  uv run --frozen --all-extras python scripts/verify_frontier_3d_adversarial_contract_rendering_safety.py "$FRONTIER_3D_HTML_ABSOLUTE_PATH"
 # 轴标注截图写到临时目录（R3-F11）：一键脚本缺省验证 output/frontier_3d.html，不应往共享 output/ 留截图
-FRONTIER_3D_AXIS_ANNOTATION_SCREENSHOT_DIRECTORY="$(mktemp -d "${TMPDIR:-/tmp}/frontier-3d-axis-annotation-screenshots.XXXXXX")"
+FRONTIER_3D_AXIS_ANNOTATION_SCREENSHOT_DIRECTORY="${REPOSITORY_ROOT_DIRECTORY}/.frontier-3d-worktree-artifacts/axis-annotation-screenshots"
+mkdir -p "$FRONTIER_3D_AXIS_ANNOTATION_SCREENSHOT_DIRECTORY"
 export FRONTIER_3D_AXIS_ANNOTATION_SCREENSHOT_DIRECTORY
 echo
 echo "轴标注截图目录：${FRONTIER_3D_AXIS_ANNOTATION_SCREENSHOT_DIRECTORY}"
 run_verification_step "verify_frontier_3d_axis_annotations.py" \
-  uv run --frozen --extra browser-verification python scripts/verify_frontier_3d_axis_annotations.py "$FRONTIER_3D_HTML_ABSOLUTE_PATH"
+  uv run --frozen --all-extras python scripts/verify_frontier_3d_axis_annotations.py "$FRONTIER_3D_HTML_ABSOLUTE_PATH"
 
 echo
 echo "==================== Frontier 3D 验证汇总 ===================="

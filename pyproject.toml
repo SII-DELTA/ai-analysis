@@ -25,15 +25,17 @@ test = [
 # scripts/verify_*.py 的 Playwright 浏览器验证
 browser-verification = [
     "playwright>=1.45,<2",
+    "pytest-playwright>=0.7,<1",
 ]
 
 [tool.uv]
 package = false
 
 [tool.pytest.ini_options]
-testpaths = ["tests/python_unit"]
+testpaths = ["tests/python_unit", "tests/browser_playwright"]
 pythonpath = ["."]
 addopts = "-ra --strict-markers"
 markers = [
+    "expects_webgl_context_loss: 此故障注入测试预期出现浏览器报告的上下文丢失警告，其他测试不放行该警告",
     "requires_local_cached_artificial_analysis_data: 读取本机 data/raw 缓存（共享符号链接目录）的测试；默认跳过；用 --run-tests-requiring-local-cached-artificial-analysis-data、环境变量 RUN_TESTS_REQUIRING_LOCAL_CACHED_ARTIFICIAL_ANALYSIS_DATA=1 或 -m requires_local_cached_artificial_analysis_data 显式运行",
 ]

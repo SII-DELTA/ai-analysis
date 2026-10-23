@@ -173,109 +173,69 @@
      "cost_axis_label": "有效运行成本",
      "cost_axis_unit": "USD",
      "lineages": {
-      "?||(default)": [
+      "Google||Gemini pro||non-reasoning": [
        {
-        "base_model_name": "Anonymous Creator Model",
-        "intelligence": 35.0,
-        "kept": true,
-        "label": "Anonymous Creator Model",
-        "name": "Anonymous Creator Model",
-        "release_date": "2026-03-01",
-        "x": 15.0,
-        "y": 265.8333333,
-        "z": 35.0
-       },
-       {
-        "base_model_name": "Blank Creator Model",
-        "intelligence": 33.0,
-        "kept": true,
-        "label": "Blank Creator Model",
-        "name": "Blank Creator Model",
-        "release_date": "2026-03-15",
-        "x": 12.0,
-        "y": 261.0,
-        "z": 33.0
-       }
-      ],
-      "Google||pro": [
-       {
+        "analysis_eligibility": {
+         "ineligibility_reason_codes": [],
+         "ineligibility_reason_text": null,
+         "is_analysis_eligible_for_current_metric_variant": true
+        },
         "base_model_name": "Gemini 2 Pro",
+        "creator": "Google",
         "intelligence": 30.0,
         "kept": false,
         "label": "Gemini 2 Pro",
+        "lineage_family_key": "Google||Gemini pro",
+        "model_uuid": "00000000-0000-4000-9000-000000000008",
         "name": "Gemini 2 Pro",
+        "reasoning_level_label": "non-reasoning",
+        "reasoning_level_sort_order": 0,
         "release_date": "2023-06-01",
         "x": 100.0,
         "y": 104.4,
         "z": 30.0
        },
        {
+        "analysis_eligibility": {
+         "ineligibility_reason_codes": [],
+         "ineligibility_reason_text": null,
+         "is_analysis_eligible_for_current_metric_variant": true
+        },
         "base_model_name": "Gemini 2.5 Pro",
+        "creator": "Google",
         "intelligence": 40.0,
         "kept": false,
         "label": "Gemini 2.5 Pro",
+        "lineage_family_key": "Google||Gemini pro",
+        "model_uuid": "00000000-0000-4000-9000-000000000007",
         "name": "Gemini 2.5 Pro",
+        "reasoning_level_label": "non-reasoning",
+        "reasoning_level_sort_order": 0,
         "release_date": "2025-03-01",
         "x": 250.0,
         "y": 124.2857143,
         "z": 40.0
        },
        {
+        "analysis_eligibility": {
+         "ineligibility_reason_codes": [],
+         "ineligibility_reason_text": null,
+         "is_analysis_eligible_for_current_metric_variant": true
+        },
         "base_model_name": "Gemini 3 Pro",
+        "creator": "Google",
         "intelligence": 58.0,
         "kept": true,
         "label": "Gemini 3 Pro",
+        "lineage_family_key": "Google||Gemini pro",
+        "model_uuid": "00000000-0000-4000-9000-000000000006",
         "name": "Gemini 3 Pro",
+        "reasoning_level_label": "non-reasoning",
+        "reasoning_level_sort_order": 0,
         "release_date": "2025-11-01",
         "x": 300.0,
         "y": 130.5,
         "z": 58.0
-       }
-      ],
-      "Meta||(default)": [
-       {
-        "base_model_name": "Laggard Chain A",
-        "intelligence": 20.0,
-        "kept": false,
-        "label": "Laggard Chain A",
-        "name": "Laggard Chain A",
-        "release_date": "2026-01-01",
-        "x": 500.0,
-        "y": 21.75,
-        "z": 20.0
-       },
-       {
-        "base_model_name": "Laggard Chain B",
-        "intelligence": 19.0,
-        "kept": false,
-        "label": "Laggard Chain B",
-        "name": "Laggard Chain B",
-        "release_date": "2026-01-01",
-        "x": 600.0,
-        "y": 19.575,
-        "z": 19.0
-       },
-       {
-        "base_model_name": "Laggard Chain C",
-        "intelligence": 18.0,
-        "kept": false,
-        "label": "Laggard Chain C",
-        "name": "Laggard Chain C",
-        "release_date": "2026-01-01",
-        "x": 700.0,
-        "y": 17.4,
-        "z": 18.0
-       },
-       {
-        "base_model_name": "Laggard Chain D",
-        "intelligence": 17.0,
-        "kept": false,
-        "label": "Laggard Chain D",
-        "name": "Laggard Chain D",
-        "release_date": "2026-01-01",
-        "x": 800.0,
-        "y": 15.225,
-        "z": 17.0
        }
       ]
      },
@@ -2058,7 +2018,9 @@
        "base_model_name": "Qwen4 Max",
        "country_region_category": "china",
        "creator": "Alibaba",
-       "lineage_key": "Alibaba||max",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000000",
        "name": "Qwen4 Max (high)",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.2162041267,
@@ -2108,7 +2070,9 @@
        "base_model_name": "Qwen4 Max",
        "country_region_category": "china",
        "creator": "Alibaba",
-       "lineage_key": "Alibaba||max",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000001",
        "name": "Qwen4 Max (medium)",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.3621532953,
@@ -2158,7 +2122,9 @@
        "base_model_name": "Qwen4 Max",
        "country_region_category": "china",
        "creator": "Alibaba",
-       "lineage_key": "Alibaba||max",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000002",
        "name": "Qwen4 Max (low)",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.530287189,
@@ -2208,7 +2174,9 @@
        "base_model_name": "DeepSeek V5",
        "country_region_category": "china",
        "creator": "DeepSeek",
-       "lineage_key": "DeepSeek||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000003",
        "name": "DeepSeek V5",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.7010367702,
@@ -2258,7 +2226,9 @@
        "base_model_name": "GPT-6",
        "country_region_category": "united_states",
        "creator": "OpenAI",
-       "lineage_key": "OpenAI||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000004",
        "name": "GPT-6 (high)",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.04545454545,
@@ -2308,7 +2278,9 @@
        "base_model_name": "GPT-6 mini",
        "country_region_category": "united_states",
        "creator": "OpenAI",
-       "lineage_key": "OpenAI||mini",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000005",
        "name": "GPT-6 mini",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.7616111482,
@@ -2358,7 +2330,9 @@
        "base_model_name": "Gemini 3 Pro",
        "country_region_category": "united_states",
        "creator": "Google",
-       "lineage_key": "Google||pro",
+       "lineage_family_key": "Google||Gemini pro",
+       "lineage_key": "Google||Gemini pro||non-reasoning",
+       "model_uuid": "00000000-0000-4000-9000-000000000006",
        "name": "Gemini 3 Pro",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.2767785047,
@@ -2408,7 +2382,9 @@
        "base_model_name": "Mistral Large 4",
        "country_region_category": "other",
        "creator": "Mistral",
-       "lineage_key": "Mistral||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000009",
        "name": "Mistral Large 4",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.6156619796,
@@ -2458,7 +2434,9 @@
        "base_model_name": "Future Lab Model",
        "country_region_category": "unclassified",
        "creator": "Future Unmapped Laboratory",
-       "lineage_key": "Future Unmapped Laboratory||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000010",
        "name": "Future Lab Model",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.8469859388,
@@ -2508,7 +2486,9 @@
        "base_model_name": "Anonymous Creator Model",
        "country_region_category": "unclassified",
        "creator": "?",
-       "lineage_key": "?||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000011",
        "name": "Anonymous Creator Model",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.9075603168,
@@ -2558,7 +2538,9 @@
        "base_model_name": "Blank Creator Model",
        "country_region_category": "unclassified",
        "creator": "?",
-       "lineage_key": "?||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000012",
        "name": "Blank Creator Model",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.9545454545,
@@ -2611,7 +2593,9 @@
        "base_model_name": "Claude Legacy 4",
        "country_region_category": "united_states",
        "creator": "Anthropic",
-       "lineage_key": "Anthropic||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000019",
        "name": "Claude Legacy 4 (Reasoning)",
        "normalized_improvement_coordinates": {
         "cost_efficiency": null,
@@ -2663,7 +2647,9 @@
        "base_model_name": "Kimi K3",
        "country_region_category": "unclassified",
        "creator": "Moonshot AI",
-       "lineage_key": "Moonshot AI||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000020",
        "name": "Kimi K3",
        "normalized_improvement_coordinates": {
         "cost_efficiency": null,
@@ -2715,7 +2701,9 @@
        "base_model_name": "Grok 5",
        "country_region_category": "unclassified",
        "creator": "xAI",
-       "lineage_key": "xAI||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000021",
        "name": "Grok 5",
        "normalized_improvement_coordinates": {
         "cost_efficiency": null,
@@ -3073,16 +3061,16 @@
       },
       "y_axis": {
        "fixed_range": [
-        -10.11375,
-        547.33875
+        28.71,
+        545.49
        ],
        "scale_type": "linear",
        "title_text": "有效速度（按冗长度归一的生成速度，不含 TTFT 与工具耗时） tok/s"
       },
       "z_axis": {
        "fixed_range": [
-        14.6,
-        67.4
+        28.25,
+        66.75
        ],
        "scale_type": "linear",
        "title_text": "智能指数（AA Intelligence Index v4.3.2）"
@@ -3381,109 +3369,69 @@
      "cost_axis_label": "7:2:1 混合单价",
      "cost_axis_unit": "USD/M tokens",
      "lineages": {
-      "?||(default)": [
+      "Google||Gemini pro||non-reasoning": [
        {
-        "base_model_name": "Anonymous Creator Model",
-        "intelligence": 35.0,
-        "kept": true,
-        "label": "Anonymous Creator Model",
-        "name": "Anonymous Creator Model",
-        "release_date": "2026-03-01",
-        "x": 0.6,
-        "y": 265.8333333,
-        "z": 35.0
-       },
-       {
-        "base_model_name": "Blank Creator Model",
-        "intelligence": 33.0,
-        "kept": true,
-        "label": "Blank Creator Model",
-        "name": "Blank Creator Model",
-        "release_date": "2026-03-15",
-        "x": 0.5,
-        "y": 261.0,
-        "z": 33.0
-       }
-      ],
-      "Google||pro": [
-       {
+        "analysis_eligibility": {
+         "ineligibility_reason_codes": [],
+         "ineligibility_reason_text": null,
+         "is_analysis_eligible_for_current_metric_variant": true
+        },
         "base_model_name": "Gemini 2 Pro",
+        "creator": "Google",
         "intelligence": 30.0,
         "kept": false,
         "label": "Gemini 2 Pro",
+        "lineage_family_key": "Google||Gemini pro",
+        "model_uuid": "00000000-0000-4000-9000-000000000008",
         "name": "Gemini 2 Pro",
+        "reasoning_level_label": "non-reasoning",
+        "reasoning_level_sort_order": 0,
         "release_date": "2023-06-01",
         "x": 4.0,
         "y": 104.4,
         "z": 30.0
        },
        {
+        "analysis_eligibility": {
+         "ineligibility_reason_codes": [],
+         "ineligibility_reason_text": null,
+         "is_analysis_eligible_for_current_metric_variant": true
+        },
         "base_model_name": "Gemini 2.5 Pro",
+        "creator": "Google",
         "intelligence": 40.0,
         "kept": false,
         "label": "Gemini 2.5 Pro",
+        "lineage_family_key": "Google||Gemini pro",
+        "model_uuid": "00000000-0000-4000-9000-000000000007",
         "name": "Gemini 2.5 Pro",
+        "reasoning_level_label": "non-reasoning",
+        "reasoning_level_sort_order": 0,
         "release_date": "2025-03-01",
         "x": 5.0,
         "y": 124.2857143,
         "z": 40.0
        },
        {
+        "analysis_eligibility": {
+         "ineligibility_reason_codes": [],
+         "ineligibility_reason_text": null,
+         "is_analysis_eligible_for_current_metric_variant": true
+        },
         "base_model_name": "Gemini 3 Pro",
+        "creator": "Google",
         "intelligence": 58.0,
         "kept": true,
         "label": "Gemini 3 Pro",
+        "lineage_family_key": "Google||Gemini pro",
+        "model_uuid": "00000000-0000-4000-9000-000000000006",
         "name": "Gemini 3 Pro",
+        "reasoning_level_label": "non-reasoning",
+        "reasoning_level_sort_order": 0,
         "release_date": "2025-11-01",
         "x": 5.0,
         "y": 130.5,
         "z": 58.0
-       }
-      ],
-      "Meta||(default)": [
-       {
-        "base_model_name": "Laggard Chain A",
-        "intelligence": 20.0,
-        "kept": false,
-        "label": "Laggard Chain A",
-        "name": "Laggard Chain A",
-        "release_date": "2026-01-01",
-        "x": 9.0,
-        "y": 21.75,
-        "z": 20.0
-       },
-       {
-        "base_model_name": "Laggard Chain B",
-        "intelligence": 19.0,
-        "kept": false,
-        "label": "Laggard Chain B",
-        "name": "Laggard Chain B",
-        "release_date": "2026-01-01",
-        "x": 10.0,
-        "y": 19.575,
-        "z": 19.0
-       },
-       {
-        "base_model_name": "Laggard Chain C",
-        "intelligence": 18.0,
-        "kept": false,
-        "label": "Laggard Chain C",
-        "name": "Laggard Chain C",
-        "release_date": "2026-01-01",
-        "x": 11.0,
-        "y": 17.4,
-        "z": 18.0
-       },
-       {
-        "base_model_name": "Laggard Chain D",
-        "intelligence": 17.0,
-        "kept": false,
-        "label": "Laggard Chain D",
-        "name": "Laggard Chain D",
-        "release_date": "2026-01-01",
-        "x": 12.0,
-        "y": 15.225,
-        "z": 17.0
        }
       ]
      },
@@ -5068,7 +5016,9 @@
        "base_model_name": "Qwen4 Max",
        "country_region_category": "china",
        "creator": "Alibaba",
-       "lineage_key": "Alibaba||max",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000000",
        "name": "Qwen4 Max (high)",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.2437311745,
@@ -5118,7 +5068,9 @@
        "base_model_name": "Qwen4 Max",
        "country_region_category": "china",
        "creator": "Alibaba",
-       "lineage_key": "Alibaba||max",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000001",
        "name": "Qwen4 Max (medium)",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.2437311745,
@@ -5168,7 +5120,9 @@
        "base_model_name": "Qwen4 Max",
        "country_region_category": "china",
        "creator": "Alibaba",
-       "lineage_key": "Alibaba||max",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000002",
        "name": "Qwen4 Max (low)",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.2437311745,
@@ -5218,7 +5172,9 @@
        "base_model_name": "DeepSeek V5",
        "country_region_category": "china",
        "creator": "DeepSeek",
-       "lineage_key": "DeepSeek||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000003",
        "name": "DeepSeek V5",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.7041152501,
@@ -5268,7 +5224,9 @@
        "base_model_name": "GPT-6",
        "country_region_category": "united_states",
        "creator": "OpenAI",
-       "lineage_key": "OpenAI||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000004",
        "name": "GPT-6 (high)",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.04545454545,
@@ -5318,7 +5276,9 @@
        "base_model_name": "GPT-6 mini",
        "country_region_category": "united_states",
        "creator": "OpenAI",
-       "lineage_key": "OpenAI||mini",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000005",
        "name": "GPT-6 mini",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.6402844327,
@@ -5368,7 +5328,9 @@
        "base_model_name": "Gemini 3 Pro",
        "country_region_category": "united_states",
        "creator": "Google",
-       "lineage_key": "Google||pro",
+       "lineage_family_key": "Google||Gemini pro",
+       "lineage_key": "Google||Gemini pro||non-reasoning",
+       "model_uuid": "00000000-0000-4000-9000-000000000006",
        "name": "Gemini 3 Pro",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.2958847499,
@@ -5418,7 +5380,9 @@
        "base_model_name": "Mistral Large 4",
        "country_region_category": "other",
        "creator": "Mistral",
-       "lineage_key": "Mistral||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000009",
        "name": "Mistral Large 4",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.5579921964,
@@ -5468,7 +5432,9 @@
        "base_model_name": "Future Lab Model",
        "country_region_category": "unclassified",
        "creator": "Future Unmapped Laboratory",
-       "lineage_key": "Future Unmapped Laboratory||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000010",
        "name": "Future Lab Model",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.8200996429,
@@ -5518,7 +5484,9 @@
        "base_model_name": "Anonymous Creator Model",
        "country_region_category": "unclassified",
        "creator": "?",
-       "lineage_key": "?||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000011",
        "name": "Anonymous Creator Model",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.9023918792,
@@ -5568,7 +5536,9 @@
        "base_model_name": "Blank Creator Model",
        "country_region_category": "unclassified",
        "creator": "?",
-       "lineage_key": "?||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000012",
        "name": "Blank Creator Model",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.9545454545,
@@ -5620,7 +5590,9 @@
        "base_model_name": "Claude Legacy 4",
        "country_region_category": "united_states",
        "creator": "Anthropic",
-       "lineage_key": "Anthropic||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000019",
        "name": "Claude Legacy 4 (Reasoning)",
        "normalized_improvement_coordinates": {
         "cost_efficiency": null,
@@ -5672,7 +5644,9 @@
        "base_model_name": "Kimi K3",
        "country_region_category": "unclassified",
        "creator": "Moonshot AI",
-       "lineage_key": "Moonshot AI||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000020",
        "name": "Kimi K3",
        "normalized_improvement_coordinates": {
         "cost_efficiency": null,
@@ -5722,7 +5696,9 @@
        "base_model_name": "Grok 5",
        "country_region_category": "unclassified",
        "creator": "xAI",
-       "lineage_key": "xAI||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000021",
        "name": "Grok 5",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.3597155673,
@@ -6068,16 +6044,16 @@
       },
       "y_axis": {
        "fixed_range": [
-        1.121152773,
-        2.779075031
+        1.677670503,
+        2.757670503
        ],
        "scale_type": "log",
        "title_text": "有效速度（按冗长度归一的生成速度，不含 TTFT 与工具耗时） tok/s（对数）"
       },
       "z_axis": {
        "fixed_range": [
-        14.6,
-        67.4
+        28.25,
+        66.75
        ],
        "scale_type": "linear",
        "title_text": "智能指数（AA Intelligence Index v4.3.2）"
@@ -6214,133 +6190,69 @@
      "cost_axis_label": "7:2:1 混合单价",
      "cost_axis_unit": "USD/M tokens",
      "lineages": {
-      "?||(default)": [
+      "Google||Gemini pro||non-reasoning": [
        {
-        "base_model_name": "Anonymous Creator Model",
-        "intelligence": 35.0,
-        "kept": true,
-        "label": "Anonymous Creator Model",
-        "name": "Anonymous Creator Model",
-        "release_date": "2026-03-01",
-        "x": 0.6,
-        "y": 55.0,
-        "z": 35.0
-       },
-       {
-        "base_model_name": "Blank Creator Model",
-        "intelligence": 33.0,
-        "kept": true,
-        "label": "Blank Creator Model",
-        "name": "Blank Creator Model",
-        "release_date": "2026-03-15",
-        "x": 0.5,
-        "y": 45.0,
-        "z": 33.0
-       }
-      ],
-      "Google||pro": [
-       {
+        "analysis_eligibility": {
+         "ineligibility_reason_codes": [],
+         "ineligibility_reason_text": null,
+         "is_analysis_eligible_for_current_metric_variant": true
+        },
         "base_model_name": "Gemini 2 Pro",
+        "creator": "Google",
         "intelligence": 30.0,
         "kept": false,
         "label": "Gemini 2 Pro",
+        "lineage_family_key": "Google||Gemini pro",
+        "model_uuid": "00000000-0000-4000-9000-000000000008",
         "name": "Gemini 2 Pro",
+        "reasoning_level_label": "non-reasoning",
+        "reasoning_level_sort_order": 0,
         "release_date": "2023-06-01",
         "x": 4.0,
         "y": 60.0,
         "z": 30.0
        },
        {
+        "analysis_eligibility": {
+         "ineligibility_reason_codes": [],
+         "ineligibility_reason_text": null,
+         "is_analysis_eligible_for_current_metric_variant": true
+        },
         "base_model_name": "Gemini 2.5 Pro",
+        "creator": "Google",
         "intelligence": 40.0,
         "kept": false,
         "label": "Gemini 2.5 Pro",
+        "lineage_family_key": "Google||Gemini pro",
+        "model_uuid": "00000000-0000-4000-9000-000000000007",
         "name": "Gemini 2.5 Pro",
+        "reasoning_level_label": "non-reasoning",
+        "reasoning_level_sort_order": 0,
         "release_date": "2025-03-01",
         "x": 5.0,
         "y": 100.0,
         "z": 40.0
        },
        {
+        "analysis_eligibility": {
+         "ineligibility_reason_codes": [],
+         "ineligibility_reason_text": null,
+         "is_analysis_eligible_for_current_metric_variant": true
+        },
         "base_model_name": "Gemini 3 Pro",
+        "creator": "Google",
         "intelligence": 58.0,
         "kept": true,
         "label": "Gemini 3 Pro",
+        "lineage_family_key": "Google||Gemini pro",
+        "model_uuid": "00000000-0000-4000-9000-000000000006",
         "name": "Gemini 3 Pro",
+        "reasoning_level_label": "non-reasoning",
+        "reasoning_level_sort_order": 0,
         "release_date": "2025-11-01",
         "x": 5.0,
         "y": 120.0,
         "z": 58.0
-       }
-      ],
-      "Meta||(default)": [
-       {
-        "base_model_name": "Laggard Chain A",
-        "intelligence": 20.0,
-        "kept": false,
-        "label": "Laggard Chain A",
-        "name": "Laggard Chain A",
-        "release_date": "2026-01-01",
-        "x": 9.0,
-        "y": 10.0,
-        "z": 20.0
-       },
-       {
-        "base_model_name": "Laggard Chain B",
-        "intelligence": 19.0,
-        "kept": false,
-        "label": "Laggard Chain B",
-        "name": "Laggard Chain B",
-        "release_date": "2026-01-01",
-        "x": 10.0,
-        "y": 9.0,
-        "z": 19.0
-       },
-       {
-        "base_model_name": "Laggard Chain C",
-        "intelligence": 18.0,
-        "kept": false,
-        "label": "Laggard Chain C",
-        "name": "Laggard Chain C",
-        "release_date": "2026-01-01",
-        "x": 11.0,
-        "y": 8.0,
-        "z": 18.0
-       },
-       {
-        "base_model_name": "Laggard Chain D",
-        "intelligence": 17.0,
-        "kept": false,
-        "label": "Laggard Chain D",
-        "name": "Laggard Chain D",
-        "release_date": "2026-01-01",
-        "x": 12.0,
-        "y": 7.0,
-        "z": 17.0
-       }
-      ],
-      "OpenAI||(default)": [
-       {
-        "base_model_name": "GPT-6",
-        "intelligence": 65.0,
-        "kept": true,
-        "label": "GPT-6",
-        "name": "GPT-6 (high)",
-        "release_date": "2026-07-01",
-        "x": 12.0,
-        "y": 90.0,
-        "z": 65.0
-       },
-       {
-        "base_model_name": "Brand New Model (V-3)",
-        "intelligence": 56.0,
-        "kept": true,
-        "label": "Brand New Model (V-3)",
-        "name": "Brand New Model (V-3)",
-        "release_date": "2026-09-20",
-        "x": 3.0,
-        "y": 200.0,
-        "z": 56.0
        }
       ]
      },
@@ -7457,7 +7369,9 @@
        "base_model_name": "Qwen4 Max",
        "country_region_category": "china",
        "creator": "Alibaba",
-       "lineage_key": "Alibaba||max",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000000",
        "name": "Qwen4 Max (high)",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.2437311745,
@@ -7507,7 +7421,9 @@
        "base_model_name": "Qwen4 Max",
        "country_region_category": "china",
        "creator": "Alibaba",
-       "lineage_key": "Alibaba||max",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000001",
        "name": "Qwen4 Max (medium)",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.2437311745,
@@ -7557,7 +7473,9 @@
        "base_model_name": "Qwen4 Max",
        "country_region_category": "china",
        "creator": "Alibaba",
-       "lineage_key": "Alibaba||max",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000002",
        "name": "Qwen4 Max (low)",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.2437311745,
@@ -7607,7 +7525,9 @@
        "base_model_name": "DeepSeek V5",
        "country_region_category": "china",
        "creator": "DeepSeek",
-       "lineage_key": "DeepSeek||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000003",
        "name": "DeepSeek V5",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.7041152501,
@@ -7657,7 +7577,9 @@
        "base_model_name": "GPT-6",
        "country_region_category": "united_states",
        "creator": "OpenAI",
-       "lineage_key": "OpenAI||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000004",
        "name": "GPT-6 (high)",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.04545454545,
@@ -7707,7 +7629,9 @@
        "base_model_name": "GPT-6 mini",
        "country_region_category": "united_states",
        "creator": "OpenAI",
-       "lineage_key": "OpenAI||mini",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000005",
        "name": "GPT-6 mini",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.6402844327,
@@ -7757,7 +7681,9 @@
        "base_model_name": "Gemini 3 Pro",
        "country_region_category": "united_states",
        "creator": "Google",
-       "lineage_key": "Google||pro",
+       "lineage_family_key": "Google||Gemini pro",
+       "lineage_key": "Google||Gemini pro||non-reasoning",
+       "model_uuid": "00000000-0000-4000-9000-000000000006",
        "name": "Gemini 3 Pro",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.2958847499,
@@ -7807,7 +7733,9 @@
        "base_model_name": "Mistral Large 4",
        "country_region_category": "other",
        "creator": "Mistral",
-       "lineage_key": "Mistral||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000009",
        "name": "Mistral Large 4",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.5579921964,
@@ -7857,7 +7785,9 @@
        "base_model_name": "Future Lab Model",
        "country_region_category": "unclassified",
        "creator": "Future Unmapped Laboratory",
-       "lineage_key": "Future Unmapped Laboratory||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000010",
        "name": "Future Lab Model",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.8200996429,
@@ -7907,7 +7837,9 @@
        "base_model_name": "Anonymous Creator Model",
        "country_region_category": "unclassified",
        "creator": "?",
-       "lineage_key": "?||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000011",
        "name": "Anonymous Creator Model",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.9023918792,
@@ -7957,7 +7889,9 @@
        "base_model_name": "Blank Creator Model",
        "country_region_category": "unclassified",
        "creator": "?",
-       "lineage_key": "?||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000012",
        "name": "Blank Creator Model",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.9545454545,
@@ -8007,7 +7941,9 @@
        "base_model_name": "Claude Legacy 4",
        "country_region_category": "united_states",
        "creator": "Anthropic",
-       "lineage_key": "Anthropic||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000019",
        "name": "Claude Legacy 4 (Reasoning)",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.4420078036,
@@ -8057,7 +7993,9 @@
        "base_model_name": "Kimi K3",
        "country_region_category": "unclassified",
        "creator": "Moonshot AI",
-       "lineage_key": "Moonshot AI||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000020",
        "name": "Kimi K3",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.7562688255,
@@ -8107,7 +8045,9 @@
        "base_model_name": "Grok 5",
        "country_region_category": "unclassified",
        "creator": "xAI",
-       "lineage_key": "xAI||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000021",
        "name": "Grok 5",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.3597155673,
@@ -8157,7 +8097,9 @@
        "base_model_name": "Brand New Model (V-3)",
        "country_region_category": "united_states",
        "creator": "OpenAI",
-       "lineage_key": "OpenAI||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000022",
        "name": "Brand New Model (V-3)",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.4420078036,
@@ -8503,16 +8445,16 @@
       },
       "y_axis": {
        "fixed_range": [
-        0.7868607618,
-        2.359267274
+        1.574101191,
+        2.328988796
        ],
        "scale_type": "log",
        "title_text": "原始速度 tok/s（对数）"
       },
       "z_axis": {
        "fixed_range": [
-        14.6,
-        67.4
+        28.25,
+        66.75
        ],
        "scale_type": "linear",
        "title_text": "智能指数（AA Intelligence Index v4.3.2）"
@@ -8657,109 +8599,69 @@
      "cost_axis_label": "有效运行成本",
      "cost_axis_unit": "USD",
      "lineages": {
-      "?||(default)": [
+      "Google||Gemini pro||non-reasoning": [
        {
-        "base_model_name": "Anonymous Creator Model",
-        "intelligence": 35.0,
-        "kept": true,
-        "label": "Anonymous Creator Model",
-        "name": "Anonymous Creator Model",
-        "release_date": "2026-03-01",
-        "x": 15.0,
-        "y": 265.8333333,
-        "z": 35.0
-       },
-       {
-        "base_model_name": "Blank Creator Model",
-        "intelligence": 33.0,
-        "kept": true,
-        "label": "Blank Creator Model",
-        "name": "Blank Creator Model",
-        "release_date": "2026-03-15",
-        "x": 12.0,
-        "y": 261.0,
-        "z": 33.0
-       }
-      ],
-      "Google||pro": [
-       {
+        "analysis_eligibility": {
+         "ineligibility_reason_codes": [],
+         "ineligibility_reason_text": null,
+         "is_analysis_eligible_for_current_metric_variant": true
+        },
         "base_model_name": "Gemini 2 Pro",
+        "creator": "Google",
         "intelligence": 30.0,
         "kept": false,
         "label": "Gemini 2 Pro",
+        "lineage_family_key": "Google||Gemini pro",
+        "model_uuid": "00000000-0000-4000-9000-000000000008",
         "name": "Gemini 2 Pro",
+        "reasoning_level_label": "non-reasoning",
+        "reasoning_level_sort_order": 0,
         "release_date": "2023-06-01",
         "x": 100.0,
         "y": 104.4,
         "z": 30.0
        },
        {
+        "analysis_eligibility": {
+         "ineligibility_reason_codes": [],
+         "ineligibility_reason_text": null,
+         "is_analysis_eligible_for_current_metric_variant": true
+        },
         "base_model_name": "Gemini 2.5 Pro",
+        "creator": "Google",
         "intelligence": 40.0,
         "kept": false,
         "label": "Gemini 2.5 Pro",
+        "lineage_family_key": "Google||Gemini pro",
+        "model_uuid": "00000000-0000-4000-9000-000000000007",
         "name": "Gemini 2.5 Pro",
+        "reasoning_level_label": "non-reasoning",
+        "reasoning_level_sort_order": 0,
         "release_date": "2025-03-01",
         "x": 250.0,
         "y": 124.2857143,
         "z": 40.0
        },
        {
+        "analysis_eligibility": {
+         "ineligibility_reason_codes": [],
+         "ineligibility_reason_text": null,
+         "is_analysis_eligible_for_current_metric_variant": true
+        },
         "base_model_name": "Gemini 3 Pro",
+        "creator": "Google",
         "intelligence": 58.0,
         "kept": true,
         "label": "Gemini 3 Pro",
+        "lineage_family_key": "Google||Gemini pro",
+        "model_uuid": "00000000-0000-4000-9000-000000000006",
         "name": "Gemini 3 Pro",
+        "reasoning_level_label": "non-reasoning",
+        "reasoning_level_sort_order": 0,
         "release_date": "2025-11-01",
         "x": 300.0,
         "y": 130.5,
         "z": 58.0
-       }
-      ],
-      "Meta||(default)": [
-       {
-        "base_model_name": "Laggard Chain A",
-        "intelligence": 20.0,
-        "kept": false,
-        "label": "Laggard Chain A",
-        "name": "Laggard Chain A",
-        "release_date": "2026-01-01",
-        "x": 500.0,
-        "y": 21.75,
-        "z": 20.0
-       },
-       {
-        "base_model_name": "Laggard Chain B",
-        "intelligence": 19.0,
-        "kept": false,
-        "label": "Laggard Chain B",
-        "name": "Laggard Chain B",
-        "release_date": "2026-01-01",
-        "x": 600.0,
-        "y": 19.575,
-        "z": 19.0
-       },
-       {
-        "base_model_name": "Laggard Chain C",
-        "intelligence": 18.0,
-        "kept": false,
-        "label": "Laggard Chain C",
-        "name": "Laggard Chain C",
-        "release_date": "2026-01-01",
-        "x": 700.0,
-        "y": 17.4,
-        "z": 18.0
-       },
-       {
-        "base_model_name": "Laggard Chain D",
-        "intelligence": 17.0,
-        "kept": false,
-        "label": "Laggard Chain D",
-        "name": "Laggard Chain D",
-        "release_date": "2026-01-01",
-        "x": 800.0,
-        "y": 15.225,
-        "z": 17.0
        }
       ]
      },
@@ -10542,7 +10444,9 @@
        "base_model_name": "Qwen4 Max",
        "country_region_category": "china",
        "creator": "Alibaba",
-       "lineage_key": "Alibaba||max",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000000",
        "name": "Qwen4 Max (high)",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.2162041267,
@@ -10592,7 +10496,9 @@
        "base_model_name": "Qwen4 Max",
        "country_region_category": "china",
        "creator": "Alibaba",
-       "lineage_key": "Alibaba||max",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000001",
        "name": "Qwen4 Max (medium)",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.3621532953,
@@ -10642,7 +10548,9 @@
        "base_model_name": "Qwen4 Max",
        "country_region_category": "china",
        "creator": "Alibaba",
-       "lineage_key": "Alibaba||max",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000002",
        "name": "Qwen4 Max (low)",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.530287189,
@@ -10692,7 +10600,9 @@
        "base_model_name": "DeepSeek V5",
        "country_region_category": "china",
        "creator": "DeepSeek",
-       "lineage_key": "DeepSeek||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000003",
        "name": "DeepSeek V5",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.7010367702,
@@ -10742,7 +10652,9 @@
        "base_model_name": "GPT-6",
        "country_region_category": "united_states",
        "creator": "OpenAI",
-       "lineage_key": "OpenAI||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000004",
        "name": "GPT-6 (high)",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.04545454545,
@@ -10792,7 +10704,9 @@
        "base_model_name": "GPT-6 mini",
        "country_region_category": "united_states",
        "creator": "OpenAI",
-       "lineage_key": "OpenAI||mini",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000005",
        "name": "GPT-6 mini",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.7616111482,
@@ -10842,7 +10756,9 @@
        "base_model_name": "Gemini 3 Pro",
        "country_region_category": "united_states",
        "creator": "Google",
-       "lineage_key": "Google||pro",
+       "lineage_family_key": "Google||Gemini pro",
+       "lineage_key": "Google||Gemini pro||non-reasoning",
+       "model_uuid": "00000000-0000-4000-9000-000000000006",
        "name": "Gemini 3 Pro",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.2767785047,
@@ -10892,7 +10808,9 @@
        "base_model_name": "Mistral Large 4",
        "country_region_category": "other",
        "creator": "Mistral",
-       "lineage_key": "Mistral||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000009",
        "name": "Mistral Large 4",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.6156619796,
@@ -10942,7 +10860,9 @@
        "base_model_name": "Future Lab Model",
        "country_region_category": "unclassified",
        "creator": "Future Unmapped Laboratory",
-       "lineage_key": "Future Unmapped Laboratory||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000010",
        "name": "Future Lab Model",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.8469859388,
@@ -10992,7 +10912,9 @@
        "base_model_name": "Anonymous Creator Model",
        "country_region_category": "unclassified",
        "creator": "?",
-       "lineage_key": "?||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000011",
        "name": "Anonymous Creator Model",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.9075603168,
@@ -11042,7 +10964,9 @@
        "base_model_name": "Blank Creator Model",
        "country_region_category": "unclassified",
        "creator": "?",
-       "lineage_key": "?||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000012",
        "name": "Blank Creator Model",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.9545454545,
@@ -11095,7 +11019,9 @@
        "base_model_name": "Claude Legacy 4",
        "country_region_category": "united_states",
        "creator": "Anthropic",
-       "lineage_key": "Anthropic||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000019",
        "name": "Claude Legacy 4 (Reasoning)",
        "normalized_improvement_coordinates": {
         "cost_efficiency": null,
@@ -11147,7 +11073,9 @@
        "base_model_name": "Kimi K3",
        "country_region_category": "unclassified",
        "creator": "Moonshot AI",
-       "lineage_key": "Moonshot AI||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000020",
        "name": "Kimi K3",
        "normalized_improvement_coordinates": {
         "cost_efficiency": null,
@@ -11199,7 +11127,9 @@
        "base_model_name": "Grok 5",
        "country_region_category": "unclassified",
        "creator": "xAI",
-       "lineage_key": "xAI||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000021",
        "name": "Grok 5",
        "normalized_improvement_coordinates": {
         "cost_efficiency": null,
@@ -11545,16 +11475,16 @@
       },
       "y_axis": {
        "fixed_range": [
-        1.121152773,
-        2.779075031
+        1.677670503,
+        2.757670503
        ],
        "scale_type": "log",
        "title_text": "有效速度（按冗长度归一的生成速度，不含 TTFT 与工具耗时） tok/s（对数）"
       },
       "z_axis": {
        "fixed_range": [
-        14.6,
-        67.4
+        28.25,
+        66.75
        ],
        "scale_type": "linear",
        "title_text": "智能指数（AA Intelligence Index v4.3.2）"
@@ -11691,133 +11621,69 @@
      "cost_axis_label": "有效运行成本",
      "cost_axis_unit": "USD",
      "lineages": {
-      "?||(default)": [
+      "Google||Gemini pro||non-reasoning": [
        {
-        "base_model_name": "Anonymous Creator Model",
-        "intelligence": 35.0,
-        "kept": true,
-        "label": "Anonymous Creator Model",
-        "name": "Anonymous Creator Model",
-        "release_date": "2026-03-01",
-        "x": 15.0,
-        "y": 55.0,
-        "z": 35.0
-       },
-       {
-        "base_model_name": "Blank Creator Model",
-        "intelligence": 33.0,
-        "kept": true,
-        "label": "Blank Creator Model",
-        "name": "Blank Creator Model",
-        "release_date": "2026-03-15",
-        "x": 12.0,
-        "y": 45.0,
-        "z": 33.0
-       }
-      ],
-      "Google||pro": [
-       {
+        "analysis_eligibility": {
+         "ineligibility_reason_codes": [],
+         "ineligibility_reason_text": null,
+         "is_analysis_eligible_for_current_metric_variant": true
+        },
         "base_model_name": "Gemini 2 Pro",
+        "creator": "Google",
         "intelligence": 30.0,
         "kept": false,
         "label": "Gemini 2 Pro",
+        "lineage_family_key": "Google||Gemini pro",
+        "model_uuid": "00000000-0000-4000-9000-000000000008",
         "name": "Gemini 2 Pro",
+        "reasoning_level_label": "non-reasoning",
+        "reasoning_level_sort_order": 0,
         "release_date": "2023-06-01",
         "x": 100.0,
         "y": 60.0,
         "z": 30.0
        },
        {
+        "analysis_eligibility": {
+         "ineligibility_reason_codes": [],
+         "ineligibility_reason_text": null,
+         "is_analysis_eligible_for_current_metric_variant": true
+        },
         "base_model_name": "Gemini 2.5 Pro",
+        "creator": "Google",
         "intelligence": 40.0,
         "kept": false,
         "label": "Gemini 2.5 Pro",
+        "lineage_family_key": "Google||Gemini pro",
+        "model_uuid": "00000000-0000-4000-9000-000000000007",
         "name": "Gemini 2.5 Pro",
+        "reasoning_level_label": "non-reasoning",
+        "reasoning_level_sort_order": 0,
         "release_date": "2025-03-01",
         "x": 250.0,
         "y": 100.0,
         "z": 40.0
        },
        {
+        "analysis_eligibility": {
+         "ineligibility_reason_codes": [],
+         "ineligibility_reason_text": null,
+         "is_analysis_eligible_for_current_metric_variant": true
+        },
         "base_model_name": "Gemini 3 Pro",
+        "creator": "Google",
         "intelligence": 58.0,
         "kept": true,
         "label": "Gemini 3 Pro",
+        "lineage_family_key": "Google||Gemini pro",
+        "model_uuid": "00000000-0000-4000-9000-000000000006",
         "name": "Gemini 3 Pro",
+        "reasoning_level_label": "non-reasoning",
+        "reasoning_level_sort_order": 0,
         "release_date": "2025-11-01",
         "x": 300.0,
         "y": 120.0,
         "z": 58.0
-       }
-      ],
-      "Meta||(default)": [
-       {
-        "base_model_name": "Laggard Chain A",
-        "intelligence": 20.0,
-        "kept": false,
-        "label": "Laggard Chain A",
-        "name": "Laggard Chain A",
-        "release_date": "2026-01-01",
-        "x": 500.0,
-        "y": 10.0,
-        "z": 20.0
-       },
-       {
-        "base_model_name": "Laggard Chain B",
-        "intelligence": 19.0,
-        "kept": false,
-        "label": "Laggard Chain B",
-        "name": "Laggard Chain B",
-        "release_date": "2026-01-01",
-        "x": 600.0,
-        "y": 9.0,
-        "z": 19.0
-       },
-       {
-        "base_model_name": "Laggard Chain C",
-        "intelligence": 18.0,
-        "kept": false,
-        "label": "Laggard Chain C",
-        "name": "Laggard Chain C",
-        "release_date": "2026-01-01",
-        "x": 700.0,
-        "y": 8.0,
-        "z": 18.0
-       },
-       {
-        "base_model_name": "Laggard Chain D",
-        "intelligence": 17.0,
-        "kept": false,
-        "label": "Laggard Chain D",
-        "name": "Laggard Chain D",
-        "release_date": "2026-01-01",
-        "x": 800.0,
-        "y": 7.0,
-        "z": 17.0
-       }
-      ],
-      "OpenAI||(default)": [
-       {
-        "base_model_name": "GPT-6",
-        "intelligence": 65.0,
-        "kept": true,
-        "label": "GPT-6",
-        "name": "GPT-6 (high)",
-        "release_date": "2026-07-01",
-        "x": 900.0,
-        "y": 90.0,
-        "z": 65.0
-       },
-       {
-        "base_model_name": "Brand New Model (V-3)",
-        "intelligence": 56.0,
-        "kept": true,
-        "label": "Brand New Model (V-3)",
-        "name": "Brand New Model (V-3)",
-        "release_date": "2026-09-20",
-        "x": 150.0,
-        "y": 200.0,
-        "z": 56.0
        }
       ]
      },
@@ -13420,7 +13286,9 @@
        "base_model_name": "Qwen4 Max",
        "country_region_category": "china",
        "creator": "Alibaba",
-       "lineage_key": "Alibaba||max",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000000",
        "name": "Qwen4 Max (high)",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.2162041267,
@@ -13470,7 +13338,9 @@
        "base_model_name": "Qwen4 Max",
        "country_region_category": "china",
        "creator": "Alibaba",
-       "lineage_key": "Alibaba||max",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000001",
        "name": "Qwen4 Max (medium)",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.3621532953,
@@ -13520,7 +13390,9 @@
        "base_model_name": "Qwen4 Max",
        "country_region_category": "china",
        "creator": "Alibaba",
-       "lineage_key": "Alibaba||max",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000002",
        "name": "Qwen4 Max (low)",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.530287189,
@@ -13570,7 +13442,9 @@
        "base_model_name": "DeepSeek V5",
        "country_region_category": "china",
        "creator": "DeepSeek",
-       "lineage_key": "DeepSeek||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000003",
        "name": "DeepSeek V5",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.7010367702,
@@ -13620,7 +13494,9 @@
        "base_model_name": "GPT-6",
        "country_region_category": "united_states",
        "creator": "OpenAI",
-       "lineage_key": "OpenAI||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000004",
        "name": "GPT-6 (high)",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.04545454545,
@@ -13670,7 +13546,9 @@
        "base_model_name": "GPT-6 mini",
        "country_region_category": "united_states",
        "creator": "OpenAI",
-       "lineage_key": "OpenAI||mini",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000005",
        "name": "GPT-6 mini",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.7616111482,
@@ -13720,7 +13598,9 @@
        "base_model_name": "Gemini 3 Pro",
        "country_region_category": "united_states",
        "creator": "Google",
-       "lineage_key": "Google||pro",
+       "lineage_family_key": "Google||Gemini pro",
+       "lineage_key": "Google||Gemini pro||non-reasoning",
+       "model_uuid": "00000000-0000-4000-9000-000000000006",
        "name": "Gemini 3 Pro",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.2767785047,
@@ -13770,7 +13650,9 @@
        "base_model_name": "Mistral Large 4",
        "country_region_category": "other",
        "creator": "Mistral",
-       "lineage_key": "Mistral||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000009",
        "name": "Mistral Large 4",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.6156619796,
@@ -13820,7 +13702,9 @@
        "base_model_name": "Future Lab Model",
        "country_region_category": "unclassified",
        "creator": "Future Unmapped Laboratory",
-       "lineage_key": "Future Unmapped Laboratory||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000010",
        "name": "Future Lab Model",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.8469859388,
@@ -13870,7 +13754,9 @@
        "base_model_name": "Anonymous Creator Model",
        "country_region_category": "unclassified",
        "creator": "?",
-       "lineage_key": "?||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000011",
        "name": "Anonymous Creator Model",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.9075603168,
@@ -13920,7 +13806,9 @@
        "base_model_name": "Blank Creator Model",
        "country_region_category": "unclassified",
        "creator": "?",
-       "lineage_key": "?||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000012",
        "name": "Blank Creator Model",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.9545454545,
@@ -13972,7 +13860,9 @@
        "base_model_name": "Claude Legacy 4",
        "country_region_category": "united_states",
        "creator": "Anthropic",
-       "lineage_key": "Anthropic||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000019",
        "name": "Claude Legacy 4 (Reasoning)",
        "normalized_improvement_coordinates": {
         "cost_efficiency": null,
@@ -14022,7 +13912,9 @@
        "base_model_name": "Kimi K3",
        "country_region_category": "unclassified",
        "creator": "Moonshot AI",
-       "lineage_key": "Moonshot AI||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000020",
        "name": "Kimi K3",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.5832039906,
@@ -14074,7 +13966,9 @@
        "base_model_name": "Grok 5",
        "country_region_category": "unclassified",
        "creator": "xAI",
-       "lineage_key": "xAI||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000021",
        "name": "Grok 5",
        "normalized_improvement_coordinates": {
         "cost_efficiency": null,
@@ -14124,7 +14018,9 @@
        "base_model_name": "Brand New Model (V-3)",
        "country_region_category": "united_states",
        "creator": "OpenAI",
-       "lineage_key": "OpenAI||(default)",
+       "lineage_family_key": null,
+       "lineage_key": null,
+       "model_uuid": "00000000-0000-4000-9000-000000000022",
        "name": "Brand New Model (V-3)",
        "normalized_improvement_coordinates": {
         "cost_efficiency": 0.4227276732,
@@ -14506,16 +14402,16 @@
       },
       "y_axis": {
        "fixed_range": [
-        0.7868607618,
-        2.359267274
+        1.574101191,
+        2.328988796
        ],
        "scale_type": "log",
        "title_text": "原始速度 tok/s（对数）"
       },
       "z_axis": {
        "fixed_range": [
-        14.6,
-        67.4
+        28.25,
+        66.75
        ],
        "scale_type": "linear",
        "title_text": "智能指数（AA Intelligence Index v4.3.2）"

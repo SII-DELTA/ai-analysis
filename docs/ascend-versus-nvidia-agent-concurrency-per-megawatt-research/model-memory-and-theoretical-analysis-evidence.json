@@ -1,0 +1,385 @@
+{
+  "schema_version": 1,
+  "研究对象": "DeepSeek-V4-Pro-0813，reasoning_effort=max；本文件记录模型与理论容量口径，不包含任何硬件吞吐实测。",
+  "retrieved_at_utc": "2026-10-22T16:57:48.689974+00:00",
+  "source_revisions": {
+    "deepseek_hugging_face_revision": "72e1d3230f6c080a530b0a1d46f8eb4602340597",
+    "vllm_attention_file_last_change_revision": "b965ee564d1897fdaeddaeceecc316aa15a45312",
+    "vllm_flashmla_backend_file_last_change_revision": "9499c949be17a8a10ac4176a33843e82469d2ff5"
+  },
+  "sources": {
+    "model_config": {
+      "url": "https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro-0813/resolve/72e1d3230f6c080a530b0a1d46f8eb4602340597/config.json",
+      "resolved_url": "https://huggingface.co/api/resolve-cache/models/deepseek-ai/DeepSeek-V4-Pro-0813/72e1d3230f6c080a530b0a1d46f8eb4602340597/config.json?%2Fdeepseek-ai%2FDeepSeek-V4-Pro-0813%2Fresolve%2F72e1d3230f6c080a530b0a1d46f8eb4602340597%2Fconfig.json=&etag=%227fc3b0c42c815a0a7481b5ca15f42139f94ac4ab%22",
+      "retrieved_at_utc": "2026-10-22T16:57:48.689974+00:00",
+      "byte_count": 1967,
+      "sha256": "9dd2a89255469e120b333668ef5a169b7ae46c00f6bbab786bf0be457546aec0"
+    },
+    "inference_config": {
+      "url": "https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro-0813/resolve/72e1d3230f6c080a530b0a1d46f8eb4602340597/inference/config.json",
+      "resolved_url": "https://huggingface.co/api/resolve-cache/models/deepseek-ai/DeepSeek-V4-Pro-0813/72e1d3230f6c080a530b0a1d46f8eb4602340597/inference%2Fconfig.json?%2Fdeepseek-ai%2FDeepSeek-V4-Pro-0813%2Fresolve%2F72e1d3230f6c080a530b0a1d46f8eb4602340597%2Finference%2Fconfig.json=&etag=%221e35b694f10a64330588a0591d804b5727520435%22",
+      "retrieved_at_utc": "2026-10-22T16:57:48.689974+00:00",
+      "byte_count": 1240,
+      "sha256": "801bc719d08cd5be57cddc185cac621417522810e29d0314849c939bf0176ee7"
+    },
+    "weight_index": {
+      "url": "https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro-0813/resolve/72e1d3230f6c080a530b0a1d46f8eb4602340597/model.safetensors.index.json",
+      "resolved_url": "https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro-0813/resolve/72e1d3230f6c080a530b0a1d46f8eb4602340597/model.safetensors.index.json",
+      "retrieved_at_utc": "2026-10-22T16:57:48.689974+00:00",
+      "byte_count": 11651606,
+      "sha256": "2de2ac1e43134f8b03bf6156067715b7c3c73b1a507329e606023c601a56d30a",
+      "redirect_url_handling": "临时重定向URL未保留，使用固定revision url复现。"
+    },
+    "model_card": {
+      "url": "https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro-0813/resolve/72e1d3230f6c080a530b0a1d46f8eb4602340597/README.md",
+      "resolved_url": "https://huggingface.co/api/resolve-cache/models/deepseek-ai/DeepSeek-V4-Pro-0813/72e1d3230f6c080a530b0a1d46f8eb4602340597/README.md?%2Fdeepseek-ai%2FDeepSeek-V4-Pro-0813%2Fresolve%2F72e1d3230f6c080a530b0a1d46f8eb4602340597%2FREADME.md=&etag=%221036a5a34939182f5838147e851ac926ecad9a09%22",
+      "retrieved_at_utc": "2026-10-22T16:57:48.689974+00:00",
+      "byte_count": 7522,
+      "sha256": "61755d88e95789fcd7a36f50892f97bba977a30fc99d0f2907ab787ed10b0e66"
+    },
+    "reference_inference_source": {
+      "url": "https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro-0813/resolve/72e1d3230f6c080a530b0a1d46f8eb4602340597/inference/model.py",
+      "resolved_url": "https://huggingface.co/api/resolve-cache/models/deepseek-ai/DeepSeek-V4-Pro-0813/72e1d3230f6c080a530b0a1d46f8eb4602340597/inference%2Fmodel.py?%2Fdeepseek-ai%2FDeepSeek-V4-Pro-0813%2Fresolve%2F72e1d3230f6c080a530b0a1d46f8eb4602340597%2Finference%2Fmodel.py=&etag=%2276122da98a9abd3ecab9e3e6d6ed181abcba3bee%22",
+      "retrieved_at_utc": "2026-10-22T16:57:48.689974+00:00",
+      "byte_count": 45118,
+      "sha256": "c0c19e6c9fa439bac7fbb1c5bc1868232dfd5aa2f439a548d0e33dcc2a9edd3f",
+      "evidence_line_numbers": {
+        "class Linear": [
+          129
+        ],
+        "class Indexer": [
+          386
+        ],
+        "class Attention": [
+          442
+        ],
+        "current implementation uses bf16": [
+          425,
+          532
+        ],
+        "rope dims stay bf16": [
+          511
+        ],
+        "class DSparkAttention": [
+          750
+        ]
+      }
+    },
+    "vllm_attention_source": {
+      "url": "https://raw.githubusercontent.com/vllm-project/vllm/b965ee564d1897fdaeddaeceecc316aa15a45312/vllm/models/deepseek_v4/attention.py",
+      "resolved_url": "https://raw.githubusercontent.com/vllm-project/vllm/b965ee564d1897fdaeddaeceecc316aa15a45312/vllm/models/deepseek_v4/attention.py",
+      "retrieved_at_utc": "2026-10-22T16:57:48.689974+00:00",
+      "byte_count": 45449,
+      "sha256": "70b5f019c9e55dd058dc315e1f2aa912443a3a110c5d65a8dbc1d881cbdac0bf",
+      "evidence_line_numbers": {
+        "state_content_bytes=584": [
+          877
+        ],
+        "max_tp_shards=1": [
+          867,
+          913
+        ],
+        "MXFP4 stores two values per byte": [
+          1005
+        ],
+        "64 packed values + 4 UE8M0 scales = 68": [
+          1006
+        ],
+        "no tensor parallel, just replicated": [
+          973
+        ]
+      }
+    },
+    "vllm_flashmla_backend_source": {
+      "url": "https://raw.githubusercontent.com/vllm-project/vllm/9499c949be17a8a10ac4176a33843e82469d2ff5/vllm/v1/attention/backends/mla/flashmla_sparse.py",
+      "resolved_url": "https://raw.githubusercontent.com/vllm-project/vllm/9499c949be17a8a10ac4176a33843e82469d2ff5/vllm/v1/attention/backends/mla/flashmla_sparse.py",
+      "retrieved_at_utc": "2026-10-22T16:57:48.689974+00:00",
+      "byte_count": 63539,
+      "sha256": "2fdaa4f410e3723dc77f2d812320dbb9ebbeb6b31eef9485a0af25d6047d2713",
+      "evidence_line_numbers": {
+        "448 bytes": [
+          91
+        ],
+        "128 bytes": [
+          86,
+          93
+        ],
+        "Last 8 bytes": [
+          95
+        ],
+        "each token's KV cache is 584": [
+          89
+        ]
+      }
+    }
+  },
+  "additional_primary_sources": [
+    {
+      "url": "https://arxiv.org/html/2606.19348v1",
+      "研究用途": "预览版主干的参数规模、共享K=V、CSA/HCA和状态缓存解释；0813复用该主干并新增DSpark，不能把论文的四舍五入规模视为0813完整checkpoint精确大小。",
+      "observed_via": "web浏览",
+      "retrieved_at_utc": "2026-10-22T16:57:48.689974+00:00"
+    },
+    {
+      "url": "https://docs.vllm.ai/en/v0.31.0/api/vllm/v1/attention/backends/mla/flashmla_sparse/",
+      "研究用途": "584字节主缓存布局和分页对齐的官方版本化文档",
+      "observed_via": "web浏览",
+      "retrieved_at_utc": "2026-10-22T16:57:48.689974+00:00"
+    }
+  ],
+  "model_specification": {
+    "model_identifier": "deepseek-ai/DeepSeek-V4-Pro-0813",
+    "reasoning_effort": "max",
+    "rounded_backbone_total_parameters": 1600000000000,
+    "rounded_backbone_activated_parameters_per_token": 49000000000,
+    "rounded_parameter_count_source": "DeepSeek-V4论文§4.2.1，预览版主干；0813模型卡声明复用其架构并附DSpark。",
+    "checkpoint_payload_bytes_from_index": 892727580904,
+    "checkpoint_payload_decimal_gb": 892.727580904,
+    "checkpoint_payload_gib": 831.4173490777612,
+    "checkpoint_index_tensor_count": 149782,
+    "checkpoint_shard_count": 66,
+    "weight_storage_description": "官方专家权重采用FP4，其他线性权重主要FP8，归一化、路由与部分压缩/草稿组件含BF16或FP32；不是整个模型统一FP8或BF16。config.torch_dtype不能替代实际tensor/加载布局。",
+    "selected_official_config": {
+      "num_hidden_layers": 61,
+      "hidden_size": 7168,
+      "n_routed_experts": 384,
+      "n_shared_experts": 1,
+      "num_experts_per_tok": 6,
+      "num_attention_heads": 128,
+      "num_key_value_heads": 1,
+      "head_dim": 512,
+      "qk_rope_head_dim": 64,
+      "index_head_dim": 128,
+      "index_n_heads": 64,
+      "index_topk": 1024,
+      "sliding_window": 128,
+      "max_position_embeddings": 1048576,
+      "compress_ratios": [
+        128,
+        128,
+        4,
+        128,
+        4,
+        128,
+        4,
+        128,
+        4,
+        128,
+        4,
+        128,
+        4,
+        128,
+        4,
+        128,
+        4,
+        128,
+        4,
+        128,
+        4,
+        128,
+        4,
+        128,
+        4,
+        128,
+        4,
+        128,
+        4,
+        128,
+        4,
+        128,
+        4,
+        128,
+        4,
+        128,
+        4,
+        128,
+        4,
+        128,
+        4,
+        128,
+        4,
+        128,
+        4,
+        128,
+        4,
+        128,
+        4,
+        128,
+        4,
+        128,
+        4,
+        128,
+        4,
+        128,
+        4,
+        128,
+        4,
+        128,
+        4,
+        0,
+        0,
+        0
+      ],
+      "expert_dtype": "fp4",
+      "torch_dtype": "bfloat16",
+      "quantization_config": {
+        "activation_scheme": "dynamic",
+        "fmt": "e4m3",
+        "quant_method": "fp8",
+        "scale_fmt": "ue8m0",
+        "weight_block_size": [
+          128,
+          128
+        ]
+      },
+      "dspark_target_layer_ids": [
+        58,
+        59,
+        60
+      ],
+      "dspark_block_size": 5
+    },
+    "main_layer_compression_counts": {
+      "csa_ratio_4": 30,
+      "hca_ratio_128": 31
+    },
+    "draft_layer_warning": "config压缩率列表末尾三个0属于附加DSpark相关层；主干61层之外的草稿权重、KV和工作区需另计。num_nextn_predict_layers=1与inference_config.n_mtp_layers=3不能直接当作同一数量字段。",
+    "inference_config_n_mtp_layers": 3
+  },
+  "memory_necessary_conditions": {
+    "condition_per_physical_device": "W_resident,j + KV_resident,j(C, contexts, layout, replicas) + runtime_workspace,j + fragmentation_and_reserve,j <= usable_HBM,j，所有设备均须成立。",
+    "aggregate_relaxation": "sum(usable_HBM) >= sum(resident_weights) + sum(resident_KV) + sum(runtime_workspaces_and_reserve)；仅是必要条件，不保证分片可放置或满足速度。",
+    "checkpoint_index_scope_warning": "892,727,580,904 B是发布checkpoint的索引payload总量，不是通用运行时显存下界。仅在完整权重直接驻留、无进一步重编码/裁剪/卸载且单副本的假设下，它给出权重容量预算基线；格式转换、反量化、权重副本和额外padding可改变运行时大小。",
+    "aggregate_only_checkpoint_fit_counts": [
+      {
+        "hbm_decimal_gb_per_device": 80,
+        "minimum_device_count_for_published_payload_only": 12
+      },
+      {
+        "hbm_decimal_gb_per_device": 96,
+        "minimum_device_count_for_published_payload_only": 10
+      },
+      {
+        "hbm_decimal_gb_per_device": 128,
+        "minimum_device_count_for_published_payload_only": 7
+      },
+      {
+        "hbm_decimal_gb_per_device": 141,
+        "minimum_device_count_for_published_payload_only": 7
+      },
+      {
+        "hbm_decimal_gb_per_device": 144,
+        "minimum_device_count_for_published_payload_only": 7
+      },
+      {
+        "hbm_decimal_gb_per_device": 180,
+        "minimum_device_count_for_published_payload_only": 5
+      },
+      {
+        "hbm_decimal_gb_per_device": 192,
+        "minimum_device_count_for_published_payload_only": 5
+      }
+    ],
+    "fit_count_warning": "这些整数只回答聚合字节能否容纳checkpoint，不是已验证部署拓扑；未计KV、运行时、TP/EP合法性、单卡瓶颈、复制或功率。不得据此声称能支撑若干Agent。"
+  },
+  "architecture_aware_kv_payload_model": {
+    "why_dense_formula_is_inapplicable": "主干采用共享K=V的单KV head，CSA每4个原始token产生压缩条目并有独立indexer，HCA每128个token产生条目；两者均保留128滑窗与压缩尾态。因此不能采用2×层数×全部query heads×上下文×head_dim×统一dtype的dense公式，也不能按TP自动均分缓存。",
+    "single_logical_copy_payload_formula": "M_payload(L) = [61*min(L,128) + 30*floor(L/4) + 31*floor(L/128)]*b_main + 30*floor(L/4)*b_index，单位为B。",
+    "main_entry_layout": {
+      "layout_identifier": "vLLM fp8_ds_mla for DeepSeek V4",
+      "b_main": 584,
+      "nope_fp8_bytes": 448,
+      "rope_bf16_bytes": 128,
+      "scales_and_padding_bytes": 8
+    },
+    "indexer_entry_layouts": [
+      {
+        "layout_identifier": "MXFP4 indexer",
+        "b_index": 68,
+        "packed_values_bytes": 64,
+        "scaling_bytes": 4
+      },
+      {
+        "layout_identifier": "FP8 indexer",
+        "b_index": 132,
+        "values_bytes": 128,
+        "scaling_bytes": 4
+      }
+    ],
+    "additional_required_terms": [
+      "分页块向上取整与对齐",
+      "压缩器未完成窗口的状态缓冲",
+      "KV物理副本与attention/TP布局",
+      "DSpark草稿KV、校验与临时张量",
+      "prefill临时反量化与峰值工作区",
+      "前缀复用和卸载策略"
+    ],
+    "cache_payload_examples": [
+      {
+        "context_tokens": 32768,
+        "index_entry_bytes": 68,
+        "single_logical_copy_main_and_indexer_payload_bytes": 169430016,
+        "single_logical_copy_main_and_indexer_payload_gib": 0.15779399871826172
+      },
+      {
+        "context_tokens": 32768,
+        "index_entry_bytes": 132,
+        "single_logical_copy_main_and_indexer_payload_bytes": 185158656,
+        "single_logical_copy_main_and_indexer_payload_gib": 0.17244243621826172
+      },
+      {
+        "context_tokens": 131072,
+        "index_entry_bytes": 68,
+        "single_logical_copy_main_and_indexer_payload_bytes": 664040448,
+        "single_logical_copy_main_and_indexer_payload_gib": 0.6184358596801758
+      },
+      {
+        "context_tokens": 131072,
+        "index_entry_bytes": 132,
+        "single_logical_copy_main_and_indexer_payload_bytes": 726955008,
+        "single_logical_copy_main_and_indexer_payload_gib": 0.6770296096801758
+      },
+      {
+        "context_tokens": 1048576,
+        "index_entry_bytes": 68,
+        "single_logical_copy_main_and_indexer_payload_bytes": 5280404480,
+        "single_logical_copy_main_and_indexer_payload_gib": 4.917759895324707
+      },
+      {
+        "context_tokens": 1048576,
+        "index_entry_bytes": 132,
+        "single_logical_copy_main_and_indexer_payload_bytes": 5783720960,
+        "single_logical_copy_main_and_indexer_payload_gib": 5.386509895324707
+      }
+    ],
+    "cache_payload_example_scope": "仅为单逻辑副本、主干主缓存加indexer的结构性payload计算；假定上述vLLM布局、完整保留相应上下文、无共享前缀。不是AA测点的已知实际布局，也不适用于未核验的Ascend实现；排除附加项，因此不是所需物理HBM或可实现Agent并发。",
+    "topk_storage_warning": "index_topk=1024限制主注意力读取的候选数量，并不表示只存1024个压缩KV；indexer需在保留的压缩池上检索，HCA仍读取其完整压缩流。",
+    "reference_code_warning": "官方inference/model.py以BF16张量模拟FP8/FP4量化，注释明确当前实现物理KV用BF16；不能把该参考代码与真实低比特缓存布局混为一谈。",
+    "tensor_parallel_warning": "固定版本vLLM的主/索引缓存声明max_tp_shards=1，indexer投影采用复制；物理KV是否跨rank复制必须从实际部署确认，不能将逻辑payload除以TP。"
+  },
+  "performance_bottleneck_method": {
+    "optimistic_step_time_bound": "t_step >= max(F_executed/F_peak_for_matching_precision, B_HBM_transferred/BW_HBM_peak, B_interconnect_transferred/BW_interconnect_peak)，且实际还受依赖、通信延迟、kernel与调度开销影响；混合精度需按实际执行算子分别记账。",
+    "compute_warning": "49B激活参数是结构规模，不能直接当作每token精确FLOPs。注意力、indexer、压缩、mHC、DSpark draft/verify、batch padding和prefill均需纳入执行计数。峰值计算比例不能换算Agent并发。",
+    "hbm_warning": "不能把每个token激活专家参数的全部字节当作必经HBM流量。一个batch可复用专家权重，多个token可命中相同专家，cache也能复用；须测量HBM字节，或明确batch、专家路由并集、重读和缓存假设。",
+    "expert_union_illustration": "在一个batch有B个token且每token选6个routed experts时，每层所触达的不同routed专家数介于6和min(384,6B)之间；该集合仍不足以确定HBM传输字节，因为加载、驻留与重读取决于实现。",
+    "interconnect_warning": "EP路由分发/合并、TP归约、跨节点与P/D传输的开销受拓扑和消息大小影响；带宽峰值不能替代全栈实测，all-to-all延迟与负载不均衡可先于峰值成为瓶颈。",
+    "agent_trace_warning": "Agent并发须来自相同轨迹的活跃会话定义与SLO测点。平均输出吞吐与按请求分位数的速度/TTFT不是同一统计量，不能以总token/s除20或60生成并发。"
+  },
+  "power_and_concurrency_break_even_curves": {
+    "efficiency_formula": "E = 1000000*C/P_total_w，单位为Agent/MW；C仅取满足目标SLO的已测并发，P_total_w为同一测点全部参与加速器的平均负载功耗。",
+    "reference_efficiency_symbol": "E_ref由对应模型、轨迹与SLO的实测基准提供；20/60 token/s两档各一条线。",
+    "curve_total_power": "C_equal(P_total_w) = E_ref*P_total_w/1000000。",
+    "curve_per_module_power": "若有n个物理模组且每模组平均功耗为p_w，则C_equal(n,p_w)=E_ref*n*p_w/1000000；芯片、die、逻辑NPU和模组计数先校准。",
+    "inverse_power_threshold": "P_total_w_max(C) = 1000000*C/E_ref。",
+    "interpretation": "曲线上方才可能在相同SLO与质量下超过基准能效，且仍需实际轨迹、功耗和内存验证。曲线仅给出待实测门槛，不是Ascend能力预测。",
+    "missing_data_policy": "缺乏功率或轨迹实测时，只报告变量曲线和所需并发/允许功率门槛，不提供绝对能力点估计，也不将TDP作实测。",
+    "normalization_warning": "MW为单位归一化，未验证MW规模集群的线性扩展；P/D所有节点和角色功耗均需计入。"
+  },
+  "counting_and_unit_checks": [
+    "GB按10^9 B、GiB按2^30 B分别列示，不混用。",
+    "统计功耗时选定唯一物理边界，die/逻辑NPU/板卡/模组不得重复计数。",
+    "多die模组若已有整体功率，不能再按die数重复乘；只给逻辑NPU数时必须核对其与模组数映射。",
+    "P/D两角色、多节点、额外投机解码设备均计入功率；同一设备无重复乘卡数。",
+    "单副本checkpoint、分片、副本、offload和草稿加载状态各自记录。"
+  ]
+}

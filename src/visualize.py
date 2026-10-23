@@ -12,6 +12,8 @@ z=智能指数。每种组合分别计算 Pareto、剪枝、前沿与轴范围�
 from __future__ import annotations
 
 import re
+import warnings
+from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
@@ -84,8 +86,8 @@ def intelligence_axis_title_text_with_intelligence_index_version(
 # 这类区分不同代/规格的后缀。
 REASONING_SUFFIX_KEYWORDS = {
     "reasoning", "non-reasoning", "non reasoning", "adaptive reasoning",
-    "thinking", "high", "medium", "low", "minimal", "xhigh",
-    "high effort", "low effort", "max effort", "medium effort",
+    "thinking", "high", "medium", "low", "minimal", "xhigh", "max",
+    "high effort", "low effort", "max effort", "medium effort", "xhigh effort",
 }
 REASONING_LEVEL_SORT_ORDER_BY_NORMALIZED_LABEL = {
     "non-reasoning": 0,
@@ -113,6 +115,42 @@ LINEAGE_TIER_OVERRIDES: dict[str, tuple[str, str]] = {}
 _TRAILING_PAREN_RE = re.compile(r"\s*\(([^()]*)\)\s*$")
 
 
+def _is_reasoning_suffix_segment(segment: str) -> bool:
+    # fallback 只修饰推理配置，不能单独把一个括号组认成推理档位。
+    return segment in REASONING_SUFFIX_KEYWORDS or segment.endswith(" fallback")
+
+
+def _is_pure_reasoning_suffix(segments: list[str]) -> bool:
+    return bool(segments) and any(s in REASONING_SUFFIX_KEYWORDS for s in segments) and all(
+        _is_reasoning_suffix_segment(s) for s in segments
+    )
+
+
+@lru_cache(maxsize=2048)
+def _warn_about_unrecognized_model_name_suffix(name: str, suffix: str) -> None:
+    normalized = suffix.lower()
+    if ("based on" in normalized or "fallback" in normalized or
+        re.search(r"\b(?:preview|instruct|beta|alpha|release|january|february|march|april|may|june|july|august|september|october|november|december)\b", normalized) or
+        re.fullmatch(r"[\d\s./'_-]+", normalized) or
+        re.fullmatch(r"\d+(?:\.\d+)?\s*[bm](?:\s*a\d+[bm])?", normalized)):
+        return
+    warnings.warn(f"模型名包含未识别的括号后缀，保留原文：{name!r}", RuntimeWarning, stacklevel=3)
+
+
+def _explicit_lineage_family_key(creator: str, base_model_name: str) -> str | None:
+    """仅连接有显式家族规则的产品；不以厂商或泛化 tier 猜测血缘。"""
+    if creator == "Google":
+        match = re.fullmatch(r"Gemini \d+(?:\.\d+)* (Pro|Flash-Lite|Flash)(?: Preview)?", base_model_name, re.I)
+        return f"Google||Gemini {match[1].lower()}" if match else None
+    if creator == "Anthropic":
+        match = re.fullmatch(
+            r"Claude (?:(Opus|Sonnet|Haiku) \d+(?:\.\d+)*|\d+(?:\.\d+)* (Opus|Sonnet|Haiku))",
+            base_model_name, re.I,
+        )
+        return f"Anthropic||Claude {(match[1] or match[2]).lower()}" if match else None
+    return None
+
+
 def _parse_base_model_name(name: str) -> str:
     """反复剥离模型名末尾的纯 reasoning 档位括号组，得到基模型名。
 
@@ -126,9 +164,10 @@ def _parse_base_model_name(name: str) -> str:
         if not m:
             break
         segments = [seg.strip().lower() for seg in m.group(1).split(",")]
-        if segments and all(seg in REASONING_SUFFIX_KEYWORDS for seg in segments):
+        if _is_pure_reasoning_suffix(segments):
             s = s[: m.start()].strip()
         else:
+            _warn_about_unrecognized_model_name_suffix(name, m.group(1))
             break
     return s
 
@@ -146,8 +185,8 @@ def _reasoning_level_label_and_sort_order(name: str) -> tuple[str, int]:
         if not m:
             break
         segments = [seg.strip().lower() for seg in m.group(1).split(",")]
-        if segments and all(seg in REASONING_SUFFIX_KEYWORDS for seg in segments):
-            suffix_segments = segments + suffix_segments
+        if _is_pure_reasoning_suffix(segments):
+            suffix_segments = [seg for seg in segments if not seg.endswith(" fallback")] + suffix_segments
             s = s[: m.start()].strip()
         else:
             break
@@ -155,7 +194,7 @@ def _reasoning_level_label_and_sort_order(name: str) -> tuple[str, int]:
         return "non-reasoning", REASONING_LEVEL_SORT_ORDER_BY_NORMALIZED_LABEL["non-reasoning"]
 
     normalized = " ".join(suffix_segments).replace("non reasoning", "non-reasoning")
-    if "max effort" in normalized:
+    if "max" in suffix_segments or "max effort" in normalized:
         label = "max effort"
     elif "xhigh" in normalized:
         label = "xhigh"
@@ -209,7 +248,7 @@ def _build_lineage_payload(
     - models[]（仅 kept，可见节点）：每模型 {name, base_model_name, creator, tier,
       lineage_key, x, y, z, panel}；用于搜索 / pin / 高亮 / 侧栏详情。
     - base_groups{base_model_name: [models 下标...]}：pin 时整组固定其全部档位。
-    - lineages{"creator||tier": [按发布日升序的「每代取最高智能点」节点...]}：**基于全量
+    - lineages{"显式家族||推理档位": [按发布日升序的同档位节点...]}：**基于全量
       三维齐全的数据（不限 kept）**，使被剪枝的历代前身仍能连成谱系（用户示例 Gemini
       2.5 Pro → 3 Pro → 3.1 Pro 多数前身已被剪枝，故谱系必须越过 kept 取自全量）。
       每个谱系节点自带坐标与标签（含 kept 标记），仅在 hover/pin 时随谱系线显示。
@@ -261,18 +300,24 @@ def _build_lineage_payload(
             _reasoning_level_label_and_sort_order(name)
         )
         creator = str(r["creator"]) if pd.notna(r["creator"]) else "?"
+        lineage_family_key = _explicit_lineage_family_key(creator, base)
         rd = r["release_date"]
         models.append({
             "name": name,
+            "model_uuid": _text_or_none(r.get("id")),
             "base_model_name": base,
             "reasoning_level_label": reasoning_level_label,
             "reasoning_level_sort_order": reasoning_level_sort_order,
             "creator": creator,
             "tier": tier,
-            "lineage_key": f"{creator}||{tier}",
+            "lineage_family_key": lineage_family_key,
+            "lineage_key": f"{lineage_family_key}||{reasoning_level_label}" if lineage_family_key else None,
             "x": float(r[cost_metric_column_name]),
             "y": float(r[speed_metric_column_name]),
             "z": float(r["intelligence"]),
+            "displayed_only_because_of_recent_release_grace_period": bool(
+                r.get(frontier.DISPLAYED_ONLY_BECAUSE_OF_RECENT_RELEASE_GRACE_PERIOD_COLUMN_NAME, False)
+            ),
             # panel 里可能缺失的数值（跨口径列、非 eligible 点的分析层号）一律输出 None（规格 5.3）
             "panel": {
                 "release_date": rd.strftime("%Y-%m-%d") if pd.notna(rd) else "?",
@@ -326,45 +371,42 @@ def _build_lineage_payload(
         if len(indices) >= 2
     }
 
-    # —— lineages：全量三维齐全行（含被剪枝的历代前身）——
-    kept_names = set(kept["name"].astype(str))
+    # 同家族同档位逐代连接；同代其他档位不再被冒充为「前身」。
+    kept_model_uuids = {m["model_uuid"] for m in models if m["model_uuid"]}
+    kept_names = {m["name"] for m in models}
     dims = [cost_metric_column_name, speed_metric_column_name, "intelligence"]
-    complete = df_full[df_full[dims].notna().all(axis=1)].copy()
-    # 每个 creator||tier 内按基模型分代，每代取最高智能点为代表
+    complete = df_full[df_full[dims].notna().all(axis=1)]
     per_key_generations: dict[str, dict[str, dict]] = {}
     for _, r in complete.iterrows():
         name = str(r["name"])
-        base, tier = _resolve_lineage(name)
+        base, _ = _resolve_lineage(name)
         creator = str(r["creator"]) if pd.notna(r["creator"]) else "?"
-        key = f"{creator}||{tier}"
-        z = float(r["intelligence"])
-        gens = per_key_generations.setdefault(key, {})
-        cur = gens.get(base)
-        if cur is None or z > cur["z"]:
-            rd = r["release_date"]
-            gens[base] = {
-                "name": name,
-                "base_model_name": base,
-                "label": base,
-                "release_date": rd.strftime("%Y-%m-%d") if pd.notna(rd) else "?",
-                "x": float(r[cost_metric_column_name]),
-                "y": float(r[speed_metric_column_name]),
-                "z": z,
-                "intelligence": z,
-                "kept": name in kept_names,
-            }
-    lineages: dict[str, list[dict]] = {}
-    for key, gens in per_key_generations.items():
-        # release_date 为 "%Y-%m-%d" 字符串或 "?"（缺失）。直接按字符串排序会让
-        # "?"(0x3F > 数字字符) 排到末端、被当作「最新」一代，使谱系顺序反序。
-        # 用 (是否有日期, 日期) 作为键：缺失者(False)下沉到最前（视为最早/未知），
-        # 有日期者(True)之间仍按时间升序，相对顺序不变。
-        nodes = sorted(
-            gens.values(),
-            key=lambda n: (n["release_date"] != "?", n["release_date"]),
-        )
-        if len(nodes) >= 2:
-            lineages[key] = nodes
+        family = _explicit_lineage_family_key(creator, base)
+        rd = r["release_date"]
+        if family is None or pd.isna(rd):
+            continue
+        level, level_sort_order = _reasoning_level_label_and_sort_order(name)
+        key = f"{family}||{level}"
+        model_uuid = _text_or_none(r.get("id"))
+        node = {
+            "name": name, "model_uuid": model_uuid, "creator": creator,
+            "base_model_name": base, "label": base, "lineage_family_key": family,
+            "reasoning_level_label": level, "reasoning_level_sort_order": level_sort_order,
+            "release_date": rd.strftime("%Y-%m-%d"),
+            "x": float(r[cost_metric_column_name]), "y": float(r[speed_metric_column_name]),
+            "z": float(r["intelligence"]), "intelligence": float(r["intelligence"]),
+            "kept": model_uuid in kept_model_uuids if model_uuid else name in kept_names,
+            "analysis_eligibility": _analysis_eligibility(r),
+        }
+        generations = per_key_generations.setdefault(key, {})
+        previous = generations.get(base)
+        # 同代同档位的重复记录按 UUID 稳定去重，不借最高智能分挑选别的档位。
+        if previous is None or (model_uuid or name) < (previous["model_uuid"] or previous["name"]):
+            generations[base] = node
+    lineages = {
+        key: sorted(generations.values(), key=lambda node: (node["release_date"], node["base_model_name"]))
+        for key, generations in per_key_generations.items() if len(generations) >= 2
+    }
 
     return {
         "models": models,
@@ -436,12 +478,12 @@ def _fixed_axis_ranges(
             ),
         )
         if speed_log
-        else lin_range(
+        else [max(0.0, bound) for bound in lin_range(
             speeds,
             fallback_linear_range_for_empty_scene=(
                 FALLBACK_SPEED_AXIS_LINEAR_RANGE_FOR_EMPTY_SCENE_WITHOUT_PLOTTABLE_VALUES
             ),
-        )
+        )]
     )
     z_range = lin_range(
         intels,
@@ -927,6 +969,8 @@ GRAPH_DIV_ID = "frontier3d"
 
 
 def export_static(fig: go.Figure, out: Path):
+    from .frontier_3d_worktree_storage_paths import refuse_shared_worktree_directory_write
+    refuse_shared_worktree_directory_write(out)
     try:
         out.parent.mkdir(parents=True, exist_ok=True)
         fig.write_image(str(out), width=1500, height=1000, scale=2)

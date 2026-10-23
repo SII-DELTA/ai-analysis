@@ -17,6 +17,26 @@ import re
 
 import pytest
 
+
+@pytest.fixture(autouse=True)
+def isolate_catalog_refresh_health_and_forbid_external_dispatch(tmp_path,monkeypatch):
+    """合成测试不共享真实冷却期，不创建真实 Task，也不访问外部 HTTP。"""
+    from src.artificial_analysis_catalog_refresh_health import CatalogRefreshHealthStore
+    from src import artificial_analysis_minimal_model_catalog_refresh as minimal_refresh
+    import requests
+    monkeypatch.setenv("ARTIFICIAL_ANALYSIS_CATALOG_REFRESH_HEALTH_DIRECTORY",str(tmp_path/"isolated-catalog-refresh-health"))
+    def refuse_dispatch(*args,**kwargs):
+        raise OSError("单元测试禁止调用真实 Kanban")
+    def refuse_external_http(*args,**kwargs):
+        raise AssertionError("单元测试必须注入 HTTP 响应，不得联网")
+    monkeypatch.setattr(CatalogRefreshHealthStore,"_run_kanban",refuse_dispatch)
+    monkeypatch.setattr(requests.sessions.Session,"request",refuse_external_http)
+    original_prepare=minimal_refresh.prepare_minimal_model_catalog_refresh
+    def prepare_without_real_backoff(*args,**kwargs):
+        kwargs.setdefault("sleep",lambda _:None)
+        return original_prepare(*args,**kwargs)
+    monkeypatch.setattr(minimal_refresh,"prepare_minimal_model_catalog_refresh",prepare_without_real_backoff)
+
 REQUIRES_LOCAL_CACHED_ARTIFICIAL_ANALYSIS_DATA_MARKER_NAME = (
     "requires_local_cached_artificial_analysis_data"
 )

@@ -189,6 +189,93 @@ def _fail_if_models_list_page_is_read(*positional_arguments, **keyword_arguments
     raise AssertionError("冗长度报告不应再读取或解析列表页（models_page.html）")
 
 
+@pytest.mark.parametrize(
+    "refresh,allow_website_fetch,fetch_policy,refresh_status,expected_policy_text",
+    [
+        (
+            False, None, "automatic_on_api_refresh", "not_requested_using_cached_catalog",
+            "本次未请求目录刷新，只离线读取已验证缓存，不发网页请求",
+        ),
+        (
+            True, None, "automatic_on_api_refresh", "refreshed_and_verified",
+            "随 API 刷新自动受限更新目录",
+        ),
+        (
+            False, True, "explicitly_requested", "refreshed_and_verified",
+            "已显式允许受限目录批次刷新",
+        ),
+        (
+            True, False, "explicitly_disabled", "not_requested_using_cached_catalog",
+            "已显式禁用网页抓取",
+        ),
+        (
+            True, None, "automatic_on_api_refresh", "skipped_refresh_cooldown",
+            "随 API 刷新自动受限更新目录",
+        ),
+        (
+            True, None, "automatic_on_api_refresh", "failed_reusing_previous_verified_catalog",
+            "随 API 刷新自动受限更新目录",
+        ),
+    ],
+)
+def test_report_website_summary_uses_actual_three_state_policy_and_refresh_outcome(
+    tmp_path,
+    monkeypatch,
+    refresh,
+    allow_website_fetch,
+    fetch_policy,
+    refresh_status,
+    expected_policy_text,
+):
+    def build_dataframe_with_actual_refresh_provenance(**received_arguments):
+        assert received_arguments == {
+            "refresh": refresh,
+            "allow_artificial_analysis_website_page_fetch": allow_website_fetch,
+        }
+        models_frame = build_frontier_3d_synthetic_fixture_models_dataframe()
+        models_frame.attrs[fetch_data.MODELS_DATAFRAME_ATTRS_KEY_ARTIFICIAL_ANALYSIS_DATA_PROVENANCE].update(
+            {
+                "artificial_analysis_website_page_fetch_paused": allow_website_fetch is False,
+                "artificial_analysis_website_page_fetch_policy": fetch_policy,
+                "artificial_analysis_embedded_model_catalog_refresh_status": refresh_status,
+                "artificial_analysis_embedded_model_catalog_refresh_warning_text": (
+                    "刷新失败，沿用上一份已验证目录"
+                    if refresh_status == "failed_reusing_previous_verified_catalog"
+                    else None
+                ),
+            }
+        )
+        return models_frame
+
+    monkeypatch.setattr(fetch_data, "build_dataframe", build_dataframe_with_actual_refresh_provenance)
+    report_path = tmp_path / "synthetic_verbosity_report.md"
+    website_fetch_arguments = (
+        {}
+        if allow_website_fetch is None
+        else {"allow_artificial_analysis_website_page_fetch": allow_website_fetch}
+    )
+    model_intelligence_verbosity_report.write_model_intelligence_verbosity_report(
+        refresh=refresh,
+        report_markdown_path=report_path,
+        under_output_token_limit_markdown_table_path=tmp_path / "synthetic_ranked_models.md",
+        under_output_token_limit_csv_path=tmp_path / "synthetic_ranked_models.csv",
+        **website_fetch_arguments,
+    )
+    website_summary = next(
+        line for line in report_path.read_text(encoding="utf-8").splitlines()
+        if line.startswith("- **网页抓取：**")
+    )
+    assert expected_policy_text in website_summary
+    assert refresh_status in website_summary
+    assert "按需抓取缺当期 token" not in website_summary
+    if allow_website_fetch is None:
+        assert "显式" not in website_summary
+    if fetch_policy in {"automatic_on_api_refresh", "explicitly_requested"}:
+        assert "2–3 页" in website_summary
+    if refresh_status == "failed_reusing_previous_verified_catalog":
+        assert "刷新失败，沿用上一份已验证目录" in website_summary
+
+
 def test_report_generation_reads_models_dataframe_not_list_page_and_states_version_and_sources(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -216,7 +303,7 @@ def test_report_generation_reads_models_dataframe_not_list_page_and_states_versi
         under_output_token_limit_csv_path=tmp_path / "under_limit_table.csv",
     )
     assert received_build_dataframe_keyword_arguments == [
-        {"refresh": False, "allow_artificial_analysis_website_page_fetch": False}
+        {"refresh": False, "allow_artificial_analysis_website_page_fetch": None}
     ]
     assert report_result.verbosity_model_count == int(
         (

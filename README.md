@@ -23,14 +23,14 @@ Artificial Analysis（AA）官网的模型对比图基本都是二维，唯独�
 | 维度 | 来源 | 版本 | 回退策略 | 字段 |
 |---|---|---|---|---|
 | **智能**（z 轴） | AA API | 当期（z 轴标题写明版本，如 `AA Intelligence Index v4.3.2`） | 无回退；缺失即不上图 | `evaluations.artificial_analysis_intelligence_index` → `intelligence` |
-| **有效运行成本**（x 轴，默认） | AA API `artificial_analysis_intelligence_index_cost.total_cost` | API 值一律为当期 | 版本化快照（v4.1，2026-07-01 采集，**非当期**）；上次 `data/processed/models.csv` 仅在显式开关 `--use-previous-run-processed-models-csv-as-fallback` 时读取（版本未知，按非当期处理） | `cost_to_run`，溯源列 `cost_to_run_value_source` / `…_intelligence_index_version` / `…_fetched_at_utc` / `…_is_from_current_intelligence_index_version` |
+| **有效运行成本**（x 轴，默认） | AA API `artificial_analysis_intelligence_index_cost.total_cost` | API 值一律为当期 | 版本化快照（v4.1，2026-08-04 缓存单批提取，**非当期**）；上次 `data/processed/models.csv` 仅在显式开关 `--use-previous-run-processed-models-csv-as-fallback` 时读取（版本未知，按非当期处理） | `cost_to_run`，溯源列 `cost_to_run_value_source` / `…_intelligence_index_version` / `…_fetched_at_utc` / `…_is_from_current_intelligence_index_version` |
 | **7:2:1 混合单价**（x 轴，可选） | AA API 分项单价计算 | 与指数版本无关 | 缺 cache-hit 价时按 AA 惯例用 input 价代替；缺 input 或 output 则缺失 | `blended_price_cache_input_output_7_to_2_to_1`，来源列 `blended_price_cache_hit_price_source` |
 | **有效速度**（y 轴，默认） | 原始速度取 AA API；输出 token 数取详情页内嵌模型目录（被接受的分区） | token 数按其所属版本分别归一 | token 数回退到版本化快照（v4.1，非当期）；同上的显式开关 | `eff_speed`，由 `output_speed` 与 `intelligence_index_canonical_output_token_count` 派生；溯源列 `output_token_count_value_*` |
 | **原始速度**（y 轴，可选） | AA API | 与指数版本无关 | 无回退 | `performance.median_output_tokens_per_second` → `output_speed` |
 
 - 成本与 token 数的回退快照：
-  `data/reference/artificial_analysis_intelligence_index_v4_1_cost_to_run_and_canonical_output_token_count_fallback_snapshot_captured_2026_07_01.csv`
-  （v4.1 口径，存原始 token 数；由 `scripts/convert_legacy_intelligence_per_million_output_token_fallback_snapshot_to_raw_token_counts.py` 从旧比值快照可复现地转换而来）。
+  `data/reference/artificial_analysis_intelligence_index_v4_1_single_batch_cost_and_output_token_fallback_snapshot_captured_2026_08_04.csv`
+  （v4.1 口径，存原始 token 数；从 8/4 的无冲突完整批次提取，时间按缓存 mtime 推断。7/1 旧快照保留供追溯，不再默认使用）。
 - 回退值**照常显示，但不参与该口径的分析**，见下「显示但不参与分析（D-1）」。
 - 非正的成本、速度或混合价一律视为缺失，排除出三维前沿。例如无托管定价的开源权重模型，AA 把价格占位为 0，既不是真「免费」，也无法在对数轴上表示。
 - `/models` 列表页**不再是值来源**：其 payload 已改为 camelCase，旧的 snake_case 解析 0 命中，只在护栏里醒目告警。
@@ -116,14 +116,21 @@ token 量（**冗长度**）相差可达两个数量级，推理模型尤其冗�
 - **可达前沿曲面（可选副视图）**：`F(成本预算 c, 速度下限 s) = max{智能 | cost≤c 且 speed≥s}`，
   单调阶梯面，可从顶部工具栏独立开启。
 - **剪枝（均衡档，默认）**：剔除**过旧**与**离前沿太远**的模型：
-  `保留 = 分析 Pareto 点 ∪ 显示 Pareto 点 ∪ (近 since-months 月 ∧ (显示层号 ≤ layers ∨ 分析层号 ≤ layers))`，
+  `保留 = 三维齐全 ∧ (分析 Pareto 点 ∪ 显示 Pareto 点 ∪ (近 since-months 月 ∧ (显示层号 ≤ layers ∨ 分析层号 ≤ layers)) ∪ 发布宽限内的模型)`，
   再减去早于 `hard-age-cutoff-months` 的“远古”模型（即便 Pareto 最优）。
+  **近期发布宽限默认 6 个日历月**，包含起止日期，结束日为剪枝参考日；无日期或晚于参考日的模型不享受宽限。
+  宽限只放开离前沿距离，不能补回缺维；历史口径点同样享受显示宽限，继续退出全部分析计算。
+  `--recent-release-grace-period-months 0` 恢复原剪枝集合，且不把宽限专属点写进契约。
+  页面“模型标识”里的开关默认开启，只控制**仅因宽限才保留**的点，原本可显示的近期模型不受它影响。
+  生成时，新增的当期宽限点加入现有 `kept ∧ analysis eligible` 突出度与归一化计算集合，部分突出度数值可能变化；
+  Pareto 分层在剪枝前完成，宽限不改变层级。页面开关只筛选显示，不重算分析、坐标范围或相机。
   「分析层号 ≤ layers」一项保证参与分析的点是否上图只由参与分析的点决定（D-1：历史口径点不得把当期可比的
   近前沿点挤出显示）；对参与分析的点，显示层号 ≤ layers 蕴含分析层号 ≤ layers，所以它只会多保留、不会少保留。
   9/23 数据上默认口径因此多显示 10 个当期点（只按显示层号是 107，现为 117）。
   剪枝参考日期缺省取 **API 抓取日期**（不是运行当天），可用 `--pruning-reference-date` 指定。
   所有阈值均可调（见下）。每个未上图模型的原因写在数据契约的 `excluded_models_with_drop_reason`
   中（缺维度：成本 / 速度 / 智能、过旧(硬截断)、过旧(软窗外且非前沿)、离前沿太远、发布日期缺失且非前沿）。
+  宽限新增点的 `drop_reason` 仍为“保留”；被页面开关隐藏不等于被生成时剪枝，不进入剔除名单。
 
 ### 显示但不参与分析（D-1）
 
@@ -156,7 +163,7 @@ AA 在 2026-08-14 到 09-23 之间把智能指数从 v4.1 重定标到 v4.3。�
 
 Pareto 层号只回答「在不在前沿」，不回答「有多突出」。这里给**四个互补的连续标量**度量
 「一个前沿(SOTA)模型比其余 Pareto 最优构成的**趋势**领先多少」，页面右上「突出度」面板里用
-**指标选择器**切换：选中的口径同时驱动 **Pareto 黑色空心圈的大小（越突出圈越大）** 与下方
+**指标选择器**切换：选中的口径同时驱动 **突出度光晕的大小（按秩映射）** 与下方
 **前沿排行榜**。四指标一律在当前口径「显示且参与分析」的点上计算，前沿与图上一致。
 
 | 口径 | 定义 | 轴对称？ |
@@ -181,19 +188,19 @@ Pareto 层号只回答「在不在前沿」，不回答「有多突出」。这�
 ## 用法
 
 依赖以 `pyproject.toml` + `uv.lock` 为准（Python 3.12，见 `.python-version`）。`requirements.txt` 只供不用 uv 的旧入口（`pip install -r requirements.txt`），下界与 pyproject 对齐（plotly ≥ 6.0、kaleido ≥ 1.0 等），由 pytest 校验两者不脱节。
-所有 Python 命令统一用 `uv run python …`：
+所有 Python 命令统一用 `uv run --frozen python …`：
 
 ```bash
 # 1) 安装 uv 后首次运行会按 uv.lock 建立环境（测试与浏览器验证依赖在 extras 里）
 uv sync --extra test --extra browser-verification
-uv run python -m playwright install chromium   # 只有跑浏览器验证才需要
+uv run --frozen python -m playwright install chromium   # 只有跑浏览器验证才需要
 
 # 2) 配置 API key（任选其一；只有刷新 API 时才需要）
 export ARTIFICIAL_ANALYSIS_API_KEY="aa_xxx"
 # 或：cp .env.example .env 后填入
 
 # 3) 生成交互式 HTML、数据契约与模型表（默认均衡剪枝；默认复用 data/raw 缓存、不联网）
-uv run python -m src.cli
+uv run --frozen python -m src.cli
 # → output/frontier_3d.html
 # → output/frontier_3d_visualization_dataset.json
 # → data/processed/models.csv
@@ -203,22 +210,17 @@ uv run python -m src.cli
 > 主 checkout 的环境。请先把 `UV_PROJECT_ENVIRONMENT` 指向该 worktree 独立的环境目录，并用 `--frozen` 禁止改锁：
 > `UV_PROJECT_ENVIRONMENT=<独立目录> uv run --frozen python -m src.cli …`。两个一键脚本在「`.venv` 是符号链接且未设该变量」时会拒绝运行。
 
-### 暂停网页抓取（D-12）
+### 最小化网页目录刷新与异常诊断（D-12）
 
-AA《Website Terms of Use》第 3.3(b)(vi) 条禁止用脚本抓取站点数据，因此**默认暂停网页抓取**：
+- 普通运行只读缓存；`--refresh` 刷新 API，并在冷却期结束后自动抓取 2–3 个详情页，从每页内嵌目录提取数值 JSON。不是逐模型抓取；新 HTML 不落盘。
+- 网页目录最多每 24 小时一批，失败也进入冷却期；API 可独立刷新。用 `--disable-artificial-analysis-website-page-fetch` 禁止本次网页请求；原 `--allow-artificial-analysis-website-page-fetch` 保留，但不能绕过限额。
+- 使用项目真实 UA，页间至少 10 秒；重试与 TLS 的系统 curl 回退共用每批六次尝试上限。403、429 或验证挑战立即停止；不关闭 TLS 校验、不跟随重定向。
+- 新目录沿用 API 的唯一暂存、响应历史、护栏后原子替换机制。版本 family、≥50 条带 token 的 API UUID 交集及逐 UUID 当期判定保持；新批次要求两页完整且精确版本相同，UUID 冲突或覆盖骤降则拒绝。
+- 失败复用已验证旧目录，并记录真实日期。连续封禁或结构异常只创建并启动一个诊断 Task；跨重启、跨工作树去重。只有新目录通过完整校验并晋升后才 resolve。
+- 默认 `--report-deployment-environment development`：故障未恢复时，每次新生成 HTML（包括已有契约重渲染）都会显示醒目开发告警。`production` 隐藏开发诊断标记，数据新鲜度说明仍保留。
+- 已有 HTML 原位保留；归档脚本只读源文件，生成压缩备份、SHA256 清单和逐批数值目录。历史回退默认改为 8/4 单批 v4.1，仍不参与分析。
 
-- 列表页与详情页只读 `data/raw/` 已有缓存，缺失即跳过，不发网页请求（运行时只提示一次「已暂停网页抓取（D-12）」）；
-- `--refresh` 只刷新 AA API。刷新得到的新响应先暂存，**数据质量护栏全部通过后才替换** `data/raw/api_language_models.json`；
-  替换前旧缓存会原样归档进 `data/raw/artificial_analysis_api_language_models_response_history/`（旧缓存没有记录抓取时间时，
-  文件名按 mtime 推断并注明 `_inferred_from_cache_file_modification_time`）。护栏失败时共享缓存保持原样，离线重跑不受影响；
-  新响应在响应历史里先带「本次刷新独有标记（`_by_process_<进程号>_refresh_attempt_<随机串>`）+
-  `_pending_data_quality_guardrail_validation`」后缀，护栏通过后连标记一起去掉（只剩抓取时间），失败则改为
-  「标记 + `_rejected_by_data_quality_guardrails`」后缀——带这两种后缀的文件不会被当作下面「上一份通过护栏的响应」基线；
-  有了独有标记，抓取时间落在同一秒的两次刷新也不会互相覆盖暂存文件或待校验的历史文件；
-- 按模型拆分的输出 token 数与 time per task 只存在于网页。因此暂停期间，9/23 之后上架的新模型没有当期 token 数，
-  会在两个有效速度口径中缺席。CLI 结尾会单列这类模型（V-3）；
-- 只有显式加 `--allow-artificial-analysis-website-page-fetch` 才会按需抓取「缺当期 token 数」的详情页。列表页 `/models`
-  已不是值来源，无论是否开启都只读缓存、从不为它联网。长期的「最小化抓取」方案另有独立任务。
+AA 条款风险沿用审计记录；降低频率与只存 JSON 不等于已取得许可。详细状态、诊断配置与归档方法见 [D-12 实施说明](docs/artificial-analysis-minimal-website-catalog-refresh-and-diagnostics.md)。
 
 ### 参数
 
@@ -227,16 +229,19 @@ AA《Website Terms of Use》第 3.3(b)(vi) 条禁止用脚本抓取站点数据�
 | `--since-months` | 18 | 软窗：近 N 月内算“近期” |
 | `--layers` | 3 | 近期模型保留前 N 层：显示层号或分析层号 ≤ N 即保留（层号即离前沿的距离） |
 | `--hard-age-cutoff-months` | 36 | 早于此一律剔除（含 Pareto） |
+| `--recent-release-grace-period-months` | 6 | 发布在近 N 个日历月内的完整模型免受层数限制；非负整数，0 关闭。读取已有契约时显式传入会提示被忽略 |
 | `--speed-scale` | `log` | 速度轴 `log` 或 `linear` |
 | `--pruning-reference-date` | API 抓取日期 | 剪枝参考日期 `YYYY-MM-DD`；不再用运行当天 |
 | `--speed-metric` | `effective` | HTML 初始速度口径：`effective` / `raw`；页面内仍可切换 |
 | `--cost-metric` | `effective` | HTML 初始成本口径：`effective` / `blended`；页面内仍可切换 |
-| `--refresh` | 关 | 忽略 API 缓存重新拉取（网页抓取暂停时只刷新 API） |
-| `--allow-artificial-analysis-website-page-fetch` | 关 | 显式开启 AA 网页抓取（D-12，默认暂停） |
+| `--refresh` | 关 | 刷新 API，并在冷却期允许时受限更新网页目录；只刷新 API 时同时传入 `--disable-artificial-analysis-website-page-fetch` |
+| `--allow-artificial-analysis-website-page-fetch` | `--refresh` 时自动 | 显式请求受限目录刷新，不能绕过冷却期 |
+| `--disable-artificial-analysis-website-page-fetch` | 关 | 禁止本次网页请求，只用 API 与已有目录 |
+| `--report-deployment-environment` | `development` | `production` 隐藏开发诊断标记，保留新鲜度说明 |
 | `--use-previous-run-processed-models-csv-as-fallback` | 关 | 把上次产物 models.csv 作为非当期回退源（版本未知） |
 | `--processed-models-csv-out` | `data/processed/models.csv` | 模型表输出路径 |
 | `--previous-run-processed-models-csv-in` | 同 `--processed-models-csv-out` | 上一个开关读取的「上次 models.csv」路径 |
-| `--artificial-analysis-raw-data-directory` | `data/raw` | 原始数据目录：API 缓存、API 响应历史、列表页与详情页缓存都在其下读写。指向 scratch 副本即可彩排 `--refresh`，不碰共享目录 |
+| `--artificial-analysis-raw-data-directory` | `data/raw` | 原始数据目录：读写 API 与数值目录 JSON 及响应历史，旧 HTML 缓存只读。指向隔离副本即可彩排 `--refresh`，不碰共享目录 |
 | `--export` | 无 | 另存静态图 `png` / `svg`（需 extra `static-image-export`，即 kaleido）；失败时以非零码退出 |
 | `--out` | `output/frontier_3d.html` | 输出路径；所有指标组合统一在同一个 HTML 内 |
 | `--frontier-3d-visualization-dataset-out` | HTML 同目录的 `frontier_3d_visualization_dataset.json` | 输出前端可渲染的数据契约 |
@@ -244,20 +249,22 @@ AA《Website Terms of Use》第 3.3(b)(vi) 条禁止用脚本抓取站点数据�
 
 ```bash
 # 更激进/更聚焦前沿
-uv run python -m src.cli --since-months 12 --layers 2
+uv run --frozen python -m src.cli --since-months 12 --layers 2
 # 初始显示原始速度 × 7:2:1 混合单价（页面内仍可切换）
-uv run python -m src.cli --speed-metric raw --cost-metric blended
+uv run --frozen python -m src.cli --speed-metric raw --cost-metric blended
 # 重新拉取 API（不抓网页）+ 导出静态图
-uv run --extra static-image-export python -m src.cli --refresh --export png
+uv run --frozen --extra static-image-export python -m src.cli --refresh --disable-artificial-analysis-website-page-fetch --export png
 # 前端迭代：复用上次数据契约重渲染 HTML（无需 API key / 网络）
-uv run python -m src.cli \
+uv run --frozen python -m src.cli \
   --frontier-3d-visualization-dataset-in output/frontier_3d_visualization_dataset.json
-# 彩排刷新：先把 data/raw 复制到 scratch（目标目录须不存在），所有读写都落在副本里。
+# 彩排刷新：先把 data/raw 复制到持久隔离目录（目标目录须不存在），所有读写都落在副本里。
 # 必须用 -L：worktree 里 data/raw 是指向主 checkout 的符号链接，macOS 的 cp -R 默认只复制链接本身，
 # 「副本」会仍指向共享目录，彩排的 --refresh 就会改写共享的 data/raw
-cp -RL data/raw /tmp/rehearsal-raw && uv run python -m src.cli --refresh \
-  --artificial-analysis-raw-data-directory /tmp/rehearsal-raw \
-  --processed-models-csv-out /tmp/rehearsal/models.csv --out /tmp/rehearsal/frontier_3d.html
+cp -RpL data/raw .frontier-3d-worktree-artifacts/rehearsal-artificial-analysis-raw-data-cache
+uv run --frozen python -m src.cli --refresh \
+  --artificial-analysis-raw-data-directory .frontier-3d-worktree-artifacts/rehearsal-artificial-analysis-raw-data-cache \
+  --processed-models-csv-out .frontier-3d-worktree-artifacts/rehearsal-processed-model-tables/models.csv \
+  --out .frontier-3d-worktree-artifacts/rehearsal-rendered-reports/frontier_3d.html
 ```
 
 彩排（W1-13）怎么看结果——按新规则，下列情况**不算**故障：目录 vs API 智能分一致率 < 99% 的告警（只要被接受分区仍是
@@ -320,7 +327,7 @@ open output/frontier_3d.html
 （不要托管仓库根：`.env` 与 `.git` 会一起暴露；一键脚本的 `--host` 只托管报告副本所在的临时目录）：
 
 ```bash
-uv run python -m http.server 8765 --bind 127.0.0.1 --directory output
+uv run --frozen python -m http.server 8765 --bind 127.0.0.1 --directory output
 # 浏览器打开：http://127.0.0.1:8765/frontier_3d.html
 ```
 
@@ -335,7 +342,7 @@ HTML 的 `<meta>` 带产物指纹：`frontier-3d-renderer-bundle-sha256`、`fron
 ### 冗长度报告
 
 ```bash
-uv run python scripts/generate_model_intelligence_verbosity_report.py \
+uv run --frozen python scripts/generate_model_intelligence_verbosity_report.py \
   --report-out <报告.md> --under-limit-table-out <表.md> --under-limit-csv-out <表.csv>
 ```
 
@@ -359,7 +366,9 @@ uv run python scripts/generate_model_intelligence_verbosity_report.py \
   Pareto 层，以及**四个突出度值**（趋势残差 / 智能抬升 / 加权超体积 / 到前沿垂距）。
 - 右上角可独立切换成本口径（有效运行成本 / 7:2:1 混合单价）和速度口径（有效速度 / 原始速度）；
   四种组合各自重新计算 Pareto、剪枝、前沿和轴范围。
-- 其下的「**突出度**」面板：指标选择器决定哪个口径驱动 **Pareto 圈的大小（越突出越大）** 与
+- “显示近 N 个月发布的远离前沿模型”默认开启，跨口径保留选择；关闭后清除被隐藏点的 hover，保留 pin 并标注隐藏原因。
+  搜索与厂商筛选保留隐藏模型的入口；页头、当前视图和图例计数随筛选更新。`0` 或旧契约没有宽限设置时开关禁用并说明原因。
+- 其下的「**突出度**」面板：指标选择器决定哪个口径驱动 **突出度光晕的大小（按秩映射）** 与
   **前沿排行榜**；选「加权超体积」时 3 个轴权重滑杆(智能/成本/速度，各带输入框)可用，拖动即时重排
   （见上「突出度指标」节的权重语义）。
 - 每个模型点使用始终面向相机的**厂商 Logo Sprite**；右栏「厂商筛选」以
@@ -369,7 +378,7 @@ uv run python scripts/generate_model_intelligence_verbosity_report.py \
 - 顶部「模型标识」可选开启**国别外框**：中国=红色双圆环、美国=蓝色圆角方环、
   其他/未分类=灰色菱形环。该能力默认关闭，且与厂商 Logo、Pareto 突出度和 pin 高亮互不替代。
   同一组里的「**仅当期可比**」开关隐藏历史口径点（见 D-1）。
-- **Pareto 最优** 点使用深色外环，环大小继续由当前突出度口径驱动；历史口径点使用半透明虚线底板。
+- **Pareto 最优** 点使用固定大小的深色身份环；独立光晕按突出度分位数改变大小，指标缺值时显示虚线光晕。历史口径点使用半透明虚线底板。
 - 顶部按钮分两组：左组切前沿样式 `前沿线框` / `前沿实心面` / `隐藏前沿` / `仅散点`，
   右组独立开关 `+可达前沿曲面` / `−可达前沿曲面`（两组互不干扰）。
 - **为什么默认线框**：线框能在密集 Logo 点云中保留更好的层次与可读性。three.js 的模型拾取与
@@ -383,7 +392,7 @@ uv run python scripts/generate_model_intelligence_verbosity_report.py \
 npm ci
 npm run build:frontier-3d-threejs
 node scripts/build_frontier_3d_threejs_interactive_renderer.mjs --check   # 已提交 bundle 与入口源码逐字节一致
-uv run python -m src.cli \
+uv run --frozen python -m src.cli \
   --frontier-3d-visualization-dataset-in output/frontier_3d_visualization_dataset.json
 ```
 
@@ -394,38 +403,81 @@ Logo 与国别外框。
 
 ```bash
 # 单元、性质、契约与冒烟测试（读本机 data/raw 缓存的测试默认跳过）
-uv run python -m pytest
+uv run --frozen python -m pytest
 # 连同读本机缓存的测试一起跑（三种开关任选其一）
-uv run python -m pytest --run-tests-requiring-local-cached-artificial-analysis-data
-RUN_TESTS_REQUIRING_LOCAL_CACHED_ARTIFICIAL_ANALYSIS_DATA=1 uv run python -m pytest
-uv run python -m pytest -m requires_local_cached_artificial_analysis_data
+uv run --frozen python -m pytest --run-tests-requiring-local-cached-artificial-analysis-data
+RUN_TESTS_REQUIRING_LOCAL_CACHED_ARTIFICIAL_ANALYSIS_DATA=1 uv run --frozen python -m pytest
+uv run --frozen python -m pytest -m requires_local_cached_artificial_analysis_data
 
-# 全量验证（9 步：pytest、bundle --check、HTML 内联 bundle = 仓库 bundle、指标口径回归、公共/内嵌数据契约、
+# 全量验证（11 步：Python/Node、三浏览器合成页面、bundle --check、HTML 内联指纹、指标与数据契约、
 # 4 个 Playwright 浏览器验证，其中一个用该 HTML 的前端渲染合成的恶意字符串 / 非有限契约）
-scripts/run_all_frontier_3d_verifications.sh <frontier_3d.html>
+scripts/run_all_frontier_3d_verifications.sh  # 无参数自建合成报告；也可显式传独立 HTML 路径
 # 验证归档的旧 HTML（其内联 bundle 不是仓库当前 bundle）时，把「bundle 一致」一步降为告警
 scripts/run_all_frontier_3d_verifications.sh --allow-html-renderer-bundle-differing-from-repository-renderer-bundle <旧.html>
 ```
 
 - 数据契约 golden（合成 fixture）变更后需要重写：
-  `RUN_REGENERATE_FRONTIER_3D_VISUALIZATION_DATASET_GOLDEN_PROJECTION=1 uv run python -m pytest tests/python_unit/test_frontier_3d_visualization_dataset_golden.py`。
+  `RUN_REGENERATE_FRONTIER_3D_VISUALIZATION_DATASET_GOLDEN_PROJECTION=1 uv run --frozen python -m pytest tests/python_unit/test_frontier_3d_visualization_dataset_golden.py`。
   重写后需人工审阅 diff。
 - `verify_frontier_3d_axis_annotations.py` 把截图写到环境变量 `FRONTIER_3D_AXIS_ANNOTATION_SCREENSHOT_DIRECTORY`
-  指定的目录（缺省为 HTML 同目录）；`run_all` 会把它设成临时目录并打印位置，不会往共享的 `output/` 写截图。
+  指定的目录；缺省为本 checkout 的 `.frontier-3d-worktree-artifacts/axis-annotation-screenshots/`，不会写到共享目录。
+
+### W2：隔离路径与浏览器验证
+
+主 checkout 保留 `output/`、`data/raw`、`data/processed` 默认路径；linked worktree（包括 detached HEAD）
+默认改用 `.frontier-3d-worktree-artifacts/` 下的 `rendered-reports/`、
+`artificial-analysis-raw-data-cache/` 和 `processed-model-tables/`。显式独立路径参数继续有效，
+写入共享符号链接或其真实目标会报错。旧缓存需要显式复制，保留 mtime，不能仅复制符号链接；不自动回退共享缓存。
+
+```bash
+export UV_PROJECT_ENVIRONMENT="$PWD/.frontier-3d-worktree-artifacts/python-environment"
+uv sync --frozen --all-extras
+npm ci
+uv run --frozen --all-extras python -m playwright install chromium firefox webkit
+scripts/run_all_frontier_3d_verifications.sh
+```
+
+Python 单元测试只读合成 fixture，真实缓存用例默认跳过。浏览器测试由 session fixture 自建 HTML，
+不读取真实缓存或密钥，三浏览器均检查异常与外部请求，包含像素、拖拽、固定、筛选与 WebGL 恢复断言。
+旧的 `scripts/verify_*.py` 命令仍可调用，实现迁至 `tests/browser_playwright/`。
+
+macOS 27 若 Firefox 报 `Could not find profile folder`，可按
+[上游问题](https://github.com/microsoft/playwright/issues/42768) 为任务内安装创建独立应用身份；
+不需要修改日常浏览器或系统权限：
+
+```bash
+export PLAYWRIGHT_BROWSERS_PATH="$PWD/.frontier-3d-worktree-artifacts/playwright-browser-installations"
+uv run --frozen --all-extras python -m playwright install firefox
+# 将下面参数换成本次安装的 Firefox 可执行文件；安装器会打印位置。
+uv run --frozen --all-extras python scripts/prepare_frontier_3d_isolated_firefox_verification_launcher.py \
+  --firefox-executable-path "$PLAYWRIGHT_BROWSERS_PATH/firefox-1543/firefox/Nightly.app/Contents/MacOS/firefox"
+unset PLAYWRIGHT_BROWSERS_PATH
+export FRONTIER_3D_FIREFOX_EXECUTABLE_PATH="$PWD/.frontier-3d-worktree-artifacts/browser-launch-wrappers/firefox-verification"
+scripts/run_all_frontier_3d_verifications.sh
+```
+
+可显式运行 `bash scripts/install_frontier_3d_pre_commit_hook.sh` 启用暂存候选验证。
+安装器不覆盖已有 hook 或 `core.hooksPath`；Git hooks 目录由同仓库 worktree 共享，故本任务不自动安装。
+钩子验证 index 快照中的单元测试、Node 测试和 bundle 一致性，避免未暂存文件掩盖错误。
+CI 只运行锁定依赖及合成 fixture；不运行真实数据刷新。能力对等状态见
+[渲染器能力清单](docs/frontier-3d-renderer-capability-parity-checklist.md)。
 
 ## 数据契约（`frontier_3d_visualization_dataset/v2`，只增字段）
 
 - 顶层 `artificial_analysis_data_provenance`，包括：
   - API 抓取时间及其来源、API 版本与 tier；
   - 当期指数版本、目录分区版本与截至时间；
-  - 网页抓取是否暂停、剪枝参考日期；
+  - 网页抓取是否暂停、剪枝参考日期、`recent_release_frontier_distance_grace_period_months` 宽限月数；
   - 有效速度各版本归一常数、AA 署名 URL。
 - 顶层 `data_date` 取 API 抓取日期，`generated_at` 为 UTC。
 - 每个口径包括：
   - `analysis_eligible_model_count`、`historical_version_value_model_count`；
+  - `recent_release_grace_period_only_model_count`（宽限专属点数）、`kept_model_count_without_recent_release_grace_period`（关闭宽限后的保留数）；
   - `excluded_models_with_drop_reason`：有智能分但未上图的模型，写明缺哪一维与剪枝原因；
   - `current_view` 中的 `speed_axis_title_text`、`cost_metric_note`、`speed_metric_note`。
+    其中也记录宽限月数、剪枝参考日和上述宽限计数；分析计数始终指契约全集，页面筛选不会改写它们。
 - 每个显示点包括：
+  - `displayed_only_because_of_recent_release_grace_period`：仅因宽限保留时为 true，其余为 false；旧 v2 没有此字段时沿用原显示行为；
   - `analysis_eligibility`：是否参与本口径分析、原因码与原因文案；
   - `value_provenance`：成本与 token 数的来源、版本、采集时间，以及混合价来源；
   - `artificial_analysis_intelligence_index_is_estimated`。
@@ -462,5 +514,5 @@ tests/fixtures/     # 合成详情页与合成模型表 fixture、golden 投影
 
 - 智能分一律取自 API；有效运行成本取 API，缺失时用带版本号的回退快照，且回退值不参与分析。
   页头与 z 轴标题标注数据抓取日期与智能指数版本。
-- AA API 免费、限 1000 次/天；`data/raw/` 会缓存原始 API JSON 与网页，默认复用，`--refresh` 只重拉 API。
+- AA API 免费、限 1000 次/天；`data/raw/` 保存 API 与数值目录 JSON，旧网页缓存只读。默认复用，`--refresh` 刷新 API，并在冷却期允许时受限更新目录，不新增 HTML 缓存。
 - `.env` 含真实密钥、已被 `.gitignore` 排除，请勿提交；如密钥外泄可在 AA 平台轮换。

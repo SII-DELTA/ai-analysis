@@ -4,7 +4,7 @@
 # 两条路径：
 #   离线路径（默认）：由已有数据契约 JSON 重渲染 HTML → 验证 → 打开；不联网、不需要 API key。
 #   刷新路径（--refresh）：python -m src.cli --refresh → CLI 打印新鲜度摘要 → 验证 → 打开。
-#                         D-12 暂停网页抓取期间，--refresh 只拉 API，不抓 artificialanalysis.ai 网页。
+#                         D-12 最小化目录刷新：最多每 24 小时抓取 2–3 个详情页，新 HTML 不落盘。
 #
 # 以 a0e79 任务的 scripts/refresh_frontier_3d.sh 为底改写：
 #   - 去掉单独的 fetch_api(refresh=True) 预拉取：CLI 的 --refresh 本身就会拉 API，原脚本等于拉两遍；
@@ -17,9 +17,13 @@ set -euo pipefail
 
 REPOSITORY_ROOT_DIRECTORY="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPTS_DIRECTORY="${REPOSITORY_ROOT_DIRECTORY}/scripts"
-DEFAULT_OUTPUT_HTML_PATH="${REPOSITORY_ROOT_DIRECTORY}/output/frontier_3d.html"
+FRONTIER_3D_DEFAULT_REPORT_DIRECTORY="${REPOSITORY_ROOT_DIRECTORY}/output"
+if [[ -f "${REPOSITORY_ROOT_DIRECTORY}/.git" ]]; then
+  FRONTIER_3D_DEFAULT_REPORT_DIRECTORY="${REPOSITORY_ROOT_DIRECTORY}/.frontier-3d-worktree-artifacts/rendered-reports"
+fi
+DEFAULT_OUTPUT_HTML_PATH="${FRONTIER_3D_DEFAULT_REPORT_DIRECTORY}/frontier_3d.html"
 # EXPERIMENT_NODE: 离线路径缺省是「重渲染已有契约」；是否改为「由 data/raw 缓存重算契约」（改完指标代码后更有用，但依赖本机缓存齐全）待实验
-DEFAULT_EXISTING_FRONTIER_3D_VISUALIZATION_DATASET_PATH="${REPOSITORY_ROOT_DIRECTORY}/output/frontier_3d_visualization_dataset.json"
+DEFAULT_EXISTING_FRONTIER_3D_VISUALIZATION_DATASET_PATH="${FRONTIER_3D_DEFAULT_REPORT_DIRECTORY}/frontier_3d_visualization_dataset.json"
 # 本地托管只绑定回环地址，不对局域网暴露
 LOCAL_REPORT_HTTP_SERVER_BIND_ADDRESS="127.0.0.1"
 # 本地 HTTP 服务就绪等待上限（秒）；uv 冷启动较慢的机器可能需要调大
@@ -32,13 +36,16 @@ print_usage() {
 
 路径（二选一，缺省为离线路径并读取 output/frontier_3d_visualization_dataset.json）：
   --from-existing-dataset PATH  离线路径：由已有数据契约 JSON 重渲染 HTML；不联网、不需要 API key
-  --refresh                     刷新路径：python -m src.cli --refresh（D-12 暂停网页抓取期间只拉 API），
+  --refresh                     刷新路径：API 加受限网页目录刷新（目录最多每 24 小时一批），
                                 需要环境变量或仓库 .env 中已配置 ARTIFICIAL_ANALYSIS_API_KEY
 
 其他选项：
   --out PATH                    输出 HTML 路径（缺省 output/frontier_3d.html；契约写在同目录）
   --skip-verify                 跳过 scripts/run_all_frontier_3d_verifications.sh（产物将标注「未验证」）
   --host PORT                   用 http://127.0.0.1:PORT/ 本地托管报告（只绑定 127.0.0.1），Ctrl-C 结束
+  --disable-artificial-analysis-website-page-fetch  本次禁止网页请求，只用 API 与已有目录
+  --allow-artificial-analysis-website-page-fetch    显式请求目录刷新，仍遵守限额
+  --report-deployment-environment development|production  默认 development，持续显示未恢复开发告警
   --no-open                     不自动打开浏览器
   -h, --help                    显示本帮助
 
@@ -145,12 +152,24 @@ SKIP_VERIFICATION_REQUESTED=0
 LOCAL_REPORT_HTTP_SERVER_PORT=""
 OUTPUT_HTML_PATH="$DEFAULT_OUTPUT_HTML_PATH"
 OPEN_REPORT_IN_BROWSER_REQUESTED=1
+WEBSITE_CATALOG_FETCH_POLICY_ARGUMENTS=()
+REPORT_DEPLOYMENT_ENVIRONMENT=development
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --refresh)
       REFRESH_ARTIFICIAL_ANALYSIS_API_REQUESTED=1
       shift
+      ;;
+    --allow-artificial-analysis-website-page-fetch|--disable-artificial-analysis-website-page-fetch)
+      [[ ${#WEBSITE_CATALOG_FETCH_POLICY_ARGUMENTS[@]} -eq 0 ]] || fail_with_usage_error "网页抓取策略开关互斥"
+      WEBSITE_CATALOG_FETCH_POLICY_ARGUMENTS=("$1")
+      shift
+      ;;
+    --report-deployment-environment)
+      [[ $# -ge 2 && ( "$2" == development || "$2" == production ) ]] || fail_with_usage_error "报告环境必须为 development 或 production"
+      REPORT_DEPLOYMENT_ENVIRONMENT="$2"
+      shift 2
       ;;
     --from-existing-dataset)
       [[ $# -ge 2 && -n "$2" ]] || fail_with_usage_error "--from-existing-dataset 需要一个 PATH"
@@ -207,6 +226,12 @@ fi
 refuse_to_run_uv_against_symlinked_repository_virtual_environment
 
 cd "$REPOSITORY_ROOT_DIRECTORY"
+uv run --frozen python - "$OUTPUT_HTML_PATH" <<'PYTHON_VALIDATE_ISOLATED_REPORT_OUTPUT'
+from pathlib import Path
+import sys
+from src.frontier_3d_worktree_storage_paths import refuse_shared_worktree_directory_write
+refuse_shared_worktree_directory_write(Path(sys.argv[1]))
+PYTHON_VALIDATE_ISOLATED_REPORT_OUTPUT
 mkdir -p "$(dirname "$OUTPUT_HTML_PATH")"
 
 # ----------------------------------------------------------------------------- 1. 生成
@@ -217,8 +242,9 @@ if [[ "$REFRESH_ARTIFICIAL_ANALYSIS_API_REQUESTED" -eq 1 ]]; then
     exit 1
   fi
   echo "==> [1/3 生成·刷新路径] python -m src.cli --refresh"
-  echo "    D-12 暂停网页抓取期间只拉 Artificial Analysis API，不抓网页；新鲜度摘要见 CLI 输出末尾"
-  uv run --frozen python -m src.cli --refresh --out "$OUTPUT_HTML_PATH"
+  echo "    API 刷新；网页目录最多每 24 小时抓取 2–3 页，可用显式开关禁止；新鲜度摘要见 CLI 输出末尾"
+  uv run --frozen python -m src.cli --refresh --out "$OUTPUT_HTML_PATH" \
+    --report-deployment-environment "$REPORT_DEPLOYMENT_ENVIRONMENT" ${WEBSITE_CATALOG_FETCH_POLICY_ARGUMENTS[@]+"${WEBSITE_CATALOG_FETCH_POLICY_ARGUMENTS[@]}"}
 else
   if [[ ! -f "$EXISTING_FRONTIER_3D_VISUALIZATION_DATASET_PATH" ]]; then
     echo "错误：数据契约不存在：${EXISTING_FRONTIER_3D_VISUALIZATION_DATASET_PATH}" >&2
@@ -231,7 +257,8 @@ else
   offline_rerender_command_line_interface_exit_code=0
   uv run --frozen python -m src.cli \
     --frontier-3d-visualization-dataset-in "$EXISTING_FRONTIER_3D_VISUALIZATION_DATASET_PATH" \
-    --out "$OUTPUT_HTML_PATH" || offline_rerender_command_line_interface_exit_code=$?
+    --out "$OUTPUT_HTML_PATH" --report-deployment-environment "$REPORT_DEPLOYMENT_ENVIRONMENT" \
+    ${WEBSITE_CATALOG_FETCH_POLICY_ARGUMENTS[@]+"${WEBSITE_CATALOG_FETCH_POLICY_ARGUMENTS[@]}"} || offline_rerender_command_line_interface_exit_code=$?
   if [[ "$offline_rerender_command_line_interface_exit_code" -ne 0 ]]; then
     # 旧契约（例：实心面仍是 Plotly bdata 编码 ['dtype','bdata']）会被契约校验拒绝，这是有意的 P0-4 检测
     echo "错误：由已有契约重渲染失败（退出码 ${offline_rerender_command_line_interface_exit_code}）。" >&2

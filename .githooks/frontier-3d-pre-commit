@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# 显式启用此钩子时，只验证影响 Frontier 3D 的暂存变更。
+set -euo pipefail
+STAGED_CANDIDATE_RELATIVE_PATHS="$(git diff --cached --name-only)"
+while IFS= read -r staged_candidate_relative_path; do
+  case "$staged_candidate_relative_path" in
+    src/*|tests/*|scripts/*|package.json|package-lock.json|pyproject.toml|uv.lock)
+      bash "$(git rev-parse --show-toplevel)/scripts/verify_frontier_3d_staged_commit_candidate.sh"
+      exit $?
+      ;;
+  esac
+done <<< "$STAGED_CANDIDATE_RELATIVE_PATHS"
