@@ -17,9 +17,13 @@ set -euo pipefail
 
 REPOSITORY_ROOT_DIRECTORY="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPTS_DIRECTORY="${REPOSITORY_ROOT_DIRECTORY}/scripts"
-DEFAULT_OUTPUT_HTML_PATH="${REPOSITORY_ROOT_DIRECTORY}/output/frontier_3d.html"
+FRONTIER_3D_DEFAULT_REPORT_DIRECTORY="${REPOSITORY_ROOT_DIRECTORY}/output"
+if [[ -f "${REPOSITORY_ROOT_DIRECTORY}/.git" ]]; then
+  FRONTIER_3D_DEFAULT_REPORT_DIRECTORY="${REPOSITORY_ROOT_DIRECTORY}/.frontier-3d-worktree-artifacts/rendered-reports"
+fi
+DEFAULT_OUTPUT_HTML_PATH="${FRONTIER_3D_DEFAULT_REPORT_DIRECTORY}/frontier_3d.html"
 # EXPERIMENT_NODE: 离线路径缺省是「重渲染已有契约」；是否改为「由 data/raw 缓存重算契约」（改完指标代码后更有用，但依赖本机缓存齐全）待实验
-DEFAULT_EXISTING_FRONTIER_3D_VISUALIZATION_DATASET_PATH="${REPOSITORY_ROOT_DIRECTORY}/output/frontier_3d_visualization_dataset.json"
+DEFAULT_EXISTING_FRONTIER_3D_VISUALIZATION_DATASET_PATH="${FRONTIER_3D_DEFAULT_REPORT_DIRECTORY}/frontier_3d_visualization_dataset.json"
 # 本地托管只绑定回环地址，不对局域网暴露
 LOCAL_REPORT_HTTP_SERVER_BIND_ADDRESS="127.0.0.1"
 # 本地 HTTP 服务就绪等待上限（秒）；uv 冷启动较慢的机器可能需要调大
@@ -222,6 +226,12 @@ fi
 refuse_to_run_uv_against_symlinked_repository_virtual_environment
 
 cd "$REPOSITORY_ROOT_DIRECTORY"
+uv run --frozen python - "$OUTPUT_HTML_PATH" <<'PYTHON_VALIDATE_ISOLATED_REPORT_OUTPUT'
+from pathlib import Path
+import sys
+from src.frontier_3d_worktree_storage_paths import refuse_shared_worktree_directory_write
+refuse_shared_worktree_directory_write(Path(sys.argv[1]))
+PYTHON_VALIDATE_ISOLATED_REPORT_OUTPUT
 mkdir -p "$(dirname "$OUTPUT_HTML_PATH")"
 
 # ----------------------------------------------------------------------------- 1. 生成

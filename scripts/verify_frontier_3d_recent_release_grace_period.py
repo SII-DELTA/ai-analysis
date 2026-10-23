@@ -91,14 +91,19 @@ def verify_report(page, html_path: Path, screenshot_directory: Path) -> dict:
             target = grace_markers[0]
             page.evaluate("base => window.pinFrontierBaseModel(base)", target["base_model_name"])
             page.locator("#aa-search-input").fill(target["base_model_name"])
-            page.evaluate("name => window.showFrontierLineageForModelName(name)", target["name"])
-            assert page.evaluate("() => window.frontierThreeDimensionalVisualizationState().hoveredLineageKey") is not None
+            assert page.evaluate("name => window.showFrontierLineageForModelName(name)", target["name"])
+            hovered_state = page.evaluate("() => window.frontierThreeDimensionalVisualizationState()")
+            assert markers[hovered_state["hoveredModelIndex"]]["name"] == target["name"]
+            assert page.locator("#aa-threejs-model-tooltip").is_visible()
+            # W2 只为显式家族绘制谱系；未知家族仍可悬停，不能要求伪造谱系键。
+            assert (hovered_state["hoveredLineageKey"] is not None) == bool(target.get("lineage_family_key"))
         toggle.uncheck()
         _assert_visible_count_and_legend_counts(page, variant["kept_model_count_without_recent_release_grace_period"])
         assert _analysis_and_camera_snapshot(page) == before
         state = page.evaluate("() => window.frontierThreeDimensionalVisualizationState()")
         assert state["pickableRecentReleaseGracePeriodOnlyModelMarkerCount"] == 0
         if grace_markers:
+            assert state["hoveredModelIndex"] is None
             assert state["hoveredLineageKey"] is None and state["hoveredReasoningBaseModelName"] is None
             assert page.locator("#aa-threejs-model-tooltip").is_hidden()
             assert target["base_model_name"] in state["pinnedBaseModelNames"]

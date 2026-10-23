@@ -46,7 +46,9 @@ from .frontier_3d_visualization_dataset_builder import (
 )
 
 ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_OUTPUT_HTML_PATH = ROOT / "output" / "frontier_3d.html"
+from .frontier_3d_worktree_storage_paths import resolve_frontier_3d_storage_paths, refuse_shared_worktree_directory_write
+
+DEFAULT_OUTPUT_HTML_PATH = resolve_frontier_3d_storage_paths().output_html_path
 
 SPEED_METRICS = {
     metric_name: (
@@ -212,7 +214,7 @@ def _build_command_line_argument_parser() -> argparse.ArgumentParser:
         "--processed-models-csv-out",
         type=Path,
         default=None,
-        help="models.csv 输出路径（缺省 data/processed/models.csv）",
+        help="models.csv 输出路径（缺省按 checkout 选择的 models.csv 路径）",
     )
     p.add_argument(
         "--previous-run-processed-models-csv-in",
@@ -220,7 +222,7 @@ def _build_command_line_argument_parser() -> argparse.ArgumentParser:
         default=None,
         help=(
             "--use-previous-run-processed-models-csv-as-fallback 读取的上次 models.csv"
-            "（缺省同 --processed-models-csv-out，再缺省 data/processed/models.csv）"
+            "（缺省同 --processed-models-csv-out，再缺省按 checkout 选择的 models.csv 路径）"
         ),
     )
     p.add_argument(
@@ -228,12 +230,12 @@ def _build_command_line_argument_parser() -> argparse.ArgumentParser:
         type=Path,
         default=None,
         help=(
-            "原始数据目录（缺省共享的 data/raw）：API 缓存、API 响应历史、列表页与详情页缓存都在其下读写；"
+            "原始数据目录（缺省按 checkout 选择的原始缓存目录）：API 缓存、API 响应历史、列表页与详情页缓存都在其下读写；"
             "指向 scratch 副本即可彩排 --refresh 而不碰共享目录"
         ),
     )
     p.add_argument("--out", default=None,
-                   help="输出 HTML 路径；缺省为 output/frontier_3d.html")
+                   help="输出 HTML 路径；主 checkout 缺省 output/frontier_3d.html，worktree 缺省独立目录")
     p.add_argument(
         "--frontier-3d-visualization-dataset-out",
         type=Path,
@@ -687,6 +689,7 @@ def main(command_line_arguments: list[str] | None = None) -> None:
         args.out = str(DEFAULT_OUTPUT_HTML_PATH)
 
     output_html_path = Path(args.out)
+    refuse_shared_worktree_directory_write(output_html_path)
     dataset_output_path = (
         args.frontier_3d_visualization_dataset_out
         or default_frontier_3d_visualization_dataset_path_for_html(output_html_path)

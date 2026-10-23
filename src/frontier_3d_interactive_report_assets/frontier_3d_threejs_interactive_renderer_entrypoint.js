@@ -1,3 +1,9 @@
+import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
+import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
+import { LineMaterial } from "three/addons/lines/LineMaterial.js";
+import { axisTickValues } from "./frontier_3d_threejs_axis_tick_value_generator.js";
+import { matchingBaseModelNames as matchFrontierBaseModelNames } from "./frontier_3d_threejs_base_model_search_matcher.js";
+import { solveFrontierAxisAnnotationLayout } from "./frontier_3d_threejs_axis_annotation_layout_solver.js";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import {
@@ -8,6 +14,22 @@ import {
 
 (function initializeFrontierThreeDimensionalInteractiveReport() {
   "use strict";
+
+  const runtimeIssuesByKind = new Map();
+  const runtimeDiagnosticBanner = document.createElement("div");
+  runtimeDiagnosticBanner.id = "frontier-3d-runtime-diagnostic-banner";
+  runtimeDiagnosticBanner.setAttribute("role", "alert");
+  runtimeDiagnosticBanner.hidden = true;
+  document.body.append(runtimeDiagnosticBanner);
+  function setRuntimeIssue(kind, message) {
+    if (message) runtimeIssuesByKind.set(kind, message);
+    else runtimeIssuesByKind.delete(kind);
+    runtimeDiagnosticBanner.textContent = [...runtimeIssuesByKind.values()].join("；");
+    runtimeDiagnosticBanner.hidden = runtimeIssuesByKind.size === 0;
+  }
+  window.frontier3dRuntimeDiagnosticStatus = () => Object.fromEntries(runtimeIssuesByKind);
+  window.addEventListener("error", (event) => setRuntimeIssue("window_error", `页面错误：${String(event.message || "未知错误").slice(0, 300)}`));
+  window.addEventListener("unhandledrejection", (event) => setRuntimeIssue("unhandled_rejection", `页面操作失败：${String(event.reason?.message || event.reason || "未知错误").slice(0, 300)}`));
 
   const VISUALIZATION_DATASET_ELEMENT_ID = "frontier-3d-visualization-dataset-json";
   const visualizationDatasetElement = document.getElementById(
@@ -72,10 +94,27 @@ import {
   threeScene.background = new THREE.Color(0xffffff);
   const perspectiveCamera = new THREE.PerspectiveCamera(42, 1, 0.01, 100);
   perspectiveCamera.up.set(0, 0, 1);
-  const webglRenderer = new THREE.WebGLRenderer({
-    antialias: true,
-    alpha: false,
-    preserveDrawingBuffer: true,
+  let webglRenderer;
+  try {
+    webglRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
+  } catch {
+    setRuntimeIssue("webgl_unavailable", "无法启动三维图：当前环境不支持 WebGL，或图形资源不足。请启用浏览器图形加速后重新加载。");
+    return;
+  }
+  let webglContextUnavailable = false;
+  webglRenderer.domElement.addEventListener("webglcontextlost", (event) => {
+    event.preventDefault();
+    webglContextUnavailable = true;
+    renderFrameRequested = false;
+    clearHoverInteractionImmediately();
+    setRuntimeIssue("webgl_context", "三维图的图形上下文已丢失，正在等待浏览器恢复。");
+  });
+  webglRenderer.domElement.addEventListener("webglcontextrestored", () => {
+    webglContextUnavailable = false;
+    renderFrameRequested = false;
+    resizeThreeDimensionalRenderer();
+    setRuntimeIssue("webgl_context", null);
+    requestThreeDimensionalSceneRender();
   });
   webglRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   webglRenderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -129,6 +168,7 @@ import {
   let achievableFrontierSurfaceObject = null;
   let transientLineageLineObject = null;
   let transientReasoningVariantLineObject = null;
+  let transientSameGenerationLineObject = null;
 
   let countryRegionMarkerVisible = false;
   // 「仅当期可比」：开启时隐藏历史口径点（W1-6 / D-1），隐藏的点也不可拾取；跨口径切换时保持。
@@ -148,6 +188,33 @@ import {
   let hoveredLineageKey = null;
   let hoveredReasoningBaseModelName = null;
   let pinnedBaseModelNames = new Set();
+  const pinnedModelIdentities = new Set();
+  const allModelRecordsByIdentity = new Map();
+  function stableModelIdentity(model) {
+    return model.model_uuid || `legacy:${JSON.stringify([model.creator, model.name])}`;
+  }
+  Object.values(metricVariantsByKey).forEach((variant) => {
+    (variant.three_dimensional_scene?.displayed_model_markers || []).forEach((model) => {
+      allModelRecordsByIdentity.set(stableModelIdentity(model), model);
+    });
+  });
+  function modelIsPinned(model) {
+    return pinnedModelIdentities.has(stableModelIdentity(model));
+  }
+  function synchronizePinnedBaseModelNameAliases() {
+    pinnedBaseModelNames = new Set([...pinnedModelIdentities].map((identity) => allModelRecordsByIdentity.get(identity)?.base_model_name).filter(Boolean));
+  }
+  function setBaseModelPinned(baseModelName, shouldBePinned) {
+    for (const [identity, model] of allModelRecordsByIdentity) {
+      if (model.base_model_name !== baseModelName) continue;
+      if (shouldBePinned) pinnedModelIdentities.add(identity);
+      else pinnedModelIdentities.delete(identity);
+    }
+    synchronizePinnedBaseModelNameAliases();
+    applyPinnedModelVisualEncoding();
+    renderSearchResults();
+    return Promise.resolve(true);
+  }
   let hiddenOrganizationCreatorNames = new Set();
   let selectedFrontierStandoutMetricName =
     FRONTIER_STANDOUT_METRIC_NAMES.TREND_RESIDUAL;
@@ -194,143 +261,37 @@ import {
   function updateProjectedAxisAnnotations() {
     const canvasWidth = graphContainer.clientWidth;
     const canvasHeight = graphContainer.clientHeight;
-    const projectToCanvas = (position) => {
+    const project = (position) => {
       const projected = position.clone().project(perspectiveCamera);
-      return new THREE.Vector2(
-        (projected.x + 1) * canvasWidth / 2,
-        (1 - projected.y) * canvasHeight / 2,
-      );
+      return { x: (projected.x + 1) * canvasWidth / 2, y: (1 - projected.y) * canvasHeight / 2, depth: projected.z };
     };
-    const projectedCenter = projectToCanvas(new THREE.Vector3());
-    const occupiedLabelRectangles = [];
-    // 先布局完整轴名，再让拥挤刻度让位，避免窄屏上数值遮住单位。
-    for (const renderTitles of [true, false]) {
-      axisAnnotations.forEach(({ start, end, labels }) => {
-        const projectedStart = projectToCanvas(start);
-        const projectedEnd = projectToCanvas(end);
-        const axisDirection = projectedEnd.clone().sub(projectedStart);
-        const outwardDirection = new THREE.Vector2(-axisDirection.y, axisDirection.x).normalize();
-        const projectedMidpoint = projectToCanvas(start.clone().lerp(end, 0.5));
-        if (outwardDirection.dot(projectedMidpoint.sub(projectedCenter)) < 0) {
-          outwardDirection.negate();
-        }
-        let titleAngle = Math.atan2(axisDirection.y, axisDirection.x) * 180 / Math.PI;
-        if (titleAngle > 90) titleAngle -= 180;
-        if (titleAngle < -90) titleAngle += 180;
-        labels.filter(({ isTitle }) => isTitle === renderTitles).forEach(({ element, position, isTitle }) => {
-          const projected = position.clone().project(perspectiveCamera);
-          element.hidden = projected.z < -1 || projected.z > 1 || axisDirection.length() < 1;
-          if (element.hidden) return;
-          const anchorPosition = projectToCanvas(position);
-          element.style.transform = `translate(-50%, -50%) rotate(${isTitle ? titleAngle : 0}deg)`;
-          const measuredBounds = element.getBoundingClientRect();
-          const halfWidth = measuredBounds.width / 2;
-          const halfHeight = measuredBounds.height / 2;
-          const labelDirection = isTitle ? axisDirection.clone().normalize() : new THREE.Vector2(1, 0);
-          const labelNormal = new THREE.Vector2(-labelDirection.y, labelDirection.x);
-          const labelRectangle = {
-            directions: [labelDirection, labelNormal],
-            halfSizes: [element.offsetWidth / 2, element.offsetHeight / 2],
-          };
-          const preferredFraction = anchorPosition.clone().sub(projectedStart).dot(axisDirection) / axisDirection.lengthSq();
-          let selectedLabelPosition = null;
-          // 标题可沿同一轴的可见片段滑动；刻度始终保留自己的真实投影锚点。
-          for (const offset of isTitle ? [48, 24, -48, -24, 0] : [16, -16, 8, -8, 0]) {
-            let minimumFraction = isTitle ? 0 : preferredFraction;
-            let maximumFraction = isTitle ? 1 : preferredFraction;
-            for (const [coordinate, canvasSize, halfSize] of [
-              ["x", canvasWidth, halfWidth], ["y", canvasHeight, halfHeight],
-            ]) {
-              const minimumAnchor = Math.max(0, halfSize + 2 - outwardDirection[coordinate] * offset);
-              const maximumAnchor = Math.min(canvasSize, canvasSize - halfSize - 2 - outwardDirection[coordinate] * offset);
-              const direction = axisDirection[coordinate];
-              if (Math.abs(direction) < 1e-8) {
-                if (projectedStart[coordinate] < minimumAnchor || projectedStart[coordinate] > maximumAnchor) {
-                  maximumFraction = -1;
-                }
-              } else {
-                const firstFraction = (minimumAnchor - projectedStart[coordinate]) / direction;
-                const lastFraction = (maximumAnchor - projectedStart[coordinate]) / direction;
-                minimumFraction = Math.max(minimumFraction, Math.min(firstFraction, lastFraction));
-                maximumFraction = Math.min(maximumFraction, Math.max(firstFraction, lastFraction));
-              }
-              if (minimumAnchor > maximumAnchor) maximumFraction = -1;
-            }
-            if (minimumFraction > maximumFraction) continue;
-            const preferredVisibleFraction = THREE.MathUtils.clamp(preferredFraction, minimumFraction, maximumFraction);
-            for (const fraction of isTitle
-              ? [preferredVisibleFraction, minimumFraction, maximumFraction]
-              : [preferredFraction]) {
-              const candidate = projectedStart.clone().addScaledVector(axisDirection, fraction)
-                .addScaledVector(outwardDirection, offset);
-              // 用旋转矩形的分离轴判定相交，不能把斜标题的整个外接框都当作遮挡。
-              if (canvasWidth < 900 && occupiedLabelRectangles.some((other) => ![...labelRectangle.directions, ...other.directions]
-                .some((direction) => {
-                  const projectedHalfSize = (rectangle) => rectangle.directions.reduce(
-                    (sum, rectangleDirection, index) => sum + Math.abs(rectangleDirection.dot(direction)) * rectangle.halfSizes[index], 0,
-                  );
-                  return Math.abs(candidate.clone().sub(other.center).dot(direction)) >=
-                    projectedHalfSize(labelRectangle) + projectedHalfSize(other) + 2;
-                }))) continue;
-              selectedLabelPosition = candidate;
-              occupiedLabelRectangles.push({ ...labelRectangle, center: candidate });
-              break;
-            }
-            if (selectedLabelPosition) break;
-          }
-          element.hidden = !selectedLabelPosition;
-          if (selectedLabelPosition) {
-            element.style.left = `${selectedLabelPosition.x}px`;
-            element.style.top = `${selectedLabelPosition.y}px`;
-          }
-        });
-      });
+    const elementsById = new Map();
+    const axes = axisAnnotations.map(({ start, end, labels }, axisIndex) => ({
+      projectedStart: project(start), projectedEnd: project(end),
+      labels: labels.map(({ element, position, isTitle }, labelIndex) => {
+        const id = `${axisIndex}:${labelIndex}`;
+        elementsById.set(id, element);
+        element.hidden = false;
+        const anchor = project(position);
+        return { id, isTitle, anchor, projectedDepth: anchor.depth, width: element.offsetWidth, height: element.offsetHeight };
+      }),
+    }));
+    for (const label of solveFrontierAxisAnnotationLayout({ canvasWidth, canvasHeight, projectedCenter: project(new THREE.Vector3()), axes })) {
+      const element = elementsById.get(label.id);
+      element.hidden = label.hidden;
+      if (label.hidden) continue;
+      element.style.transform = `translate(-50%, -50%) rotate(${label.rotationDegrees}deg)`;
+      element.style.left = `${label.x}px`;
+      element.style.top = `${label.y}px`;
     }
-  }
-
-  function axisTickValues(axisConfiguration) {
-    const [minimum, maximum] = axisConfiguration.fixed_range.map(Number);
-    const span = maximum - minimum;
-    if (!Number.isFinite(span) || span <= 0) return [];
-    if (axisConfiguration.scale_type === "log" && span >= 1) {
-      const exponentStep = Math.max(1, Math.ceil(span / 6));
-      const values = [];
-      for (let exponent = Math.ceil(minimum); exponent <= maximum; exponent += exponentStep) {
-        values.push(10 ** exponent);
-      }
-      if (values.length >= 3) return values;
-      // 整数幂不足时补入 2、5 倍刻度，避免线性步长挤在对数轴高值端。
-      values.length = 0;
-      for (let exponent = Math.floor(minimum); exponent <= maximum; exponent += 1) {
-        for (const multiplier of [1, 2, 5]) {
-          const scaledValue = exponent + Math.log10(multiplier);
-          if (scaledValue >= minimum && scaledValue <= maximum) {
-            values.push(Number((multiplier * 10 ** exponent).toPrecision(12)));
-          }
-        }
-      }
-      return values;
-    }
-    // 窄对数区间在原始数值上选刻度，再用与模型相同的变换定位。
-    const rawMinimum = axisConfiguration.scale_type === "log" ? 10 ** minimum : minimum;
-    const rawMaximum = axisConfiguration.scale_type === "log" ? 10 ** maximum : maximum;
-    const approximateStep = (rawMaximum - rawMinimum) / 5;
-    const magnitude = 10 ** Math.floor(Math.log10(approximateStep));
-    let step = [1, 2, 5, 10].find((factor) => factor * magnitude >= approximateStep) * magnitude;
-    // 向上取整的间隔可能只留下两个刻度；减半补足覆盖，已有密集刻度保持不变。
-    if (Math.floor(rawMaximum / step) - Math.ceil(rawMinimum / step) < 2) step /= 2;
-    const values = [];
-    for (let index = Math.ceil(rawMinimum / step); index <= Math.floor(rawMaximum / step); index += 1) {
-      values.push(Number((index * step).toPrecision(12)));
-    }
-    return values;
   }
 
   function requestThreeDimensionalSceneRender() {
-    if (renderFrameRequested) return;
+    if (renderFrameRequested || webglContextUnavailable) return;
     renderFrameRequested = true;
     window.requestAnimationFrame(() => {
       renderFrameRequested = false;
+      if (webglContextUnavailable) return;
       webglRenderer.render(threeScene, perspectiveCamera);
       updateProjectedAxisAnnotations();
     });
@@ -341,6 +302,7 @@ import {
   function clearThreeObjectGroup(group) {
     while (group.children.length) {
       const child = group.children.pop();
+      child.userData.foregroundMaterial?.dispose();
       // THREE.Sprite 共享模块级 geometry；销毁其中一个会迫使全部 Logo 在下一帧重建 GPU buffer。
       if (!child.isSprite && child.geometry && child.geometry.dispose) {
         child.geometry.dispose();
@@ -363,7 +325,7 @@ import {
     const minimumValue = Number(fixedRange[0]);
     const maximumValue = Number(fixedRange[1]);
     const scaledValue = scaledAxisValue(rawValue, axisConfiguration);
-    if (!isFinite(scaledValue) || maximumValue === minimumValue) return 0;
+    if (!Number.isFinite(scaledValue) || maximumValue === minimumValue) return 0;
     return -1 + (2 * (scaledValue - minimumValue)) / (maximumValue - minimumValue);
   }
 
@@ -384,6 +346,17 @@ import {
     );
     const material = new THREE.LineBasicMaterial({ color, linewidth: width });
     return new THREE.LineSegments(geometry, material);
+  }
+
+  function relationshipLineObject(positionPairs, color, width, dashed = false) {
+    const geometry = new LineSegmentsGeometry();
+    geometry.setPositions(positionPairs.flatMap((position) => position.toArray()));
+    const material = new LineMaterial({ color, linewidth: width, transparent: true, opacity: 0.9, depthTest: false, depthWrite: false, dashed });
+    material.resolution.set(graphContainer.clientWidth, graphContainer.clientHeight);
+    const line = new LineSegments2(geometry, material);
+    line.renderOrder = 100;
+    if (dashed) line.computeLineDistances();
+    return line;
   }
 
   function buildAxesAndGrid() {
@@ -574,10 +547,12 @@ import {
       side: THREE.DoubleSide,
       transparent: true,
       depthTest: true,
-      depthWrite: true,
+      depthWrite: false,
       ...materialOptions,
     });
-    return new THREE.Mesh(geometry, material);
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.renderOrder = 60;
+    return mesh;
   }
 
   function buildFrontierGeometry() {
@@ -656,6 +631,17 @@ import {
     context.strokeStyle = "rgba(15,23,42,0.66)";
     context.stroke();
   });
+  const standoutHaloTexture = canvasTextureFromDrawing((context) => {
+    const gradient = context.createRadialGradient(64, 64, 32, 64, 64, 63);
+    gradient.addColorStop(0, "rgba(49,130,189,0)");
+    gradient.addColorStop(0.65, "rgba(49,130,189,0.32)");
+    gradient.addColorStop(1, "rgba(49,130,189,0)");
+    context.fillStyle = gradient; context.fillRect(0, 0, 128, 128);
+  });
+  const missingStandoutHaloTexture = canvasTextureFromDrawing((context) => {
+    context.beginPath(); context.arc(64, 64, 54, 0, Math.PI * 2);
+    context.setLineDash([8, 8]); context.lineWidth = 5; context.strokeStyle = "rgba(71,85,105,0.8)"; context.stroke();
+  });
   const pinnedRingTexture = canvasTextureFromDrawing((context) => {
     context.beginPath();
     context.arc(64, 64, 54, 0, Math.PI * 2);
@@ -733,9 +719,12 @@ import {
   );
   const paretoRingMaterial = spriteMaterial(paretoRingTexture);
   const pinnedRingMaterial = spriteMaterial(pinnedRingTexture);
+  const standoutHaloMaterial = spriteMaterial(standoutHaloTexture);
+  const missingStandoutHaloMaterial = spriteMaterial(missingStandoutHaloTexture);
   const prunedLineageAncestorMaterial = spriteMaterial(
     prunedLineageAncestorTexture,
   );
+  prunedLineageAncestorMaterial.depthTest = false;
   const countryRegionMaterials = Object.fromEntries(
     Object.entries(countryRegionTextures).map(([key, texture]) => [key, spriteMaterial(texture)]),
   );
@@ -743,6 +732,8 @@ import {
     whiteLogoBackplateMaterial,
     historicalIntelligenceIndexVersionLogoBackplateMaterial,
     paretoRingMaterial,
+    standoutHaloMaterial,
+    missingStandoutHaloMaterial,
     pinnedRingMaterial,
     prunedLineageAncestorMaterial,
     ...Object.values(countryRegionMaterials),
@@ -923,10 +914,12 @@ import {
       const paretoRingSprite = addSharedMaterialSprite(
         paretoRingMaterial,
         position,
-        0.15,
-        10,
+        0.19,
+        45,
       );
       paretoRingSprite.visible = model.panel.layer === 1;
+      const standoutHaloSprite = addSharedMaterialSprite(standoutHaloMaterial, position, 0.26, 15);
+      standoutHaloSprite.visible = model.panel.layer === 1;
       const pinnedRingSprite = addSharedMaterialSprite(
         pinnedRingMaterial,
         position,
@@ -943,6 +936,7 @@ import {
         backplateSprite,
         countryRegionSprite,
         paretoRingSprite,
+        standoutHaloSprite,
         pinnedRingSprite,
       });
     });
@@ -951,11 +945,12 @@ import {
     applyStandoutVisualEncoding();
   }
 
-  // 统一更新筛选及其关联视图；只改变可见性，不重建坐标轴、几何或突出度计算集合。
+  // 厂商筛选、「仅当期可比」与非有限坐标共同决定标记可见性；不可见的 sprite 同时退出拾取。
   function applyModelMarkerVisibilityAndRefreshDependentViews() {
-    if (hoveredModelIndex !== null && !modelMarkerIsCurrentlyVisible(hoveredModelIndex)) {
-      setHoveredModelIndex(null);
-    }
+    cancelHoverDepartureGracePeriod();
+    const hoveredAncestor = clickablePrunedLineageAncestorSprites.find((sprite) => sprite.userData.prunedLineageAncestorNode.name === hoveredPrunedLineageAncestorName)?.userData.prunedLineageAncestorNode;
+    if ((hoveredModelIndex !== null && !modelMarkerIsCurrentlyVisible(hoveredModelIndex)) ||
+      (hoveredAncestor && !lineageNodePassesCurrentVisibilityFilters(hoveredAncestor))) clearHoverInteractionImmediately();
     modelVisualObjectsByModelIndex.forEach((visualObjects, modelIndex) => {
       const model = displayedModelMarkers[modelIndex];
       const markerVisible = modelMarkerIsCurrentlyVisible(modelIndex);
@@ -965,16 +960,18 @@ import {
         markerVisible && countryRegionMarkerVisible;
       visualObjects.paretoRingSprite.visible =
         markerVisible && model.panel?.layer === 1;
+      visualObjects.standoutHaloSprite.visible = markerVisible && model.panel?.layer === 1;
       visualObjects.pinnedRingSprite.visible =
-        markerVisible && pinnedBaseModelNames.has(model.base_model_name);
+        markerVisible && modelIsPinned(model);
     });
     renderReportHeaderModelCountSummary();
-    renderCurrentView();
     refreshOrganizationAndCountryRegionVisibleModelCounts();
-    renderPinnedModelsPanel();
     // 可见性变了，pin/悬停的连线、搜索结果的「已隐藏」标注都要跟着重算
     redrawHoveredAndPinnedRelationships();
     renderSearchResults();
+    renderPinnedModelsPanel();
+    renderCurrentView();
+    if (standoutRankingList) applyStandoutVisualEncoding();
     requestThreeDimensionalSceneRender();
   }
 
@@ -1059,109 +1056,100 @@ import {
 
   // 谱系节点是否可作为连线端点：被剪枝的前身总会画出自己的标记；已上图（kept）的节点要求其标记当前可见
   // （「仅当期可比」、厂商筛选、非有限坐标都会隐藏标记）。不可见的 kept 节点当作断点，不跨过它连线。
-  function lineageNodeMarkerIsCurrentlyDrawn(lineageNode) {
-    if (!lineageNode.kept) return true;
-    const modelIndex = modelIndexByModelName[lineageNode.name];
-    return modelIndex !== undefined && modelMarkerIsCurrentlyVisible(modelIndex);
+  function lineageNodePassesCurrentVisibilityFilters(node) {
+    const creator = node.creator || node.lineage_family_key?.split("||")[0];
+    if (creator && !currentOrganizationVisibility(creator)) return false;
+    if (showOnlyCurrentIntelligenceIndexVersionComparableModels && !modelIsAnalysisEligibleForActiveMetricVariant(node)) return false;
+    if (!node.kept) return true;
+    const modelIndex = displayedModelMarkers.findIndex((model) => node.model_uuid ? model.model_uuid === node.model_uuid : model.name === node.name);
+    return modelIndex >= 0 && modelMarkerIsCurrentlyVisible(modelIndex);
+  }
+
+  function applyRelationshipForegroundVisualEncoding() {
+    modelVisualObjectsByModelIndex.forEach((visualObjects, index) => {
+      const selected = modelMarkerIsCurrentlyVisible(index) && (modelIsPinned(displayedModelMarkers[index]) || hoveredModelIndex === index);
+      for (const sprite of [visualObjects.logoSprite, visualObjects.backplateSprite, visualObjects.countryRegionSprite, visualObjects.paretoRingSprite, visualObjects.pinnedRingSprite, visualObjects.standoutHaloSprite]) {
+        if (!sprite) continue;
+        if (!sprite.userData.normalMaterial) {
+          sprite.userData.normalMaterial = sprite.material;
+          sprite.userData.normalRenderOrder = sprite.renderOrder;
+        }
+        if (selected && !sprite.userData.foregroundMaterial) {
+          sprite.userData.foregroundMaterial = sprite.userData.normalMaterial.clone();
+          sprite.userData.foregroundMaterial.depthTest = false;
+          sprite.userData.foregroundMaterial.depthWrite = false;
+        }
+        sprite.material = selected ? sprite.userData.foregroundMaterial : sprite.userData.normalMaterial;
+        sprite.renderOrder = selected ? 80 + sprite.userData.normalRenderOrder / 10 : sprite.userData.normalRenderOrder;
+      }
+    });
+    if (frontierWireframeObject) frontierWireframeObject.material.opacity = hoveredModelIndex !== null || hoveredPrunedLineageAncestorName !== null ? 0.25 : 0.9;
   }
 
   function redrawHoveredAndPinnedRelationships() {
     clearThreeObjectGroup(transientRelationshipGroup);
     clickablePrunedLineageAncestorSprites = [];
-    transientLineageLineObject = null;
-    transientReasoningVariantLineObject = null;
-    const lineageKeys = new Set();
-    pinnedBaseModelNames.forEach((baseModelName) => {
-      const modelIndices = baseGroupsByBaseModelName[baseModelName] || [];
-      if (modelIndices.length) lineageKeys.add(displayedModelMarkers[modelIndices[0]].lineage_key);
-    });
+    transientLineageLineObject = null; transientReasoningVariantLineObject = null; transientSameGenerationLineObject = null;
+    const lineageKeys = new Set(displayedModelMarkers.filter((model, index) => modelIsPinned(model) && modelMarkerIsCurrentlyVisible(index)).map((model) => model.lineage_key).filter(Boolean));
     if (hoveredLineageKey) lineageKeys.add(hoveredLineageKey);
     const lineagePositionPairs = [];
-    const displayedPrunedAncestorNames = new Set();
+    const displayedAncestorIdentities = new Set();
+    function addAncestor(node, lineageKey, relationshipKind = "previous_generation") {
+      const identity = stableModelIdentity(node);
+      if (node.kept || displayedAncestorIdentities.has(identity) || !lineageNodePassesCurrentVisibilityFilters(node)) return;
+      displayedAncestorIdentities.add(identity);
+      const sprite = new THREE.Sprite(prunedLineageAncestorMaterial);
+      sprite.position.copy(normalizedThreeDimensionalPosition(node.x, node.y, node.z));
+      sprite.scale.set(0.09, 0.09, 1); sprite.renderOrder = 90;
+      sprite.userData = { sharedMaterial: true, interactionTargetKind: "pruned_lineage_ancestor", lineageKey,
+        prunedLineageAncestorNode: { ...node, relationship_kind: relationshipKind } };
+      transientRelationshipGroup.add(sprite); clickablePrunedLineageAncestorSprites.push(sprite);
+    }
     lineageKeys.forEach((lineageKey) => {
       const nodes = lineagesByOrganizationAndTier[lineageKey] || [];
-      nodes.forEach((lineageNode) => {
-        if (lineageNode.kept || displayedPrunedAncestorNames.has(lineageNode.name)) {
-          return;
-        }
-        displayedPrunedAncestorNames.add(lineageNode.name);
-        const ancestorSprite = new THREE.Sprite(prunedLineageAncestorMaterial);
-        ancestorSprite.position.copy(
-          normalizedThreeDimensionalPosition(
-            lineageNode.x,
-            lineageNode.y,
-            lineageNode.z,
-          ),
-        );
-        ancestorSprite.scale.set(0.09, 0.09, 1);
-        ancestorSprite.renderOrder = 35;
-        ancestorSprite.userData = {
-          sharedMaterial: true,
-          interactionTargetKind: "pruned_lineage_ancestor",
-          lineageKey,
-          prunedLineageAncestorNode: lineageNode,
-        };
-        transientRelationshipGroup.add(ancestorSprite);
-        clickablePrunedLineageAncestorSprites.push(ancestorSprite);
-      });
+      nodes.forEach((node) => addAncestor(node, lineageKey));
       for (let index = 1; index < nodes.length; index += 1) {
-        const previousNode = nodes[index - 1];
-        const currentNode = nodes[index];
-        if (
-          !lineageNodeMarkerIsCurrentlyDrawn(previousNode) ||
-          !lineageNodeMarkerIsCurrentlyDrawn(currentNode)
-        ) {
-          continue;
-        }
-        lineagePositionPairs.push(
-          normalizedThreeDimensionalPosition(previousNode.x, previousNode.y, previousNode.z),
-          normalizedThreeDimensionalPosition(currentNode.x, currentNode.y, currentNode.z),
-        );
+        const previous = nodes[index - 1], current = nodes[index];
+        if (!lineageNodePassesCurrentVisibilityFilters(previous) || !lineageNodePassesCurrentVisibilityFilters(current)) continue;
+        lineagePositionPairs.push(normalizedThreeDimensionalPosition(previous.x, previous.y, previous.z), normalizedThreeDimensionalPosition(current.x, current.y, current.z));
       }
     });
     if (lineagePositionPairs.length) {
-      transientLineageLineObject = lineObjectFromPositionPairs(
-        lineagePositionPairs,
-        0x475569,
-        4,
-      );
+      transientLineageLineObject = relationshipLineObject(lineagePositionPairs, 0x475569, 3);
       transientRelationshipGroup.add(transientLineageLineObject);
     }
-
-    const reasoningBaseModelNames = new Set(pinnedBaseModelNames);
-    if (hoveredReasoningBaseModelName) {
-      reasoningBaseModelNames.add(hoveredReasoningBaseModelName);
+    const hoveredModel = hoveredModelIndex === null ? null : displayedModelMarkers[hoveredModelIndex];
+    if (hoveredModel?.lineage_family_key && !lineagesByOrganizationAndTier[hoveredModel.lineage_key]) {
+      const candidates = Object.entries(lineagesByOrganizationAndTier).flatMap(([key, nodes]) => nodes.map((node) => ({ key, node })))
+        .filter(({ node }) => node.lineage_family_key === hoveredModel.lineage_family_key && node.base_model_name === hoveredModel.base_model_name && lineageNodePassesCurrentVisibilityFilters(node))
+        .sort((left, right) => right.node.reasoning_level_sort_order - left.node.reasoning_level_sort_order);
+      const representative = candidates[0];
+      if (representative) {
+        transientSameGenerationLineObject = relationshipLineObject([
+          normalizedThreeDimensionalPosition(hoveredModel.x, hoveredModel.y, hoveredModel.z),
+          normalizedThreeDimensionalPosition(representative.node.x, representative.node.y, representative.node.z),
+        ], 0x475569, 3, true);
+        transientRelationshipGroup.add(transientSameGenerationLineObject);
+        addAncestor(representative.node, representative.key, "same_generation_reasoning_variant");
+      }
     }
-    const reasoningPositionPairs = [];
-    reasoningBaseModelNames.forEach((baseModelName) => {
-      const modelIndices =
-        reasoningVariantGroupsByBaseModelName[baseModelName] ||
-        baseGroupsByBaseModelName[baseModelName] ||
-        [];
-      for (let index = 1; index < modelIndices.length; index += 1) {
-        // 相邻两档都可见才连线：被隐藏（或坐标非有限）的档位不留两端无点的悬空线段
-        if (
-          !modelMarkerIsCurrentlyVisible(modelIndices[index - 1]) ||
-          !modelMarkerIsCurrentlyVisible(modelIndices[index])
-        ) {
-          continue;
+    const reasoningBaseNames = new Set(displayedModelMarkers.filter((model, index) => modelIsPinned(model) && modelMarkerIsCurrentlyVisible(index)).map((model) => model.base_model_name));
+    if (hoveredReasoningBaseModelName) reasoningBaseNames.add(hoveredReasoningBaseModelName);
+    const reasoningPairs = [];
+    reasoningBaseNames.forEach((name) => {
+      const indices = reasoningVariantGroupsByBaseModelName[name] || baseGroupsByBaseModelName[name] || [];
+      for (let index = 1; index < indices.length; index += 1) {
+        if (!modelMarkerIsCurrentlyVisible(indices[index - 1]) || !modelMarkerIsCurrentlyVisible(indices[index])) continue;
+        for (const modelIndex of [indices[index - 1], indices[index]]) {
+          const model = displayedModelMarkers[modelIndex]; reasoningPairs.push(normalizedThreeDimensionalPosition(model.x, model.y, model.z));
         }
-        const previousModel = displayedModelMarkers[modelIndices[index - 1]];
-        const currentModel = displayedModelMarkers[modelIndices[index]];
-        reasoningPositionPairs.push(
-          normalizedThreeDimensionalPosition(previousModel.x, previousModel.y, previousModel.z),
-          normalizedThreeDimensionalPosition(currentModel.x, currentModel.y, currentModel.z),
-        );
       }
     });
-    if (reasoningPositionPairs.length) {
-      transientReasoningVariantLineObject = lineObjectFromPositionPairs(
-        reasoningPositionPairs,
-        0xa836aa,
-        4,
-      );
+    if (reasoningPairs.length) {
+      transientReasoningVariantLineObject = relationshipLineObject(reasoningPairs, 0xa836aa, 3.5);
       transientRelationshipGroup.add(transientReasoningVariantLineObject);
     }
+    applyRelationshipForegroundVisualEncoding();
     requestThreeDimensionalSceneRender();
   }
 
@@ -1197,9 +1185,10 @@ import {
   function prunedLineageAncestorTooltipHtml(lineageNode) {
     return [
       `<strong>${escapeHtml(lineageNode.name)}</strong>`,
-      "谱系前身 · 已从主散点裁剪",
+      lineageNode.relationship_kind === "same_generation_reasoning_variant" ? "同代其他档位 · 已从主散点裁剪" : "谱系前身 · 已从主散点裁剪",
       `发布：${escapeHtml(lineageNode.release_date)}`,
       `智能：${formatNumber(lineageNode.intelligence, 1)}`,
+      "固定后可稳定查看前身",
       `${escapeHtml(activeInteractionRelationships.speed_axis_label)}：${formatNumber(lineageNode.y, 0)} tok/s`,
       `${escapeHtml(activeInteractionRelationships.cost_axis_label)}：$${formatNumber(lineageNode.x, 2)}`,
     ].join("<br>");
@@ -1212,7 +1201,7 @@ import {
   }
 
   function formatNumber(value, digits = 1) {
-    if (value === null || value === undefined || !isFinite(Number(value))) return "?";
+    if (value === null || value === undefined || !Number.isFinite(Number(value))) return "?";
     return Number(value).toFixed(digits);
   }
 
@@ -1298,7 +1287,10 @@ import {
       visiblePointerInteractionSprites(),
       false,
     );
-    return intersections.length ? intersections[0].object.userData : null;
+    // 前景目标关闭深度测试后，拾取也必须服从其可见绘制层次。
+    const foregroundIntersections = intersections.filter((intersection) => !intersection.object.material.depthTest);
+    foregroundIntersections.sort((first, second) => second.object.renderOrder - first.object.renderOrder || first.distance - second.distance);
+    return (foregroundIntersections[0] || intersections[0])?.object.userData || null;
   }
 
   function interactionTargetAtPointerEvent(pointerEvent) {
@@ -1308,91 +1300,125 @@ import {
     );
   }
 
-  function applyHoveredInteractionTarget(interactionTarget, pointerEvent) {
+  // EXPERIMENT_NODE: hover 前身迁移宽限设为 400ms，待密集谱系实测后比较 300/500ms。
+  const HOVER_RELATIONSHIP_DEPARTURE_GRACE_PERIOD_MILLISECONDS = 400;
+  const POINTER_DRAG_CLICK_SUPPRESSION_DISTANCE_SQUARED = 25;
+  let activePrimaryPointerPress = null;
+  let completedPrimaryPointerPress = null;
+  let suppressNextCanvasClickAfterPointerDrag = false;
+  let latestPointerCoordinates = null;
+  let pendingPointerMoveFrame = null;
+  let hoverDepartureTimeout = null;
+  let orbitInteractionActive = false;
+
+  function cancelHoverDepartureGracePeriod() {
+    if (hoverDepartureTimeout !== null) window.clearTimeout(hoverDepartureTimeout);
+    hoverDepartureTimeout = null;
+  }
+  function clearHoverInteractionImmediately() {
+    cancelHoverDepartureGracePeriod();
+    if (pendingPointerMoveFrame !== null) window.cancelAnimationFrame(pendingPointerMoveFrame);
+    pendingPointerMoveFrame = null;
+    setHoveredModelIndex(null);
+  }
+  function applyHoveredInteractionTarget(interactionTarget, pointerEvent, allowDepartureGrace = true) {
     if (!interactionTarget) {
-      setHoveredModelIndex(null, pointerEvent);
+      if (allowDepartureGrace && (hoveredModelIndex !== null || hoveredPrunedLineageAncestorName !== null)) {
+        if (hoverDepartureTimeout === null) hoverDepartureTimeout = window.setTimeout(() => {
+          hoverDepartureTimeout = null;
+          setHoveredModelIndex(null);
+        }, HOVER_RELATIONSHIP_DEPARTURE_GRACE_PERIOD_MILLISECONDS);
+        return;
+      }
+      clearHoverInteractionImmediately();
       return;
     }
+    cancelHoverDepartureGracePeriod();
     if (interactionTarget.interactionTargetKind === "displayed_model") {
       setHoveredModelIndex(interactionTarget.modelIndex, pointerEvent);
-      return;
+    } else {
+      setHoveredPrunedLineageAncestor(interactionTarget.lineageKey, interactionTarget.prunedLineageAncestorNode, pointerEvent);
     }
-    setHoveredPrunedLineageAncestor(
-      interactionTarget.lineageKey,
-      interactionTarget.prunedLineageAncestorNode,
-      pointerEvent,
-    );
   }
-
-  const POINTER_DRAG_CLICK_SUPPRESSION_DISTANCE_IN_CSS_PIXELS = 5;
-  const POINTER_DRAG_CLICK_SUPPRESSION_DISTANCE_SQUARED =
-    POINTER_DRAG_CLICK_SUPPRESSION_DISTANCE_IN_CSS_PIXELS ** 2;
-  let activePrimaryPointerPress = null;
-  let suppressNextCanvasClickAfterPointerDrag = false;
-  let latestPointerMoveEvent = null;
-  let pendingPointerMoveFrame = null;
-  webglRenderer.domElement.addEventListener("pointerdown", (pointerEvent) => {
-    if (pointerEvent.button !== 0) return;
-    activePrimaryPointerPress = {
-      pointerId: pointerEvent.pointerId,
-      clientX: pointerEvent.clientX,
-      clientY: pointerEvent.clientY,
-    };
-    suppressNextCanvasClickAfterPointerDrag = false;
+  function reconcileHoverAtLatestPointerCoordinates(allowDepartureGrace = false) {
+    if (orbitInteractionActive || !latestPointerCoordinates || webglRenderer.getContext().isContextLost()) return;
+    const { clientX, clientY } = latestPointerCoordinates;
+    const bounds = webglRenderer.domElement.getBoundingClientRect();
+    if (clientX < bounds.left || clientX > bounds.right || clientY < bounds.top || clientY > bounds.bottom) return;
+    applyHoveredInteractionTarget(interactionTargetAtCanvasClientCoordinates(clientX, clientY), latestPointerCoordinates, allowDepartureGrace);
+  }
+  orbitControls.addEventListener("start", () => {
+    orbitInteractionActive = true;
+    // OrbitControls 在原地按下时也触发 start；此时保留用户看到的前景目标。
+    if (!activePrimaryPointerPress) clearHoverInteractionImmediately();
   });
-  webglRenderer.domElement.addEventListener("pointermove", (pointerEvent) => {
-    if (
-      activePrimaryPointerPress?.pointerId === pointerEvent.pointerId &&
-      (pointerEvent.clientX - activePrimaryPointerPress.clientX) ** 2 +
-        (pointerEvent.clientY - activePrimaryPointerPress.clientY) ** 2 >=
-        POINTER_DRAG_CLICK_SUPPRESSION_DISTANCE_SQUARED
-    ) {
-      suppressNextCanvasClickAfterPointerDrag = true;
-    }
-    latestPointerMoveEvent = pointerEvent;
-    if (pendingPointerMoveFrame !== null) return;
+  orbitControls.addEventListener("end", () => {
+    orbitInteractionActive = false;
+    if (pendingPointerMoveFrame !== null) window.cancelAnimationFrame(pendingPointerMoveFrame);
     pendingPointerMoveFrame = window.requestAnimationFrame(() => {
       pendingPointerMoveFrame = null;
-      const pointerEventToProcess = latestPointerMoveEvent;
-      latestPointerMoveEvent = null;
-      if (!pointerEventToProcess) return;
-      applyHoveredInteractionTarget(
-        interactionTargetAtPointerEvent(pointerEventToProcess),
-        pointerEventToProcess,
-      );
+      reconcileHoverAtLatestPointerCoordinates();
     });
   });
-  function clearActivePrimaryPointerPress(pointerEvent) {
-    if (activePrimaryPointerPress?.pointerId === pointerEvent.pointerId) {
-      activePrimaryPointerPress = null;
+  orbitControls.addEventListener("change", () => {
+    clearHoverInteractionImmediately();
+    if (!orbitInteractionActive) {
+      pendingPointerMoveFrame = window.requestAnimationFrame(() => {
+        pendingPointerMoveFrame = null;
+        reconcileHoverAtLatestPointerCoordinates();
+      });
     }
-  }
-  webglRenderer.domElement.addEventListener(
-    "pointerup",
-    clearActivePrimaryPointerPress,
-  );
-  webglRenderer.domElement.addEventListener(
-    "pointercancel",
-    clearActivePrimaryPointerPress,
-  );
-  webglRenderer.domElement.addEventListener("pointerleave", () => {
-    if (pendingPointerMoveFrame !== null) {
-      window.cancelAnimationFrame(pendingPointerMoveFrame);
-      pendingPointerMoveFrame = null;
-    }
-    latestPointerMoveEvent = null;
-    setHoveredModelIndex(null);
   });
-  webglRenderer.domElement.addEventListener("click", (pointerEvent) => {
-    if (suppressNextCanvasClickAfterPointerDrag) {
-      suppressNextCanvasClickAfterPointerDrag = false;
-      return;
+  webglRenderer.domElement.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    const target = interactionTargetAtPointerEvent(event);
+    activePrimaryPointerPress = {
+      pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY,
+      displayedModelForClickPinToggle: target?.interactionTargetKind === "displayed_model" ? displayedModelMarkers[target.modelIndex] : null,
+    };
+    completedPrimaryPointerPress = null;
+    latestPointerCoordinates = { clientX: event.clientX, clientY: event.clientY };
+    suppressNextCanvasClickAfterPointerDrag = false;
+  }, { capture: true });
+  webglRenderer.domElement.addEventListener("pointermove", (event) => {
+    if (activePrimaryPointerPress?.pointerId === event.pointerId &&
+      (event.clientX - activePrimaryPointerPress.clientX) ** 2 + (event.clientY - activePrimaryPointerPress.clientY) ** 2 >= POINTER_DRAG_CLICK_SUPPRESSION_DISTANCE_SQUARED) {
+      suppressNextCanvasClickAfterPointerDrag = true;
+      clearHoverInteractionImmediately();
     }
-    const interactionTarget = interactionTargetAtPointerEvent(pointerEvent);
-    if (interactionTarget?.interactionTargetKind !== "displayed_model") return;
-    togglePinnedBaseModelName(
-      displayedModelMarkers[interactionTarget.modelIndex].base_model_name,
-    );
+    latestPointerCoordinates = { clientX: event.clientX, clientY: event.clientY };
+    if (orbitInteractionActive || pendingPointerMoveFrame !== null) return;
+    pendingPointerMoveFrame = window.requestAnimationFrame(() => {
+      pendingPointerMoveFrame = null;
+      reconcileHoverAtLatestPointerCoordinates(true);
+    });
+  });
+  function completeActivePrimaryPointerPress(event) {
+    if (activePrimaryPointerPress?.pointerId !== event.pointerId) return;
+    completedPrimaryPointerPress = activePrimaryPointerPress;
+    activePrimaryPointerPress = null;
+  }
+  webglRenderer.domElement.addEventListener("pointerup", completeActivePrimaryPointerPress);
+  webglRenderer.domElement.addEventListener("pointercancel", (event) => {
+    if (activePrimaryPointerPress?.pointerId === event.pointerId) activePrimaryPointerPress = null;
+    completedPrimaryPointerPress = null;
+    latestPointerCoordinates = null; clearHoverInteractionImmediately();
+  });
+  webglRenderer.domElement.addEventListener("pointerleave", () => {
+    latestPointerCoordinates = null;
+    clearHoverInteractionImmediately();
+  });
+  webglRenderer.domElement.addEventListener("click", (event) => {
+    const completedPointerPress = completedPrimaryPointerPress;
+    completedPrimaryPointerPress = null;
+    if (suppressNextCanvasClickAfterPointerDrag) {
+      suppressNextCanvasClickAfterPointerDrag = false; return;
+    }
+    // 按下时捕获目标，避免松开后的 hover 重算改变重叠模型的点击归属。
+    const target = completedPointerPress ? null : interactionTargetAtPointerEvent(event);
+    const clickedModel = completedPointerPress ? completedPointerPress.displayedModelForClickPinToggle
+      : target?.interactionTargetKind === "displayed_model" ? displayedModelMarkers[target.modelIndex] : null;
+    if (clickedModel) togglePinnedBaseModelName(clickedModel.base_model_name);
   });
 
   function applyPinnedModelVisualEncoding() {
@@ -1400,7 +1426,7 @@ import {
       const model = displayedModelMarkers[modelIndex];
       visualObjects.pinnedRingSprite.visible =
         modelMarkerIsCurrentlyVisible(modelIndex) &&
-        pinnedBaseModelNames.has(model.base_model_name);
+        modelIsPinned(model);
     });
     redrawHoveredAndPinnedRelationships();
     renderPinnedModelsPanel();
@@ -1408,14 +1434,7 @@ import {
   }
 
   function togglePinnedBaseModelName(baseModelName) {
-    if (pinnedBaseModelNames.has(baseModelName)) {
-      pinnedBaseModelNames.delete(baseModelName);
-    } else {
-      pinnedBaseModelNames.add(baseModelName);
-    }
-    applyPinnedModelVisualEncoding();
-    renderSearchResults();
-    return Promise.resolve(true);
+    return setBaseModelPinned(baseModelName, !pinnedBaseModelNames.has(baseModelName));
   }
 
   function frontierModels() {
@@ -1429,24 +1448,28 @@ import {
       selectedFrontierStandoutMetricName,
       standoutAxisWeights,
     );
-    const finiteValues = values.filter((value) => isFinite(value));
-    const minimumValue = finiteValues.length ? Math.min(...finiteValues) : 0;
-    const maximumValue = finiteValues.length ? Math.max(...finiteValues) : 1;
+    const finiteValues = values.filter(Number.isFinite);
     latestStandoutValuesByModelName = {};
     models.forEach((model, frontierModelIndex) => {
       const value = values[frontierModelIndex];
       latestStandoutValuesByModelName[model.name] = value;
-      const displayedModelIndex = modelIndexByModelName[model.name];
-      const paretoRingSprite =
-        modelVisualObjectsByModelIndex[displayedModelIndex]?.paretoRingSprite;
-      if (!paretoRingSprite) return;
-      const normalizedValue =
-        isFinite(value) && maximumValue > minimumValue
-          ? (value - minimumValue) / (maximumValue - minimumValue)
-          : 0.45;
-      const scale = 0.145 + normalizedValue * 0.065;
-      paretoRingSprite.scale.set(scale, scale, 1);
+      const objects = modelVisualObjectsByModelIndex[modelIndexByModelName[model.name]];
+      if (!objects) return;
+      const finite = Number.isFinite(value);
+      const percentile = finite && finiteValues.length > 1
+        ? (finiteValues.filter((candidate) => candidate < value).length + (finiteValues.filter((candidate) => candidate === value).length - 1) / 2) / (finiteValues.length - 1)
+        : 0.5;
+      const halo = objects.standoutHaloSprite;
+      const material = finite ? standoutHaloMaterial : missingStandoutHaloMaterial;
+      halo.userData.foregroundMaterial?.dispose();
+      halo.userData.foregroundMaterial = null;
+      halo.userData.normalMaterial = material;
+      halo.userData.normalRenderOrder = 15;
+      halo.material = material;
+      const scale = finite ? 0.22 + percentile * 0.1 : 0.24;
+      halo.scale.set(scale, scale, 1);
     });
+    applyRelationshipForegroundVisualEncoding();
     renderStandoutRanking(models, values);
     requestThreeDimensionalSceneRender();
   }
@@ -1460,8 +1483,8 @@ import {
     const rankedRows = models
       .map((model, index) => ({ model, value: values[index] }))
       .sort((left, right) => {
-        const leftValue = isFinite(left.value) ? left.value : -Infinity;
-        const rightValue = isFinite(right.value) ? right.value : -Infinity;
+        const leftValue = Number.isFinite(left.value) ? left.value : -Infinity;
+        const rightValue = Number.isFinite(right.value) ? right.value : -Infinity;
         return rightValue - leftValue;
       })
       .slice(0, 12);
@@ -1469,12 +1492,17 @@ import {
       ...rankedRows.map((row, index) => {
         const rankingRow = document.createElement("div");
         rankingRow.className = "aa-ranking-row";
+        const modelIndex = modelIndexByModelName[row.model.name];
+        if (!modelMarkerIsCurrentlyVisible(modelIndex)) {
+          rankingRow.classList.add("is-hidden-by-current-filter");
+          rankingRow.title = "已被当前筛选隐藏，名次仍按全集计算";
+        }
         const modelName = document.createElement("span");
         modelName.className = "aa-truncate";
         modelName.textContent = `${index + 1}. ${row.model.name}`;
         const value = document.createElement("b");
         value.className = "aa-ranking-value";
-        value.textContent = isFinite(row.value)
+        value.textContent = Number.isFinite(row.value)
           ? Number(row.value).toFixed(metricDefinition.displayedDecimalPlaces)
           : "-";
         rankingRow.append(modelName, value);
@@ -1517,6 +1545,8 @@ import {
   function loadActiveMetricVariant(nextMetricVariantKey, preserveCamera) {
     const nextMetricVariant = metricVariantsByKey[nextMetricVariantKey];
     if (!nextMetricVariant) return false;
+    latestPointerCoordinates = null;
+    clearHoverInteractionImmediately();
     const preservedCameraPosition = perspectiveCamera.position.clone();
     const preservedCameraQuaternion = perspectiveCamera.quaternion.clone();
     const preservedOrbitTarget = orbitControls.target.clone();
@@ -1553,7 +1583,8 @@ import {
       speed_axis_field: activeInteractionRelationships.speed_axis_field,
     };
 
-    pinnedBaseModelNames = new Set();
+    displayedModelMarkers.forEach((model) => allModelRecordsByIdentity.set(stableModelIdentity(model), model));
+    synchronizePinnedBaseModelNameAliases();
     buildAxesAndGrid();
     buildFrontierGeometry();
     buildModelMarkers();
@@ -1583,6 +1614,8 @@ import {
     Object.entries(rawLineagesByKey).forEach(([lineageKey, lineageNodes]) => {
       const finiteLineageNodes = (Array.isArray(lineageNodes) ? lineageNodes : []).filter(
         (lineageNode) => {
+          // 旧 v2 未声明家族与档位的推断线不继续作为血缘事实展示。
+          if (!lineageNode?.lineage_family_key || !lineageNode?.reasoning_level_label) return false;
           const nonFiniteNodeCoordinateCount = [lineageNode?.x, lineageNode?.y, lineageNode?.z]
             .filter((coordinate) => !isFiniteContractNumber(coordinate)).length;
           nonFiniteContractCoordinateCount += nonFiniteNodeCoordinateCount;
@@ -1813,13 +1846,7 @@ import {
   }
 
   function matchingBaseModelNames(query) {
-    const normalizedQuery = String(query || "").trim().toLocaleLowerCase();
-    if (!normalizedQuery) return [];
-    return allBaseModelNames
-      .filter((baseModelName) =>
-        baseModelName.toLocaleLowerCase().includes(normalizedQuery),
-      )
-      .slice(0, 40);
+    return matchFrontierBaseModelNames(allBaseModelNames, query);
   }
 
   function renderSearchResults() {
@@ -1846,6 +1873,7 @@ import {
           const reasons = [...new Set(hiddenModelIndices.flatMap(modelMarkerHiddenReasonTexts))];
           const hiddenNote = `（${hiddenModelIndices.length}/${baseModelIndices.length} 档位已隐藏：${reasons.join("、")}）`;
           row.classList.add("is-hidden-by-model-visibility-filter");
+          if (hiddenModelIndices.length === baseModelIndices.length) row.classList.add("is-hidden-by-current-filter");
           if (showOnlyCurrentIntelligenceIndexVersionComparableModels &&
               baseModelIndices.every((modelIndex) => !modelIsAnalysisEligibleForActiveMetricVariant(displayedModelMarkers[modelIndex]))) {
             row.classList.add("is-hidden-by-comparable-only-toggle");
@@ -1984,51 +2012,40 @@ import {
 
   function renderPinnedModelsPanel() {
     if (!pinnedModelsPanel) return;
-    const pinnedNames = [...pinnedBaseModelNames].sort((left, right) =>
-      left.localeCompare(right),
-    );
+    const pinnedNames = [...pinnedBaseModelNames].sort((left, right) => left.localeCompare(right));
     pinnedModelsPanel.style.display = pinnedNames.length ? "block" : "none";
-    const title = document.createElement("h2");
-    title.className = "aa-section-title";
-    title.textContent = `已固定（${pinnedNames.length}）`;
+    const title = textElement("h2", "aa-section-title", `已固定（${pinnedNames.length}）`);
     const list = document.createElement("div");
     list.className = "aa-pinned-list";
     pinnedNames.forEach((baseModelName) => {
-      const card = document.createElement("article");
-      card.className = "aa-pinned-card";
-      const header = document.createElement("div");
-      header.className = "aa-pinned-card-header";
-      const name = document.createElement("b");
-      name.className = "aa-truncate";
-      name.textContent = baseModelName;
+      const card = document.createElement("article"); card.className = "aa-pinned-card";
+      const header = document.createElement("div"); header.className = "aa-pinned-card-header";
       const removeButton = document.createElement("button");
-      removeButton.className = "aa-link-button";
-      removeButton.type = "button";
-      removeButton.textContent = "移除";
-      removeButton.addEventListener("click", () => togglePinnedBaseModelName(baseModelName));
-      header.append(name, removeButton);
-      card.appendChild(header);
-      (baseGroupsByBaseModelName[baseModelName] || []).forEach((modelIndex) => {
-        const model = displayedModelMarkers[modelIndex];
-        const variant = document.createElement("div");
-        variant.className = "aa-pinned-variant-card";
-        const variantSummary = document.createElement("div");
-        variantSummary.textContent = `${model.name} · 智能 ${formatNumber(model.panel.intelligence, 1)} · ${model.reasoning_level_label}`;
-        variant.appendChild(variantSummary);
-        const hiddenReasons = modelMarkerHiddenReasonTexts(modelIndex);
-        if (hiddenReasons.length) {
-          variant.appendChild(textElement("div", "aa-muted", `已隐藏：${hiddenReasons.join("、")}`));
-        }
-        if (!modelIsAnalysisEligibleForActiveMetricVariant(model)) {
+      removeButton.className = "aa-link-button"; removeButton.type = "button"; removeButton.textContent = "移除";
+      removeButton.addEventListener("click", () => setBaseModelPinned(baseModelName, false));
+      header.append(textElement("b", "aa-truncate", baseModelName), removeButton); card.append(header);
+      for (const identity of pinnedModelIdentities) {
+        const model = allModelRecordsByIdentity.get(identity);
+        if (!model || model.base_model_name !== baseModelName) continue;
+        const currentIndex = displayedModelMarkers.findIndex((candidate) => stableModelIdentity(candidate) === identity);
+        const variant = textElement("div", "aa-pinned-variant-card", `${model.name} · 智能 ${formatNumber(model.panel.intelligence, 1)} · ${model.reasoning_level_label}`);
+        const reasons = [];
+        if (currentIndex < 0) {
+          const excluded = (activeMetricVariant.excluded_models_with_drop_reason || []).find((candidate) => candidate.name === model.name);
+          reasons.push(`当前口径未上图：${excluded?.drop_reason || "缺少可显示坐标或已被剪枝"}`);
+        } else reasons.push(...modelMarkerHiddenReasonTexts(currentIndex));
+        if (currentIndex >= 0 && !modelIsAnalysisEligibleForActiveMetricVariant(displayedModelMarkers[currentIndex])) {
           variant.classList.add("is-historical-intelligence-index-version");
-          const reasonNote = document.createElement("div");
-          reasonNote.className = "aa-historical-intelligence-index-version-reason-note";
-          reasonNote.textContent = historicalIntelligenceIndexVersionReasonText(model);
-          variant.appendChild(reasonNote);
+          reasons.push(historicalIntelligenceIndexVersionReasonText(model));
         }
-        card.appendChild(variant);
-      });
-      list.appendChild(card);
+        if (reasons.length) {
+          variant.classList.add("is-hidden-by-current-filter");
+          variant.append(textElement("div", "aa-historical-intelligence-index-version-reason-note", reasons.join("；")));
+        }
+        if (!model.model_uuid) variant.append(textElement("div", "aa-muted", "旧契约缺少 UUID，重新生成后可按稳定身份固定"));
+        card.append(variant);
+      }
+      list.append(card);
     });
     pinnedModelsPanel.replaceChildren(title, list);
   }
@@ -2069,7 +2086,7 @@ import {
       });
       number.addEventListener("input", () => {
         const weight = Math.min(4, Math.max(0.25, Number(number.value)));
-        if (!isFinite(weight)) return;
+        if (!Number.isFinite(weight)) return;
         standoutAxisWeights[axisName] = weight;
         slider.value = String(Math.log2(weight));
         applyStandoutVisualEncoding();
@@ -2183,7 +2200,8 @@ import {
       ["可见 / 契约模型数", `${displayedModelMarkers.filter((model, modelIndex) => modelMarkerIsCurrentlyVisible(modelIndex)).length} / ${displayedModelMarkers.length}`],
       ["参与分析（契约全集）", String(displayedModelMarkers.length - historicalModelCount)],
       ["历史口径点", String(historicalModelCount)],
-      ["Pareto 数", String(frontierModels().length)],
+      ["全局 Pareto 数", String(frontierModels().length)],
+      ["可见 Pareto 数", String(frontierModels().filter((model) => modelMarkerIsCurrentlyVisible(modelIndexByModelName[model.name])).length)],
       ["近期发布宽限", recentReleaseFrontierDistanceGracePeriodMonths === null
         ? "旧契约未记录"
         : `${recentReleaseFrontierDistanceGracePeriodMonths} 个月 · ${showModelsDisplayedOnlyBecauseOfRecentReleaseGracePeriod ? "显示" : "隐藏"}宽限专属点`],
@@ -2307,7 +2325,8 @@ import {
       visibleModelCount === displayedModelCount
         ? `显示 ${displayedModelCount} 个模型`
         : `显示 ${visibleModelCount}/${displayedModelCount} 个模型`,
-      `Pareto ${frontierModels().length}`,
+      `全局 Pareto ${frontierModels().length}`,
+      `可见 Pareto ${frontierModels().filter((model) => modelMarkerIsCurrentlyVisible(modelIndexByModelName[model.name])).length}`,
     ];
     const visibleHistoricalCount = displayedModelMarkers.filter((model, modelIndex) =>
       !modelIsAnalysisEligibleForActiveMetricVariant(model) && modelMarkerIsCurrentlyVisible(modelIndex),
@@ -2502,7 +2521,10 @@ import {
   function resizeThreeDimensionalRenderer() {
     const width = Math.max(1, graphContainer.clientWidth);
     const height = Math.max(1, graphContainer.clientHeight);
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    if (webglRenderer.getPixelRatio() !== pixelRatio) webglRenderer.setPixelRatio(pixelRatio);
     webglRenderer.setSize(width, height, false);
+    for (const line of [transientLineageLineObject, transientReasoningVariantLineObject, transientSameGenerationLineObject]) line?.material.resolution.set(width, height);
     perspectiveCamera.aspect = width / height;
     perspectiveCamera.updateProjectionMatrix();
     requestThreeDimensionalSceneRender();
@@ -2510,6 +2532,15 @@ import {
 
   const resizeObserver = new ResizeObserver(resizeThreeDimensionalRenderer);
   resizeObserver.observe(graphContainer);
+  window.addEventListener("resize", resizeThreeDimensionalRenderer);
+  let devicePixelRatioMediaQuery;
+  function watchDevicePixelRatioChanges() {
+    devicePixelRatioMediaQuery?.removeEventListener("change", watchDevicePixelRatioChanges);
+    devicePixelRatioMediaQuery = window.matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
+    devicePixelRatioMediaQuery.addEventListener("change", watchDevicePixelRatioChanges);
+    resizeThreeDimensionalRenderer();
+  }
+  watchDevicePixelRatioChanges();
 
   function projectedCanvasCoordinatesForThreeDimensionalPosition(position) {
     const projectedPosition = position.clone().project(perspectiveCamera);
@@ -2670,12 +2701,8 @@ import {
     const visibleOrganizationCount = new Set(displayedModelMarkers.filter(
       (model, modelIndex) => modelMarkerIsCurrentlyVisible(modelIndex),
     ).map((model) => model.creator)).size;
-    const lineagePositionCount = transientLineageLineObject
-      ? transientLineageLineObject.geometry.attributes.position.count
-      : 0;
-    const reasoningPositionCount = transientReasoningVariantLineObject
-      ? transientReasoningVariantLineObject.geometry.attributes.position.count
-      : 0;
+    const lineagePositionCount = lineObjectEndpointPositions(transientLineageLineObject).length;
+    const reasoningPositionCount = lineObjectEndpointPositions(transientReasoningVariantLineObject).length;
     return {
       interactiveRenderer: "threejs",
       activeMetricVariantKey,
@@ -2707,11 +2734,15 @@ import {
       organizationCount: organizationNames.size,
       visibleOrganizationCount,
       pinnedBaseModelNames: [...pinnedBaseModelNames],
+      orbitInteractionActive,
+      pinnedModelUuids: [...pinnedModelIdentities].filter((identity) => !identity.startsWith("legacy:")),
+      hoveredModelIndex,
+      organizationLogoTextureLoadStateByCreatorName: { ...organizationLogoTextureLoadStateByCreatorName },
       hoveredLineageKey,
       hoveredReasoningBaseModelName,
       hoveredPrunedLineageAncestorName,
       pinnedModelMarkerCount: displayedModelMarkers.filter((model) =>
-        pinnedBaseModelNames.has(model.base_model_name),
+        modelIsPinned(model),
       ).length,
       displayedLineageSegmentEndpointCount: lineagePositionCount,
       displayedReasoningVariantSegmentEndpointCount: reasoningPositionCount,
@@ -2721,6 +2752,7 @@ import {
       selectedFrontierStandoutMetricName,
       frontierStandoutAxisWeights: { ...standoutAxisWeights },
       paretoFrontierModelCount: frontierModels().length,
+      visibleParetoFrontierModelCount: frontierModels().filter((model) => modelMarkerIsCurrentlyVisible(modelIndexByModelName[model.name])).length,
       frontierStyle,
       achievableFrontierSurfaceVisible,
       paretoFrontierSurfaceWritesDepth:
@@ -2772,6 +2804,14 @@ import {
 
   function lineObjectEndpointPositions(lineObject) {
     if (!lineObject) return [];
+    if (lineObject.isLineSegments2) {
+      const start = lineObject.geometry.attributes.instanceStart;
+      const end = lineObject.geometry.attributes.instanceEnd;
+      return Array.from({ length: start.count }, (_, index) => [
+        [start.getX(index), start.getY(index), start.getZ(index)],
+        [end.getX(index), end.getY(index), end.getZ(index)],
+      ]).flat();
+    }
     const positionAttribute = lineObject.geometry.attributes.position;
     return Array.from({ length: positionAttribute.count }, (_, positionIndex) => [
       positionAttribute.getX(positionIndex),
@@ -2810,8 +2850,8 @@ import {
           value: latestStandoutValuesByModelName[model.name],
         }))
         .sort((left, right) => {
-          const leftValue = isFinite(left.value) ? left.value : -Infinity;
-          const rightValue = isFinite(right.value) ? right.value : -Infinity;
+          const leftValue = Number.isFinite(left.value) ? left.value : -Infinity;
+          const rightValue = Number.isFinite(right.value) ? right.value : -Infinity;
           return rightValue - leftValue;
         }),
     };
@@ -2823,14 +2863,8 @@ import {
 
   window.frontierThreeDimensionalVisualizationState =
     frontierThreeDimensionalVisualizationState;
-  window.pinFrontierBaseModel = (baseModelName) => {
-    pinnedBaseModelNames.add(baseModelName);
-    applyPinnedModelVisualEncoding();
-  };
-  window.unpinFrontierBaseModel = (baseModelName) => {
-    pinnedBaseModelNames.delete(baseModelName);
-    applyPinnedModelVisualEncoding();
-  };
+  window.pinFrontierBaseModel = (baseModelName) => setBaseModelPinned(baseModelName, true);
+  window.unpinFrontierBaseModel = (baseModelName) => setBaseModelPinned(baseModelName, false);
   window.togglePinnedFrontierBaseModel = togglePinnedBaseModelName;
   window.showFrontierLineageForModelName = (modelName) => {
     const modelIndex = modelIndexByModelName[modelName];
@@ -2855,10 +2889,21 @@ import {
   window.setFrontierStandoutAxisWeights = setStandoutAxisWeights;
   window.frontierStandoutRanking = frontierStandoutRanking;
   window.frontierThreeDimensionalRendererDiagnostics = {
+    get surfaceMaterialForVisibilityVerification() { return frontierSurfaceObject?.material; },
+    get surfaceRenderOrder() { return frontierSurfaceObject?.renderOrder; },
+    markerVisualEncodingSummary: () => modelVisualObjectsByModelIndex.map((objects, index) => ({
+      isPareto: displayedModelMarkers[index].panel?.layer === 1,
+      paretoRingScale: objects.paretoRingSprite.scale.x,
+      backplateScale: objects.backplateSprite.scale.x,
+      standoutHaloVisible: objects.standoutHaloSprite.visible,
+      standoutHaloScale: objects.standoutHaloSprite.scale.x,
+    })),
     camera: perspectiveCamera,
     controls: orbitControls,
     renderer: webglRenderer,
     requestRender: requestThreeDimensionalSceneRender,
+    pointerInteractionAtCanvasClientCoordinates: interactionTargetAtCanvasClientCoordinates,
+    createRelationshipLineForVerification: relationshipLineObject,
     projectedCanvasPositionForModelName,
     projectedCanvasMarkerRadiiForModelName,
     projectedCanvasPositionForPrunedLineageAncestorName,

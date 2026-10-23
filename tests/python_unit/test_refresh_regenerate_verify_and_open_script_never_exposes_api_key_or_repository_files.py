@@ -52,6 +52,11 @@ def _fake_repository_with_one_click_script(tmp_path: Path) -> tuple[Path, dict[s
         REPOSITORY_ROOT_DIRECTORY_PATH / ONE_CLICK_SCRIPT_RELATIVE_PATH,
         fake_repository_path / ONE_CLICK_SCRIPT_RELATIVE_PATH,
     )
+    (fake_repository_path / "src").mkdir()
+    shutil.copy(
+        REPOSITORY_ROOT_DIRECTORY_PATH / "src/frontier_3d_worktree_storage_paths.py",
+        fake_repository_path / "src/frontier_3d_worktree_storage_paths.py",
+    )
     (fake_repository_path / ".env").write_text(SYNTHETIC_DOTENV_SENTINEL_TEXT + "\n", encoding="utf-8")
     (fake_repository_path / "existing_frontier_3d_visualization_dataset.json").write_text(
         '{"data_date": "2026-09-23"}', encoding="utf-8"
