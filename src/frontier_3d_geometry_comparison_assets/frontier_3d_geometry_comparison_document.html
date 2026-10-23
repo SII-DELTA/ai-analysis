@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>前沿几何比较：精确阶梯与邻接插值</title>
+  <style>{{COMPARISON_CSS}}</style>
+</head>
+<body>
+  <main>
+    <header class="comparison-heading">
+      <div><h1>前沿几何比较</h1><p>同一组模型，两种曲面表达。拖动任一视图可同步旋转。</p></div>
+      <div class="source-metadata"><a href="https://artificialanalysis.ai/" target="_blank" rel="noopener noreferrer">数据：Artificial Analysis ↗</a><span id="comparison-source-date"></span><span id="comparison-source-fingerprint"></span></div>
+    </header>
+    <div id="comparison-runtime-error" role="alert" hidden></div>
+    <section class="comparison-controls" aria-label="比较设置">
+      <label>数据口径<select id="comparison-metric-variant"></select></label>
+      <button id="comparison-reset-camera" type="button">复位两个视角</button>
+      <label class="checkbox-label"><input id="comparison-reference-wireframe-only" type="checkbox">参照仅显示线框</label>
+      <label class="checkbox-label"><input id="comparison-highlight-reverse-triangles" type="checkbox">标出反向三角面</label>
+      <span id="comparison-variant-summary"></span>
+    </section>
+    <p class="comparison-scope" id="comparison-exactness-scope"></p>
+    <section class="comparison-viewports" aria-label="联动三维视图">
+      <article class="comparison-pane" data-comparison-pane="exact">
+        <div class="pane-heading"><h2>阶梯可达面 <span>精确</span></h2><p>给定成本预算和速度下限，可达到的最高智能。</p></div>
+        <div class="viewport" id="comparison-exact-viewport" aria-label="精确阶梯三维视图"></div>
+        <p class="pane-empty-notice" id="comparison-exact-empty" hidden>本口径没有展示的分析 Pareto 点。</p>
+      </article>
+      <article class="comparison-pane" data-comparison-pane="reference">
+        <div class="pane-heading"><h2>Delaunay 邻接插值 <span>参照</span></h2><p>连接相邻 Pareto 点，三角形内部不代表实际模型。</p></div>
+        <div class="viewport" id="comparison-reference-viewport" aria-label="Delaunay 参照三维视图"></div>
+        <p class="pane-empty-notice" id="comparison-reference-empty" hidden>本口径没有可用插值面，未进行外推。</p>
+      </article>
+    </section>
+    <div class="comparison-reading-row"><p id="comparison-axis-units"></p><p>深色环：分析 Pareto 点 · 淡色点：历史口径 · 红色面：开启标记后的反向面</p></div>
+    <section class="hover-inspection" aria-live="polite" aria-atomic="true"><strong id="comparison-hover-name">悬浮模型查看同一位置</strong><span id="comparison-hover-values">两个视图的模型标识与数值一致。</span></section>
+    <section class="comparison-metrics" aria-labelledby="comparison-metrics-heading">
+      <div class="metrics-heading"><h2 id="comparison-metrics-heading">四种口径的量化比较</h2><span>以下均为插值参照相对精确阶梯的结果</span></div>
+      <div class="metrics-scroll-region" tabindex="0" role="region" aria-label="四口径几何指标表"><table id="comparison-metrics-table"></table></div>
+      <p class="metric-definition">A 为阶梯可达域，D 为插值支持域。支持域差异率 = |A△D| / |A∪D|；智能误差仅在 A∩D 上按投影面积计算。凸包外不外推。反向比例不含竖直或投影退化面；分母为零显示“不适用”。</p>
+      <p class="metric-definition">面积按各口径输入轴刻度计算并将共同视域归一为 1。模型高差仅统计展示、参与分析的非 Pareto 点；与曲面的最大绝对误差是两个不同指标。旧审计的 8.4 分属于历史 blended 数据，本页全部数值由绑定快照重算。</p>
+    </section>
+    <details class="historical-suggestions"><summary>默认形态待选择 · 查看历史 UX 建议与来源</summary><p>请看完比较后再选择默认几何。单调平滑近似未纳入首批；正式接入在 W4 定型。</p><h3>4c7d1 历史助手建议原文</h3><p>以下是历史助手建议，尚无已核查的用户选择，不代表本卡已获批准的新增功能。</p><div id="comparison-historical-suggestions"></div><p id="comparison-historical-source"></p></details>
+  </main>
+  <script id="frontier-geometry-comparison-dataset" type="application/json">{{COMPARISON_DATASET_JSON}}</script>
+  <script>{{COMPARISON_RENDERER_BUNDLE}}</script>
+</body>
+</html>
