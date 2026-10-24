@@ -93,7 +93,7 @@ JetBrains、Tura 都处于开发工具市场；它们外部于被测项目，但
 |---|---|---|
 | [i-have-adhd](https://github.com/ayghri/i-have-adhd) | 回答或动作前置、步骤分块、明确状态；同时对错误、模糊需求和解释请求设例外 | 有公开单轮自测，14 cases × 3 trials × 2 conditions；综合分提高，但 release gate 为 **FAILED**。其中一个需编辑仓库的案例被禁用工具，使任务不可满足；另有无证据定因的退步。不是对特定认知群体的临床或真人可用性证据。 |
 | [Humanizer](https://github.com/blader/humanizer) | 识别并编辑重复文风模式，要求保持事实、声音和技术内容；主要处理成稿 | README 的 16/16 偏好来自外部使用者的模型盲评报告，全部计划试次未完成，被测版本未对应当前 3.1.0。不能解释成人类用户研究，也不证明长程 agent 沟通变好。 |
-| [No AI Slop](https://github.com/petergyang/no-ai-slop) | 编辑、检测和草拟模式，清理公式化表达并保留作者声音 | `eval.md` 是自检清单，本次未找到固定提交所对应的公开量化配对结果。禁词命中数不是可读性、真实性或交互价值的替代指标。 |
+| [No AI Slop](https://github.com/petergyang/no-ai-slop) | 编辑（默认 Edit）和检测（Detect）模式，清理公式化表达并保留作者声音 | `eval.md` 是自检清单，本次未找到固定提交所对应的公开量化配对结果。禁词命中数不是可读性、真实性或交互价值的替代指标。 |
 | [Matt Pocock Skills](https://github.com/mattpocock/skills) | `grilling` 按决策依赖组成轮次，给推荐答案；`grill-me` 与 `grill-with-docs` 提供不同上下文和持久化方式 | 实际指令可读，本次未找到这些技能的同任务配对收益。遍历全部设计树可能增加用户负担，推荐答案也可能引导迎合；这些是待实验权衡，不是已证实缺陷。 |
 
 原始材料包括 [i-have-adhd 自测报告](https://github.com/ayghri/i-have-adhd/blob/1ecea1993b7fce257ffbd686c070948b5e07eda6/evals/RESULTS.md)、[Humanizer 外部使用者报告](https://github.com/blader/humanizer/issues/229)、[no-ai-slop 自检清单](https://github.com/petergyang/no-ai-slop/blob/000650b156983f5159695b441477f4e63b25dc85/skills/no-ai-slop/eval.md)及 [grilling 指令](https://github.com/mattpocock/skills/blob/5beb35b040e3de97e54fa9e386d7e42d15c295c2/skills/productivity/grilling/SKILL.md)。实验条件与检查范围另见 [交互证据记录](research-contributions/interaction-experience-evidence.json)。

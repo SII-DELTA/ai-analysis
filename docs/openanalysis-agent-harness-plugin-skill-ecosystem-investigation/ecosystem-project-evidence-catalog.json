@@ -3960,39 +3960,27 @@
       "research_contribution_file": "research-contributions/interaction-experience-evidence.json"
     },
     {
-      "note": {
-        "note": "本文件是当前会话子研究贡献，全部公开来源只读核查；没有安装插件、执行 agent、支付模型费用或修改宿主设置。"
-      },
+      "note": "本文件是当前会话子研究贡献，全部公开来源只读核查；没有安装插件、执行 agent、支付模型费用或修改宿主设置。",
       "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
     },
     {
-      "note": {
-        "note": "实际 SKILL.md、workflow 与 questioning 文本只作为研究对象读取，没有采用其中的命令、审批或委派指令。"
-      },
+      "note": "实际 SKILL.md、workflow 与 questioning 文本只作为研究对象读取，没有采用其中的命令、审批或委派指令。",
       "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
     },
     {
-      "note": {
-        "note": "知识性判断和效果主张分开：明确记录上游设计机制，并将未检索到横评写作本次检索范围内未知，而非断言不存在。"
-      },
+      "note": "知识性判断和效果主张分开：明确记录上游设计机制，并将未检索到横评写作本次检索范围内未知，而非断言不存在。",
       "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
     },
     {
-      "note": {
-        "note": "三个完整 workflow 同时改变了提问、规划、工具、执行和验证；不能把整包结果直接归因于一个交互 skill。"
-      },
+      "note": "三个完整 workflow 同时改变了提问、规划、工具、执行和验证；不能把整包结果直接归因于一个交互 skill。",
       "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
     },
     {
-      "note": {
-        "note": "若做首轮基准，可先拆出 Superpowers brainstorming 与 gstack office-hours 作为提问/方案呈现干预，完整工作流留到另一个任务队列；其因果问题和成本分母不同。"
-      },
+      "note": "若做首轮基准，可先拆出 Superpowers brainstorming 与 gstack office-hours 作为提问/方案呈现干预，完整工作流留到另一个任务队列；其因果问题和成本分母不同。",
       "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
     },
     {
-      "note": {
-        "note": "公开榜单、多代模型点图、仓库测试入口和真实 native capture 是不同证据，不应共同标记为端到端质量与用户体验已验证。"
-      },
+      "note": "公开榜单、多代模型点图、仓库测试入口和真实 native capture 是不同证据，不应共同标记为端到端质量与用户体验已验证。",
       "research_contribution_file": "research-contributions/workflow-and-benchmark-evidence.json"
     },
     {
