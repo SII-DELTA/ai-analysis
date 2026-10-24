@@ -166,6 +166,7 @@ import {
   let frontierWireframeObject = null;
   let frontierSurfaceObject = null;
   let achievableFrontierSurfaceObject = null;
+  let exactAchievableFrontierBoundaryObject = null;
   let transientLineageLineObject = null;
   let transientReasoningVariantLineObject = null;
   let transientSameGenerationLineObject = null;
@@ -230,6 +231,9 @@ import {
   let howToReadDrawerToggleButton;
   let howToReadDrawer;
   let achievableFrontierSurfaceToggle;
+  let frontierGeometryExplanation;
+  let frontierGeometryExplanationDisclosureButton;
+  let frontierGeometryExplanationAutoCollapseTimeoutId;
   let frontierStyleButtons = [];
   let organizationFilterPanel;
   let pinnedModelsPanel;
@@ -581,6 +585,14 @@ import {
     if (achievableFrontierSurfaceObject) {
       frontierGeometryGroup.add(achievableFrontierSurfaceObject);
     }
+    const exactBoundarySegments = activeThreeDimensionalScene.exact_achievable_frontier_boundary_line_segments;
+    const exactBoundaryPositionPairs = exactBoundarySegments
+      ? splitCoordinateSequenceIntoSegments(exactBoundarySegments, "exact_achievable_frontier_boundary_line_segments")
+      : [];
+    exactAchievableFrontierBoundaryObject = exactBoundaryPositionPairs.length
+      ? lineObjectFromPositionPairs(exactBoundaryPositionPairs, 0x217a3c, 1)
+      : null;
+    if (exactAchievableFrontierBoundaryObject) frontierGeometryGroup.add(exactAchievableFrontierBoundaryObject);
     applyFrontierGeometryVisibility();
   }
 
@@ -1012,13 +1024,23 @@ import {
 
   function applyFrontierGeometryVisibility() {
     if (frontierWireframeObject) {
-      frontierWireframeObject.visible = frontierStyle === "wireframe";
+      frontierWireframeObject.visible = !achievableFrontierSurfaceVisible && frontierStyle === "wireframe";
     }
     if (frontierSurfaceObject) {
-      frontierSurfaceObject.visible = frontierStyle === "solid";
+      frontierSurfaceObject.visible = !achievableFrontierSurfaceVisible && frontierStyle === "solid";
     }
     if (achievableFrontierSurfaceObject) {
       achievableFrontierSurfaceObject.visible = achievableFrontierSurfaceVisible;
+    }
+    if (exactAchievableFrontierBoundaryObject) {
+      exactAchievableFrontierBoundaryObject.visible = achievableFrontierSurfaceVisible;
+    }
+    frontierStyleButtons.forEach((button) => { button.disabled = achievableFrontierSurfaceVisible; });
+    if (frontierGeometryExplanation) {
+      frontierGeometryExplanation.textContent = achievableFrontierSurfaceVisible
+        ? "精确预算阶梯：基于本口径已展示且参与分析的 Pareto 点，表示最高可达智能；不可达区留白。"
+        : "相邻 Pareto 点的 Delaunay 插值仅作视觉参照，不是帕累托面；面内位置不代表可达模型。";
+      updateFrontierGeometryExplanationDisclosureLabel();
     }
     requestThreeDimensionalSceneRender();
   }
@@ -1037,6 +1059,9 @@ import {
   }
 
   function setAchievableFrontierSurfaceVisible(nextVisible) {
+    if (nextVisible && activeThreeDimensionalScene.achievable_frontier_geometry_kind !== "exact_budget_steps") {
+      return Promise.resolve(false);
+    }
     achievableFrontierSurfaceVisible = Boolean(nextVisible);
     if (achievableFrontierSurfaceToggle) {
       achievableFrontierSurfaceToggle.checked = achievableFrontierSurfaceVisible;
@@ -1763,14 +1788,37 @@ import {
     return group;
   }
 
+  function updateFrontierGeometryExplanationDisclosureLabel() {
+    const geometryLabel = achievableFrontierSurfaceVisible ? "精确可达面" : "非帕累托面";
+    const disclosureAction = frontierGeometryExplanation.hidden ? "展开" : "收起";
+    frontierGeometryExplanationDisclosureButton.textContent = geometryLabel;
+    frontierGeometryExplanationDisclosureButton.setAttribute("aria-label", `${disclosureAction}几何说明：${geometryLabel}`);
+    frontierGeometryExplanationDisclosureButton.title = `${disclosureAction}几何说明；展开后一分钟自动收起`;
+  }
+
+  function setFrontierGeometryExplanationExpanded(nextExpanded) {
+    window.clearTimeout(frontierGeometryExplanationAutoCollapseTimeoutId);
+    frontierGeometryExplanation.hidden = !nextExpanded;
+    frontierGeometryExplanationDisclosureButton.setAttribute("aria-expanded", String(nextExpanded));
+    updateFrontierGeometryExplanationDisclosureLabel();
+    if (nextExpanded) {
+      // 仅在展开时重新计时；切换几何或口径不改变用户的说明展开状态。
+      frontierGeometryExplanationAutoCollapseTimeoutId = window.setTimeout(
+        () => setFrontierGeometryExplanationExpanded(false),
+        60_000,
+      );
+    }
+  }
+
   function buildFrontierControls() {
-    const group = createToolbarGroup("前沿外观");
+    const group = createToolbarGroup("前沿描绘");
+    group.classList.add("aa-frontier-geometry-controls");
     const segmentedControl = document.createElement("div");
     segmentedControl.className = "aa-segmented-control";
     frontierStyleButtons = [
-      ["wireframe", "线框"],
-      ["solid", "实心面"],
-      ["hidden", "隐藏前沿"],
+      ["wireframe", "参照线框"],
+      ["solid", "参照实心"],
+      ["hidden", "隐藏参照"],
     ].map(([styleName, label]) => {
       const button = document.createElement("button");
       button.type = "button";
@@ -1786,14 +1834,34 @@ import {
     achievableFrontierSurfaceToggle = document.createElement("input");
     achievableFrontierSurfaceToggle.id = "aa-achievable-surface-toggle";
     achievableFrontierSurfaceToggle.type = "checkbox";
+    achievableFrontierSurfaceToggle.setAttribute("aria-describedby", "aa-frontier-geometry-explanation");
     achievableFrontierSurfaceToggle.addEventListener("change", () =>
       setAchievableFrontierSurfaceVisible(achievableFrontierSurfaceToggle.checked),
     );
     achievableToggleLabel.append(
       achievableFrontierSurfaceToggle,
-      document.createTextNode("可达前沿曲面"),
+      document.createTextNode("实际可达前沿（精确阶梯）"),
     );
-    group.append(segmentedControl, achievableToggleLabel);
+    frontierGeometryExplanation = textElement("p", "aa-frontier-geometry-explanation");
+    frontierGeometryExplanation.id = "aa-frontier-geometry-explanation";
+    frontierGeometryExplanation.setAttribute("role", "status");
+    frontierGeometryExplanationDisclosureButton = document.createElement("button");
+    frontierGeometryExplanationDisclosureButton.id = "aa-frontier-geometry-explanation-toggle";
+    frontierGeometryExplanationDisclosureButton.className = "aa-frontier-geometry-explanation-toggle";
+    frontierGeometryExplanationDisclosureButton.type = "button";
+    frontierGeometryExplanationDisclosureButton.setAttribute("aria-controls", frontierGeometryExplanation.id);
+    frontierGeometryExplanationDisclosureButton.addEventListener("click", () =>
+      setFrontierGeometryExplanationExpanded(frontierGeometryExplanation.hidden),
+    );
+    const achievableToggleAndExplanation = document.createElement("div");
+    achievableToggleAndExplanation.className = "aa-frontier-geometry-toggle-and-explanation";
+    achievableToggleAndExplanation.append(
+      achievableToggleLabel,
+      frontierGeometryExplanationDisclosureButton,
+      frontierGeometryExplanation,
+    );
+    group.append(segmentedControl, achievableToggleAndExplanation);
+    setFrontierGeometryExplanationExpanded(true);
     return group;
   }
 
@@ -2464,7 +2532,7 @@ import {
         textElement(
           "p",
           "aa-how-to-read-drawer-paragraph",
-          "带深色圆环的点是本口径的 Pareto 点：没有其他模型在成本、速度、智能上同时不差且至少一维更好。线框与实心面只由这些点生成，仅作视觉导引。",
+          "带深色圆环的点是本口径的 Pareto 点：没有其他模型在成本、速度、智能上同时不差且至少一维更好。默认的 Delaunay 邻接插值连接这些点，仅作视觉参照，不是帕累托面。勾选「实际可达前沿（精确阶梯）」可切换为已展示分析点的精确预算可达面。",
         ),
       ),
       howToReadDrawerSection("历史口径点", historicalExplanation),
@@ -2755,6 +2823,11 @@ import {
       visibleParetoFrontierModelCount: frontierModels().filter((model) => modelMarkerIsCurrentlyVisible(modelIndexByModelName[model.name])).length,
       frontierStyle,
       achievableFrontierSurfaceVisible,
+      paretoFrontierWireframeVisible: frontierWireframeObject?.visible ?? false,
+      paretoFrontierSurfaceVisible: frontierSurfaceObject?.visible ?? false,
+      achievableFrontierSurfaceObjectVisible: achievableFrontierSurfaceObject?.visible ?? false,
+      exactAchievableBoundaryVisible: exactAchievableFrontierBoundaryObject?.visible ?? false,
+      achievableFrontierGeometryKind: activeThreeDimensionalScene.achievable_frontier_geometry_kind ?? null,
       paretoFrontierSurfaceWritesDepth:
         frontierSurfaceObject?.material.depthWrite ?? null,
       achievableFrontierSurfaceWritesDepth:

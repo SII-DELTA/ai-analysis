@@ -99,7 +99,7 @@ def build_geometry_comparison_dataset(source_dataset, source_dataset_sha256):
             ("对数" if axes[axis]["scale_type"] == "log" else "线性") + name
             for axis, name in (("x_axis", "成本"), ("y_axis", "速度"))
         )
-        # EXPERIMENT_NODE: 用户审阅并排 demo 后再确定正式默认几何，以及是否增加单调平滑方案。
+        # EXPERIMENT_NODE: 默认已选邻接插值参照，后续实验是否需要增加单调平滑比较方案。
         comparison_variants[variant_key] = {
             "label": f"{cost_label} × {speed_label}",
             "cost_axis_unit": "USD" if metric_names[0] == "effective" else "USD/M tokens",
@@ -173,8 +173,8 @@ def _decision_brief_markdown(comparison_dataset):
     lines.extend([
         "", "完整定义、视域和按口径的计数见同目录 metrics.json；高度误差只在共同定义域比较，凸包外没有外推。", "",
         "旧审计的反向比例和 blended 口径 8.4 分来自历史数据。本次数字均来自输入快照；不得把历史数值当作当前验收常量。", "",
-        "## 待用户在看完 demo 后选择", "",
-        "默认几何尚未选择：可采用精确阶梯、保留邻接插值参照，或在 W4 定型时提供选择器。单调平滑近似未纳入首批实现。", "",
+        "## 已确认的默认描绘", "",
+        "默认保留 Delaunay 邻接插值，仅作视觉参照，不是帕累托面；正式报告提供切换到精确阶梯可达面的开关。单调平滑近似未纳入首批实现。", "",
         "## 4c7d1 历史助手建议原文", "",
         "以下三项为历史助手提出的 UX 建议，尚无已核查的用户选择；它们不是本卡新增实施要求。", "",
         *HISTORICAL_ASSISTANT_UX_SUGGESTIONS_VERBATIM, "",
