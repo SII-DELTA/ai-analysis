@@ -1,0 +1,935 @@
+{
+  "projects": [
+    {
+      "project_id": "i-have-adhd",
+      "name": "i-have-adhd",
+      "repository_url": "https://github.com/ayghri/i-have-adhd",
+      "revision_observation": {
+        "commit_sha": "1ecea1993b7fce257ffbd686c070948b5e07eda6",
+        "commit_date": "2026-10-11T16:03:54Z",
+        "tree_sha": "d4775095f471d938babccea77838d43b7fd39bc3",
+        "default_branch": "main",
+        "archived": false,
+        "license_spdx": "MIT",
+        "observed_ref": "refs/heads/main",
+        "checked_at_utc": "2026-10-23T16:07:49Z"
+      },
+      "capability_categories": [
+        "信息呈现",
+        "跨轮状态呈现",
+        "用户认知负担",
+        "适时澄清"
+      ],
+      "intervention_mechanism": "将每轮回复组织为动作优先、编号步骤、显式进展、聚焦当前问题；真实歧义时要求短问。属于会话输出策略，目标比单纯删字更广。",
+      "packaging": [
+        "Agent Skill",
+        "Claude Code plugin 与条件式 SessionStart hook",
+        "Codex plugin",
+        "其他宿主适配器"
+      ],
+      "components_and_license": [
+        {
+          "component": "skill 与本仓库适配器",
+          "license": "MIT",
+          "source_ids": [
+            "interaction-adhd-license"
+          ]
+        }
+      ],
+      "activation_and_host_support": {
+        "support_basis": "上游文档与配置检查，本次未安装或行为实测",
+        "claude_code": "默认显式 /i-have-adhd；可用 flag 启用 SessionStart 注入",
+        "codex": "policy.allow_implicit_invocation=false，需显式 $i-have-adhd；常驻可另加规则",
+        "gemini_cli": "command 为按需；extension 会从 GEMINI.md 加载规则",
+        "session_persistence": "技能指令要求持续至 stop adhd mode/normal mode；这是声明的行为，不等于所有宿主均已通过持久性评测",
+        "source_ids": [
+          "interaction-adhd-activation",
+          "interaction-adhd-codex-policy",
+          "interaction-adhd-skill"
+        ]
+      },
+      "declared_claims": [
+        {
+          "claim": "动作优先、减少旁支、具体进展与可执行下一步改善可操作性；无须将其理解为医学疗效。",
+          "claim_type": "作者设计目标",
+          "source_ids": [
+            "interaction-adhd-skill"
+          ]
+        }
+      ],
+      "published_evaluation_evidence": [
+        {
+          "evidence_id": "interaction-adhd-self-evaluation-2026-08-02",
+          "evidence_origin": "项目内公开自测",
+          "evaluated_component_version": "unknown；报告日期早于本次冻结提交，未确认当时 skill body 的 commit",
+          "evaluation_date": "2026-08-02",
+          "model": "claude-opus-4-8",
+          "harness": "Claude Code 2.1.220",
+          "sample": {
+            "cases": 14,
+            "trials_per_case_per_condition": 3,
+            "conditions": 2,
+            "responses_total": 84
+          },
+          "comparison": "裸任务 prompt 对相同 prompt 加 skill body，工具被禁用；单轮响应评测",
+          "judge": "同一模型与 runner；按 case/trial 组盲评，非人类受试者",
+          "metrics": {
+            "weighted_score_baseline": 4.045,
+            "weighted_score_candidate": 4.473,
+            "reported_delta": 0.427,
+            "baseline_blocking_findings": 7,
+            "candidate_blocking_findings": 3,
+            "candidate_case_wins": 10,
+            "ties": 2,
+            "losses": 2
+          },
+          "release_gate": "FAILED：仍有 blocking findings",
+          "quality_limits": [
+            "agent-owned-edit 要求真正修改仓库，但 runner 禁用全部工具，使该案例不可满足。",
+            "partial-success 平均下降 0.63；报告记录了候选无证据断言根因的 blocker。",
+            "每 case 仅 3 次、同模型家族自评，无真人阅读或认知负担实验；加权分提高不证明质量等价或对所有读者有效。",
+            "报告成本是记录的生成与评分费用，不是可直接泛化的每任务节省率。"
+          ],
+          "source_ids": [
+            "interaction-adhd-evaluation",
+            "interaction-adhd-evaluation-protocol",
+            "interaction-adhd-evaluation-rubric"
+          ]
+        }
+      ],
+      "limitations": [
+        "固定每轮状态与具体时间估计可能与某些读者偏好冲突；应以任务和用户指令控制，不能把越短或越确定视为越好（本次分析）。",
+        "当前跨宿主兼容文档不等于对应宿主已有同一套结果。",
+        "应测试重要但非当前事项是否保留、解释请求是否充分、已完成任务是否引入多余下一步。"
+      ],
+      "source_ids": [
+        "interaction-adhd-skill",
+        "interaction-adhd-activation",
+        "interaction-adhd-codex-policy",
+        "interaction-adhd-evaluation",
+        "interaction-adhd-evaluation-protocol",
+        "interaction-adhd-evaluation-rubric",
+        "interaction-adhd-license"
+      ]
+    },
+    {
+      "project_id": "humanizer",
+      "name": "Humanizer",
+      "repository_url": "https://github.com/blader/humanizer",
+      "revision_observation": {
+        "commit_sha": "8c307f367c91bd974002f10f2be2965d642c13df",
+        "commit_date": "2026-10-16T19:12:03Z",
+        "tree_sha": "4f4bcb932f6ac43860277b2c35f48d4d07a7dc9f",
+        "default_branch": "main",
+        "archived": false,
+        "license_spdx": "MIT",
+        "observed_ref": "refs/heads/main",
+        "checked_at_utc": "2026-10-23T16:07:49Z",
+        "skill_metadata_version": "3.1.0"
+      },
+      "capability_categories": [
+        "成稿文风编辑",
+        "事实保留",
+        "信息结构",
+        "去除空话"
+      ],
+      "intervention_mechanism": "识别机械句式、夸大、排版和无信息铺垫；改写后检查新增/丢失事实，并按写作样本保留个人声音。",
+      "packaging": [
+        "Agent Skill",
+        "Claude Code plugin",
+        "文件编辑或嵌入其他写作任务的模式"
+      ],
+      "components_and_license": [
+        {
+          "component": "skill 与项目文件",
+          "license": "MIT",
+          "source_ids": [
+            "interaction-humanizer-license"
+          ]
+        }
+      ],
+      "activation_and_host_support": {
+        "support_basis": "上游文档与技能检查；本次未行为实测",
+        "trigger": "面向编辑/审阅已有 prose；可显式调用",
+        "modes": "粘贴文本默认给草稿、残留问题与最终稿；文件模式仅改 prose；嵌入模式仅交付最终文本。默认多稿输出可能增加 token。",
+        "declared_hosts": [
+          "Claude Code",
+          "Codex",
+          "支持 Agent Skills 的其他 agent"
+        ],
+        "source_ids": [
+          "interaction-humanizer-skill",
+          "interaction-humanizer-readme"
+        ]
+      },
+      "declared_claims": [
+        {
+          "claim": "改善人类读者的可读性并保持意思；规避 AI detector 不是目标。",
+          "claim_type": "作者设计目标",
+          "source_ids": [
+            "interaction-humanizer-skill",
+            "interaction-humanizer-readme"
+          ]
+        },
+        {
+          "claim": "README 引用外部盲评中 16/16 偏好改写稿。",
+          "claim_type": "作者引用外部使用者实验",
+          "source_ids": [
+            "interaction-humanizer-readme",
+            "interaction-humanizer-external-evaluation"
+          ]
+        }
+      ],
+      "published_evaluation_evidence": [
+        {
+          "evidence_id": "interaction-humanizer-external-user-study-2026-08-19",
+          "evidence_origin": "外部使用者 issue 报告；原始仓库 itsryanlenk/humanist 作为可追溯线索，本次未重跑",
+          "evaluation_date": "2026-08-19",
+          "evaluated_component_version": "unknown；不能据此证明当前 3.1.0 的效果",
+          "sample": {
+            "raw_vs_rewrite_pairwise_trials": 16,
+            "preferred_rewrite_trials": 16,
+            "all_completed_pairwise_trials": 77,
+            "planned_pairwise_trials": 144
+          },
+          "judge": "单一模型家族的语言模型盲评，质量比较不提示作者身份；不是人类用户研究",
+          "quality_limits": [
+            "基础设施失败导致未完成全部计划试次。",
+            "报告中的人类控制文本只匹配 register 与长度，未匹配主题。",
+            "外部报告同时指出词汇/标点痕迹减少，而某些节奏与收尾模式增加；去掉禁词不等同整体可读性或真人风格达标。"
+          ],
+          "source_ids": [
+            "interaction-humanizer-external-evaluation",
+            "interaction-humanizer-evaluation-comments"
+          ]
+        }
+      ],
+      "limitations": [
+        "主要是成稿编辑干预，不直接解决 agent 何时汇报、如何处理长期任务或何时向开发者提问。",
+        "不能以 AI detector 通过率作为本项目目标的替代指标。",
+        "需增加事实保持、技术标识符不变、长短文和中文语境的独立配对评测。"
+      ],
+      "source_ids": [
+        "interaction-humanizer-skill",
+        "interaction-humanizer-readme",
+        "interaction-humanizer-external-evaluation",
+        "interaction-humanizer-evaluation-comments",
+        "interaction-humanizer-license"
+      ]
+    },
+    {
+      "project_id": "no-ai-slop",
+      "name": "No AI Slop",
+      "repository_url": "https://github.com/petergyang/no-ai-slop",
+      "revision_observation": {
+        "commit_sha": "000650b156983f5159695b441477f4e63b25dc85",
+        "commit_date": "2026-09-02T04:19:00Z",
+        "tree_sha": "782e26a87b532a2859e7ee515deac6afdcb11612",
+        "default_branch": "main",
+        "archived": false,
+        "license_spdx": "MIT",
+        "observed_ref": "refs/heads/main",
+        "checked_at_utc": "2026-10-23T16:07:49Z"
+      },
+      "capability_categories": [
+        "成稿文风编辑",
+        "去除空话",
+        "保留作者声音",
+        "编辑任务的最小澄清"
+      ],
+      "intervention_mechanism": "以最小有效编辑处理空泛句式，同时保留语气、细节与不确定性；若缺草稿、受众/发布格式或写作目标，则先索取必要信息。",
+      "packaging": [
+        "Agent Skill",
+        "Codex/ChatGPT plugin metadata"
+      ],
+      "components_and_license": [
+        {
+          "component": "skill 与 eval 自检清单",
+          "license": "MIT",
+          "source_ids": [
+            "interaction-no-ai-slop-license"
+          ]
+        }
+      ],
+      "activation_and_host_support": {
+        "support_basis": "检查技能正文；未验证宿主运行行为",
+        "trigger": "用户要求编辑、审计已有文本或去除 AI 文风；默认 Edit，也支持 Detect",
+        "edit_output": "完整改稿加 What changed",
+        "detect_output": "指出模式、引用原句与短修正；正文明确禁止将此当作 AI 作者身份鉴定或给分",
+        "host_support": "标准 skill 分发与插件元数据；不同宿主发现/自动触发仍须分别验证",
+        "source_ids": [
+          "interaction-no-ai-slop-skill"
+        ]
+      },
+      "declared_claims": [
+        {
+          "claim": "保留作者个性，去掉模板化文风与空话；不是以最短文本为目标。",
+          "claim_type": "作者设计目标",
+          "source_ids": [
+            "interaction-no-ai-slop-skill"
+          ]
+        }
+      ],
+      "published_evaluation_evidence": [
+        {
+          "evidence_id": "interaction-no-ai-slop-self-check-contract",
+          "evidence_origin": "项目内 eval.md 自我复核清单",
+          "evaluation_type": "规则与工作流检查，不是公开样本集的基准分数",
+          "model": "unknown",
+          "harness": "unknown",
+          "sample_size": "unknown",
+          "results": "unknown",
+          "source_ids": [
+            "interaction-no-ai-slop-self-check"
+          ]
+        }
+      ],
+      "limitations": [
+        "未在本次检查的固定提交与相关文件中找到独立、可比较的有/无 skill 实验；eval.md 不能被登记为量化成效。",
+        "文风禁词属于写作偏好，技术文章中的术语及有意义的保留语不能按命中次数机械扣分。",
+        "编辑一份成稿的收益不能推断为整段开发任务的 token 或交互收益。"
+      ],
+      "source_ids": [
+        "interaction-no-ai-slop-skill",
+        "interaction-no-ai-slop-self-check",
+        "interaction-no-ai-slop-license"
+      ]
+    },
+    {
+      "project_id": "mattpocock-skills",
+      "name": "Matt Pocock Skills：grilling／grill-me／grill-with-docs",
+      "repository_url": "https://github.com/mattpocock/skills",
+      "revision_observation": {
+        "commit_sha": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+        "commit_date": "2026-10-19T15:51:40Z",
+        "tree_sha": "b4ff05745c3973fe0e0a777a354a4470243e75bb",
+        "default_branch": "main",
+        "archived": false,
+        "license_spdx": "MIT",
+        "observed_ref": "refs/heads/main",
+        "checked_at_utc": "2026-10-23T16:07:49Z"
+      },
+      "capability_categories": [
+        "需求澄清",
+        "分轮提问",
+        "决策依赖",
+        "术语与决策文档",
+        "面向 agent 的信息结构"
+      ],
+      "intervention_mechanism": "grilling 将决策映射为设计树，每轮询问依赖已满足的整组问题，附推荐答案；环境事实由 agent 调查，用户回答决策。grill-me 为显式入口；grill-with-docs 组合 grilling 与 domain-modeling。",
+      "packaging": [
+        "可组合 Agent Skills",
+        "Claude Code/Codex/Copilot plugin",
+        "skills CLI 或手动分发"
+      ],
+      "components_and_license": [
+        {
+          "component": "本仓库技能与相关文档",
+          "license": "MIT",
+          "source_ids": [
+            "interaction-mattpocock-license"
+          ]
+        }
+      ],
+      "activation_and_host_support": {
+        "support_basis": "上游 README、frontmatter 与 Codex policy 检查；未运行",
+        "grill_me": "disable-model-invocation=true，Codex allow_implicit_invocation=false；入口正文调用 grilling",
+        "grill_with_docs": "显式入口，调用 grilling 与 domain-modeling",
+        "grilling": "可作为被组合的原语，frontmatter 自带适用语境描述",
+        "declared_hosts": [
+          "Claude Code",
+          "Codex",
+          "GitHub Copilot",
+          "Gemini CLI",
+          "可通过 skills CLI 分发的其他 agent"
+        ],
+        "source_ids": [
+          "interaction-mattpocock-readme",
+          "interaction-mattpocock-grill-me",
+          "interaction-mattpocock-grill-with-docs",
+          "interaction-mattpocock-grill-me-policy"
+        ]
+      },
+      "declared_claims": [
+        {
+          "claim": "以可组合小技能改善需求误解与协作；README 称可适用于任意模型。",
+          "claim_type": "作者目标与兼容性声明，非本次已验证结果",
+          "source_ids": [
+            "interaction-mattpocock-readme"
+          ]
+        }
+      ],
+      "published_evaluation_evidence": [
+        {
+          "evidence_id": "interaction-mattpocock-evaluation-gap",
+          "evidence_origin": "固定提交的 README、相关 skill 与目录结构检查",
+          "evaluation_type": "行为规范可读；本次未找到与这些交互技能对应的公开配对结果",
+          "model": "unknown",
+          "harness": "unknown",
+          "sample_size": "unknown",
+          "results": "unknown",
+          "source_ids": [
+            "interaction-mattpocock-readme",
+            "interaction-mattpocock-grilling"
+          ]
+        }
+      ],
+      "related_capabilities": [
+        {
+          "name": "to-questionnaire",
+          "finding": "先确认收件人及所需决策，再将知识缺口写成异步问卷；是收集第三方信息的文档工作流，不应与当轮 ask-user 工具混为一类。",
+          "source_ids": [
+            "interaction-mattpocock-questionnaire"
+          ]
+        },
+        {
+          "name": "writing-for-agents",
+          "finding": "区分常驻上下文负担与人类认知负担，以上下文指针和渐进披露组织 agent 所读文档；不应把它直接记为面向人的 anti-slop skill。",
+          "source_ids": [
+            "interaction-mattpocock-writing-for-agents"
+          ]
+        }
+      ],
+      "limitations": [
+        "要求遍历全部设计树、每轮给出全部 frontier 问题，可能增加决策负担与会话长度；是需实验的权衡，不是本次证明的缺陷。",
+        "推荐答案可降低回复成本，也可能引导用户迎合；评测应检查反对、改主意和不完整回答时的表现。",
+        "完整性优先的 grilling 应与低风险明确任务中的少打扰策略分别评价。",
+        "本次没有证明自动调用、跨模型稳定收益或实际减少返工。"
+      ],
+      "source_ids": [
+        "interaction-mattpocock-readme",
+        "interaction-mattpocock-grilling",
+        "interaction-mattpocock-grill-me",
+        "interaction-mattpocock-grill-with-docs",
+        "interaction-mattpocock-questionnaire",
+        "interaction-mattpocock-writing-for-agents",
+        "interaction-mattpocock-grill-me-policy",
+        "interaction-mattpocock-license"
+      ]
+    }
+  ],
+  "benchmarks": [
+    {
+      "benchmark_id": "reqclarifybench",
+      "name": "ReqClarifyBench",
+      "canonical_url": "https://arxiv.org/abs/2610.13022v1",
+      "revision_observation": {
+        "paper_version": "arXiv:2610.13022v1",
+        "paper_date": "2026-10-09",
+        "archive_version": "Zenodo v1",
+        "archive_doi": "10.5281/zenodo.23031774",
+        "repository_commit_sha": null,
+        "repository_url": "unknown；本文直接指向 Zenodo 归档",
+        "archive_locally_verified": false
+      },
+      "capability_scope": "从模糊意图经多轮澄清生成需求文档，并考察后续仓库级实现；不是 token 优化排行榜。",
+      "task_count": 341,
+      "domains": [
+        "game",
+        "miniapp",
+        "web"
+      ],
+      "comparison_unit": "模型/agent-harness 配置 × 任务 × 用户 persona",
+      "user_simulation": {
+        "model": "GPT-5.6-Sol",
+        "temperature": 0.7,
+        "personas": [
+          "Expert Nitpicker",
+          "Vague Requester",
+          "Mind Changer"
+        ],
+        "ground_truth": "提供人工校验的需求文档，按 persona 回答"
+      },
+      "evaluation": {
+        "models_count": 6,
+        "max_interaction_rounds": 20,
+        "judge": "DeepSeek-V4.1-Flash",
+        "metrics": [
+          "Effective Question Rate",
+          "AvgClarified",
+          "BERTScore F1",
+          "ReqAlign：atomic requirement 的 covered/omitted/violated"
+        ],
+        "key_finding": "论文报告提问有效性与最终需求文档质量并不一致；harness 提升某些提问指标并不保证文档更好。"
+      },
+      "reuse_recommendation": "借鉴多 persona、逐需求覆盖与最终文档/代码结果分开评分的设计；优先作为澄清实验模板。",
+      "limitations": [
+        "模拟用户与 LLM judge 不等同真人可用性；persona 可辨识性也不证明真实人类行为被完整复现。",
+        "基于已有产品生成基准重建参考需求，外推到开放式真实产品决策需要另验。",
+        "归档存在和页面所报 MD5 已检查，但本次未下载或执行；代码/数据实际许可尚未核实，不能直接声称可自由再分发。"
+      ],
+      "source_ids": [
+        "interaction-reqclarifybench-paper",
+        "interaction-reqclarifybench-archive"
+      ]
+    },
+    {
+      "benchmark_id": "askbench",
+      "name": "AskBench",
+      "canonical_url": "https://arxiv.org/abs/2602.11199v2",
+      "repository_url": "https://github.com/jialeuuz/askbench",
+      "revision_observation": {
+        "commit_sha": "f35da92feda34504f10413313554438e7abaeb08",
+        "commit_date": "2026-02-14T07:16:15Z",
+        "tree_sha": "bfa4bf929f5ebd61a465be4b12f42a212d38685a",
+        "default_branch": "main",
+        "archived": false,
+        "license_spdx": "MIT",
+        "observed_ref": "refs/heads/main",
+        "checked_at_utc": "2026-10-23T16:07:49Z",
+        "paper_version": "arXiv:2602.11199v2",
+        "paper_revision_date": "2026-04-20"
+      },
+      "capability_scope": "通用问答中的何时澄清、应问什么与误导前提纠正。",
+      "conditions": [
+        "AskMind：缺少关键信息",
+        "AskOverconfidence：带错误前提"
+      ],
+      "task_count": "unknown；未将组合子集数误记为总样本量",
+      "user_simulation": "统一 judge loop 在被测模型主动询问时模拟回复，并评价最后回答及 required/misleading checkpoints。",
+      "evaluation": {
+        "metrics": [
+          "final-answer accuracy",
+          "checkpoint coverage",
+          "interaction efficiency"
+        ],
+        "protocols": [
+          "standard multi-turn",
+          "strict two-turn"
+        ],
+        "judge": "README 指出使用开源 judge，例如 Qwen3-30B-A3B-Instruct-2507；具体复现必须固定配置",
+        "public_numeric_results_included": false
+      },
+      "license": {
+        "code": "MIT",
+        "dataset_reuse_license": "unknown；需逐数据源核查",
+        "source_ids": [
+          "interaction-askbench-license"
+        ]
+      },
+      "reuse_recommendation": "借鉴缺失信息/错误前提双场景与 checklist 覆盖；作为开发澄清集的补充对照，不能取代仓库级任务。",
+      "limitations": [
+        "同一 judge 承担模拟与评分可能耦合偏差；应另做人工抽检或异模型评分。",
+        "QA 改写任务与真实开发者的决策成本差距较大。",
+        "冻结代码提交日期为 2026-02-14，而论文 v2 于 2026-04-20 修订；不能仅凭 README 链接认定此代码完整复现 v2。",
+        "本次未运行实验，未把论文训练收益写成第三方 skill 收益。"
+      ],
+      "source_ids": [
+        "interaction-askbench-paper",
+        "interaction-askbench-readme",
+        "interaction-askbench-license"
+      ]
+    },
+    {
+      "benchmark_id": "ask-or-assume",
+      "name": "Ask or Assume? Uncertainty-Aware Clarification-Seeking in Coding Agents",
+      "canonical_url": "https://arxiv.org/abs/2603.26233v1",
+      "repository_url": "https://github.com/nedwards99/ask-or-assume",
+      "revision_observation": {
+        "commit_sha": "ee8603e8f4d96ace56abef2ad900c75f25bc59be",
+        "commit_date": "2026-09-05T08:57:16Z",
+        "tree_sha": "93231426ec5d97634b207be37fdcd9a9b17d5fab",
+        "default_branch": "main",
+        "archived": false,
+        "license_spdx": "NOASSERTION",
+        "observed_ref": "refs/heads/main",
+        "checked_at_utc": "2026-10-23T16:07:49Z",
+        "paper_version": "arXiv:2603.26233v1",
+        "paper_date": "2026-03-27"
+      },
+      "capability_scope": "欠明确真实 GitHub issue 的交互式修复，将是否需要澄清与代码执行分离。",
+      "task_count": 500,
+      "harness": "OpenHands 的研究 scaffold",
+      "user_simulation": {
+        "model": "GPT-5.1",
+        "ground_truth": "原始完整 issue 中隐藏的信息"
+      },
+      "conditions": [
+        "Full",
+        "Hidden",
+        "Interactive Baseline",
+        "UA-Single",
+        "UA-Multi"
+      ],
+      "evaluation": {
+        "model_for_primary_paper_result": "Claude Sonnet 4.5",
+        "additional_model_in_current_repository": "Kimi K2.6",
+        "metric": "SWE-bench task resolve rate",
+        "published_result": {
+          "ua_multi_percent": 69.4,
+          "ua_single_percent": 61.2
+        },
+        "result_scope": "论文 Sonnet 4.5 的 500 issue 结果，不是当前全部模型或任意 skill 的效果"
+      },
+      "license": {
+        "code_outside_enterprise": "MIT",
+        "enterprise_directory": "单独许可证，未核查",
+        "source_ids": [
+          "interaction-ask-or-assume-license"
+        ]
+      },
+      "reuse_recommendation": "借鉴完整信息、隐藏信息、强制问一次、单 agent 与分离检测角色的多组对照；保留最终测试通过率及全部模型调用成本。",
+      "limitations": [
+        "论文承认 oracle 模拟用户过于合作，真实开发者可能提供不完整或变化的信息。",
+        "每主 agent turn 加入 Intent Agent 带来额外推理/延迟成本；不能仅以主 agent 的 token 计算效率。",
+        "README 记录 SWE-bench patch-revert 评估 bug，复现需固定对应修复。",
+        "本次未运行，不能证明对新模型版本的持续效果。"
+      ],
+      "source_ids": [
+        "interaction-ask-or-assume-paper",
+        "interaction-ask-or-assume-readme",
+        "interaction-ask-or-assume-license"
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "source_id": "interaction-adhd-skill",
+      "url": "https://github.com/ayghri/i-have-adhd/blob/1ecea1993b7fce257ffbd686c070948b5e07eda6/skills/i-have-adhd/SKILL.md",
+      "title": "ayghri/i-have-adhd：skills/i-have-adhd/SKILL.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "1ecea1993b7fce257ffbd686c070948b5e07eda6",
+      "file_blob_sha": "6c42757ffae37e442adfb52fbba2a8609f1cff00",
+      "source_type": "upstream_skill_instructions"
+    },
+    {
+      "source_id": "interaction-adhd-activation",
+      "url": "https://github.com/ayghri/i-have-adhd/blob/1ecea1993b7fce257ffbd686c070948b5e07eda6/INSTALL.md",
+      "title": "ayghri/i-have-adhd：INSTALL.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "1ecea1993b7fce257ffbd686c070948b5e07eda6",
+      "file_blob_sha": "2d5d039a9c683595ce61b5c69f1ced7aabcc8a01",
+      "source_type": "upstream_installation_documentation"
+    },
+    {
+      "source_id": "interaction-adhd-codex-policy",
+      "url": "https://github.com/ayghri/i-have-adhd/blob/1ecea1993b7fce257ffbd686c070948b5e07eda6/skills/i-have-adhd/agents/openai.yaml",
+      "title": "ayghri/i-have-adhd：skills/i-have-adhd/agents/openai.yaml",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "1ecea1993b7fce257ffbd686c070948b5e07eda6",
+      "file_blob_sha": "0e8285b9bb854e7ee4c25f4c48f593a87e9eb85d",
+      "source_type": "upstream_activation_configuration"
+    },
+    {
+      "source_id": "interaction-adhd-evaluation",
+      "url": "https://github.com/ayghri/i-have-adhd/blob/1ecea1993b7fce257ffbd686c070948b5e07eda6/evals/RESULTS.md",
+      "title": "ayghri/i-have-adhd：evals/RESULTS.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "1ecea1993b7fce257ffbd686c070948b5e07eda6",
+      "file_blob_sha": "3379f3cbad4469640448850e2211614ff0124c4c",
+      "source_type": "upstream_evaluation_report"
+    },
+    {
+      "source_id": "interaction-adhd-evaluation-protocol",
+      "url": "https://github.com/ayghri/i-have-adhd/blob/1ecea1993b7fce257ffbd686c070948b5e07eda6/evals/README.md",
+      "title": "ayghri/i-have-adhd：evals/README.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "1ecea1993b7fce257ffbd686c070948b5e07eda6",
+      "file_blob_sha": "98780bd30e54aab468eb3d0ca72335e82612e906",
+      "source_type": "upstream_evaluation_methodology"
+    },
+    {
+      "source_id": "interaction-adhd-evaluation-rubric",
+      "url": "https://github.com/ayghri/i-have-adhd/blob/1ecea1993b7fce257ffbd686c070948b5e07eda6/evals/rubric.md",
+      "title": "ayghri/i-have-adhd：evals/rubric.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "1ecea1993b7fce257ffbd686c070948b5e07eda6",
+      "file_blob_sha": "0bd5424d60222f89acb7fa376a6d426bee9bb640",
+      "source_type": "upstream_evaluation_methodology"
+    },
+    {
+      "source_id": "interaction-adhd-license",
+      "url": "https://github.com/ayghri/i-have-adhd/blob/1ecea1993b7fce257ffbd686c070948b5e07eda6/LICENSE",
+      "title": "ayghri/i-have-adhd：LICENSE",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "1ecea1993b7fce257ffbd686c070948b5e07eda6",
+      "file_blob_sha": "19db5f1b0ca65e277c158bd4c4263139ccfd859c",
+      "source_type": "repository_license"
+    },
+    {
+      "source_id": "interaction-humanizer-skill",
+      "url": "https://github.com/blader/humanizer/blob/8c307f367c91bd974002f10f2be2965d642c13df/SKILL.md",
+      "title": "blader/humanizer：SKILL.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "8c307f367c91bd974002f10f2be2965d642c13df",
+      "file_blob_sha": "19fc634208e8cc6ae55d4ff287152583216fd244",
+      "source_type": "upstream_skill_instructions"
+    },
+    {
+      "source_id": "interaction-humanizer-readme",
+      "url": "https://github.com/blader/humanizer/blob/8c307f367c91bd974002f10f2be2965d642c13df/README.md",
+      "title": "blader/humanizer：README.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "8c307f367c91bd974002f10f2be2965d642c13df",
+      "file_blob_sha": "f7d1508fcfb223697f69d25ebb844fcb7748373b",
+      "source_type": "upstream_project_documentation"
+    },
+    {
+      "source_id": "interaction-humanizer-external-evaluation",
+      "url": "https://github.com/blader/humanizer/issues/229",
+      "title": "Humanizer 外部使用者的盲评与限制说明",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "external_user_evaluation_report",
+      "published_at_utc": "2026-08-19T04:43:08Z"
+    },
+    {
+      "source_id": "interaction-humanizer-evaluation-comments",
+      "url": "https://github.com/blader/humanizer/issues/229",
+      "title": "Humanizer issue #229：作者对目标的澄清",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_issue_discussion"
+    },
+    {
+      "source_id": "interaction-humanizer-license",
+      "url": "https://github.com/blader/humanizer/blob/8c307f367c91bd974002f10f2be2965d642c13df/LICENSE",
+      "title": "blader/humanizer：LICENSE",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "8c307f367c91bd974002f10f2be2965d642c13df",
+      "file_blob_sha": "625297fb778f32eb39d3a5b97e3e3b611b7304d6",
+      "source_type": "repository_license"
+    },
+    {
+      "source_id": "interaction-no-ai-slop-skill",
+      "url": "https://github.com/petergyang/no-ai-slop/blob/000650b156983f5159695b441477f4e63b25dc85/skills/no-ai-slop/SKILL.md",
+      "title": "petergyang/no-ai-slop：skills/no-ai-slop/SKILL.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "000650b156983f5159695b441477f4e63b25dc85",
+      "file_blob_sha": "e2008aa08d688846b0373b83d7c3d33b85eaabdd",
+      "source_type": "upstream_skill_instructions"
+    },
+    {
+      "source_id": "interaction-no-ai-slop-self-check",
+      "url": "https://github.com/petergyang/no-ai-slop/blob/000650b156983f5159695b441477f4e63b25dc85/skills/no-ai-slop/eval.md",
+      "title": "petergyang/no-ai-slop：skills/no-ai-slop/eval.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "000650b156983f5159695b441477f4e63b25dc85",
+      "file_blob_sha": "e912b3e9246ded24b14116682c23702a4d083dc7",
+      "source_type": "upstream_self_review_checklist"
+    },
+    {
+      "source_id": "interaction-no-ai-slop-license",
+      "url": "https://github.com/petergyang/no-ai-slop/blob/000650b156983f5159695b441477f4e63b25dc85/LICENSE",
+      "title": "petergyang/no-ai-slop：LICENSE",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "000650b156983f5159695b441477f4e63b25dc85",
+      "file_blob_sha": "644ebee1944d0e7d03c66a25977ff0a8a8e1c7ae",
+      "source_type": "repository_license"
+    },
+    {
+      "source_id": "interaction-mattpocock-readme",
+      "url": "https://github.com/mattpocock/skills/blob/5beb35b040e3de97e54fa9e386d7e42d15c295c2/README.md",
+      "title": "mattpocock/skills：README.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "file_blob_sha": "f7038f139299985eea6c3e18398dbafb379a0010",
+      "source_type": "upstream_project_documentation"
+    },
+    {
+      "source_id": "interaction-mattpocock-grilling",
+      "url": "https://github.com/mattpocock/skills/blob/5beb35b040e3de97e54fa9e386d7e42d15c295c2/skills/productivity/grilling/SKILL.md",
+      "title": "mattpocock/skills：skills/productivity/grilling/SKILL.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "file_blob_sha": "df69d9936880cd3314c28858c6c52f48db23b856",
+      "source_type": "upstream_skill_instructions"
+    },
+    {
+      "source_id": "interaction-mattpocock-grill-me",
+      "url": "https://github.com/mattpocock/skills/blob/5beb35b040e3de97e54fa9e386d7e42d15c295c2/skills/productivity/grill-me/SKILL.md",
+      "title": "mattpocock/skills：skills/productivity/grill-me/SKILL.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "file_blob_sha": "3947ff9c4ad980d14fc07fccbf659d47c114e81d",
+      "source_type": "upstream_skill_instructions"
+    },
+    {
+      "source_id": "interaction-mattpocock-grill-with-docs",
+      "url": "https://github.com/mattpocock/skills/blob/5beb35b040e3de97e54fa9e386d7e42d15c295c2/skills/engineering/grill-with-docs/SKILL.md",
+      "title": "mattpocock/skills：skills/engineering/grill-with-docs/SKILL.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "file_blob_sha": "62b9efb6f991d1b229adee7506962f13ced0c499",
+      "source_type": "upstream_skill_instructions"
+    },
+    {
+      "source_id": "interaction-mattpocock-questionnaire",
+      "url": "https://github.com/mattpocock/skills/blob/5beb35b040e3de97e54fa9e386d7e42d15c295c2/skills/productivity/to-questionnaire/SKILL.md",
+      "title": "mattpocock/skills：skills/productivity/to-questionnaire/SKILL.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "file_blob_sha": "dadd0c00d6a350acaa15bb9ca1b96b20ead684ca",
+      "source_type": "upstream_skill_instructions"
+    },
+    {
+      "source_id": "interaction-mattpocock-writing-for-agents",
+      "url": "https://github.com/mattpocock/skills/blob/5beb35b040e3de97e54fa9e386d7e42d15c295c2/skills/productivity/writing-for-agents/SKILL.md",
+      "title": "mattpocock/skills：skills/productivity/writing-for-agents/SKILL.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "file_blob_sha": "a37608daf6e835e767deecfb498facecaaba82ba",
+      "source_type": "upstream_skill_instructions"
+    },
+    {
+      "source_id": "interaction-mattpocock-grill-me-policy",
+      "url": "https://github.com/mattpocock/skills/blob/5beb35b040e3de97e54fa9e386d7e42d15c295c2/skills/productivity/grill-me/agents/openai.yaml",
+      "title": "mattpocock/skills：skills/productivity/grill-me/agents/openai.yaml",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "file_blob_sha": "4d6fb0c746c5d21364dce5d0cf8c51eab9712e7b",
+      "source_type": "upstream_activation_configuration"
+    },
+    {
+      "source_id": "interaction-mattpocock-license",
+      "url": "https://github.com/mattpocock/skills/blob/5beb35b040e3de97e54fa9e386d7e42d15c295c2/LICENSE",
+      "title": "mattpocock/skills：LICENSE",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "file_blob_sha": "f1dd2c09108dde1a5f56097cee8461b3ea834499",
+      "source_type": "repository_license"
+    },
+    {
+      "source_id": "interaction-reqclarifybench-paper",
+      "url": "https://arxiv.org/html/2610.13022v1",
+      "title": "Don’t Guess, Just Ask：ReqClarifyBench，arXiv v1",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "research_paper"
+    },
+    {
+      "source_id": "interaction-reqclarifybench-archive",
+      "url": "https://zenodo.org/records/23031774",
+      "title": "ReqClarifyBench 软件与数据归档，Zenodo v1",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "research_artifact_archive",
+      "published_at_utc": "2026-09-29",
+      "artifact_doi": "10.5281/zenodo.23031774",
+      "archive_file": "ReqClarifyBench-main.zip",
+      "reported_archive_md5": "421b963803d9d9913d02468af9f0cf57",
+      "archive_downloaded_or_locally_verified": false
+    },
+    {
+      "source_id": "interaction-askbench-paper",
+      "url": "https://arxiv.org/html/2602.11199v2",
+      "title": "When and What to Ask：AskBench，arXiv v2",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "research_paper"
+    },
+    {
+      "source_id": "interaction-askbench-readme",
+      "url": "https://github.com/jialeuuz/askbench/blob/f35da92feda34504f10413313554438e7abaeb08/README.md",
+      "title": "jialeuuz/askbench：README.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "f35da92feda34504f10413313554438e7abaeb08",
+      "file_blob_sha": "eb5859899877ce57dbde2ff8e1e0cea35cb0364c",
+      "source_type": "upstream_benchmark_documentation"
+    },
+    {
+      "source_id": "interaction-askbench-license",
+      "url": "https://github.com/jialeuuz/askbench/blob/f35da92feda34504f10413313554438e7abaeb08/LICENSE",
+      "title": "jialeuuz/askbench：LICENSE",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "f35da92feda34504f10413313554438e7abaeb08",
+      "file_blob_sha": "f86f84a8f82eb51623e7b06859e220d230e67cb5",
+      "source_type": "repository_license"
+    },
+    {
+      "source_id": "interaction-ask-or-assume-paper",
+      "url": "https://arxiv.org/html/2603.26233v1",
+      "title": "Ask or Assume?，arXiv v1",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "research_paper"
+    },
+    {
+      "source_id": "interaction-ask-or-assume-readme",
+      "url": "https://github.com/nedwards99/ask-or-assume/blob/ee8603e8f4d96ace56abef2ad900c75f25bc59be/README.md",
+      "title": "nedwards99/ask-or-assume：README.md",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "ee8603e8f4d96ace56abef2ad900c75f25bc59be",
+      "file_blob_sha": "121de827deed4c1e119086b485fadf8e45165ab2",
+      "source_type": "upstream_benchmark_documentation"
+    },
+    {
+      "source_id": "interaction-ask-or-assume-license",
+      "url": "https://github.com/nedwards99/ask-or-assume/blob/ee8603e8f4d96ace56abef2ad900c75f25bc59be/LICENSE",
+      "title": "nedwards99/ask-or-assume：LICENSE",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "ee8603e8f4d96ace56abef2ad900c75f25bc59be",
+      "file_blob_sha": "572bb259491e4e2adafee0c03db0d4ed419e6b9a",
+      "source_type": "repository_license"
+    },
+    {
+      "source_id": "interaction-revision-ayghri-i-have-adhd",
+      "url": "https://api.github.com/repos/ayghri/i-have-adhd/commits/1ecea1993b7fce257ffbd686c070948b5e07eda6",
+      "title": "ayghri/i-have-adhd：已观察 main 分支提交",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "1ecea1993b7fce257ffbd686c070948b5e07eda6",
+      "file_blob_sha": null,
+      "source_type": "repository_revision_metadata"
+    },
+    {
+      "source_id": "interaction-revision-blader-humanizer",
+      "url": "https://api.github.com/repos/blader/humanizer/commits/8c307f367c91bd974002f10f2be2965d642c13df",
+      "title": "blader/humanizer：已观察 main 分支提交",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "8c307f367c91bd974002f10f2be2965d642c13df",
+      "file_blob_sha": null,
+      "source_type": "repository_revision_metadata"
+    },
+    {
+      "source_id": "interaction-revision-petergyang-no-ai-slop",
+      "url": "https://api.github.com/repos/petergyang/no-ai-slop/commits/000650b156983f5159695b441477f4e63b25dc85",
+      "title": "petergyang/no-ai-slop：已观察 main 分支提交",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "000650b156983f5159695b441477f4e63b25dc85",
+      "file_blob_sha": null,
+      "source_type": "repository_revision_metadata"
+    },
+    {
+      "source_id": "interaction-revision-mattpocock-skills",
+      "url": "https://api.github.com/repos/mattpocock/skills/commits/5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "title": "mattpocock/skills：已观察 main 分支提交",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "5beb35b040e3de97e54fa9e386d7e42d15c295c2",
+      "file_blob_sha": null,
+      "source_type": "repository_revision_metadata"
+    },
+    {
+      "source_id": "interaction-revision-jialeuuz-askbench",
+      "url": "https://api.github.com/repos/jialeuuz/askbench/commits/f35da92feda34504f10413313554438e7abaeb08",
+      "title": "jialeuuz/askbench：已观察 main 分支提交",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "f35da92feda34504f10413313554438e7abaeb08",
+      "file_blob_sha": null,
+      "source_type": "repository_revision_metadata"
+    },
+    {
+      "source_id": "interaction-revision-nedwards99-ask-or-assume",
+      "url": "https://api.github.com/repos/nedwards99/ask-or-assume/commits/ee8603e8f4d96ace56abef2ad900c75f25bc59be",
+      "title": "nedwards99/ask-or-assume：已观察 main 分支提交",
+      "checked_at_utc": "2026-10-23T16:07:49Z",
+      "repository_commit_sha": "ee8603e8f4d96ace56abef2ad900c75f25bc59be",
+      "file_blob_sha": null,
+      "source_type": "repository_revision_metadata"
+    }
+  ],
+  "research_notes": [
+    "四个重点项目均冻结仓库提交；文件 blob SHA 与 commit SHA 分字段保存。所有 SKILL.md 均作为研究数据阅读，没有执行其行为指令。",
+    "交互评价至少分为成稿编辑、每轮沟通、跨轮状态与需求澄清。字数、禁词、问题数量都只是诊断量，不是总体质量的替代。",
+    "本次仅核查公开资料，没有安装扩展、执行模型调用或验证宿主实际行为；项目的内部自测与外部模型盲评均与人类用户研究分开。",
+    "建议首批交互候选采用 i-have-adhd（每轮呈现）、Humanizer 或 No AI Slop（二选一成稿编辑组）、grilling（澄清组）；不同组不合成总榜。",
+    "中文与英语的阅读偏好、术语密度和事实保持需单独验证；当前公开英语指令与模型评分不能直接证明中文收益。",
+    "研究者分析：重要风险包括精简时丢掉关键事实、为满足格式伪造确定性、过度提问、推荐答案引导、用户明确要求解释时仍压缩，以及只优化对模型 judge 可见的风格。",
+    "ReqClarifyBench 的当前可定位发布源是论文明确引用的 Zenodo v1，而非未经确认的 GitHub 仓库。"
+  ]
+}

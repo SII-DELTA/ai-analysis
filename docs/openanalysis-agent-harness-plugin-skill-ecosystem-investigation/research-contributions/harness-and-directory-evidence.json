@@ -1,0 +1,931 @@
+{
+  "harnesses": [
+    {
+      "harness_id": "codex-cli",
+      "name": "Codex CLI",
+      "repository_url": "https://github.com/openai/codex",
+      "previous_repository_url": null,
+      "revision_observation": {
+        "commit_sha": "1c0c45bfc372fb7d7d581508fdef5eef8235eab7",
+        "default_branch": "main",
+        "observation_kind": "default_branch_snapshot",
+        "stable_release_version": "unknown",
+        "checked_at_utc": "2026-10-23T16:07:37Z"
+      },
+      "intervention_scope": "agent_host_runtime",
+      "summary": "本地运行的编程 agent；在本调查中作为宿主与无扩展对照，而不是一种节省 token 的 skill。",
+      "extension_surfaces_documented": [
+        "AGENTS.md 项目指令",
+        "Agent Skills（上游 docs/skills.md 指向官方文档）",
+        "非交互执行接口"
+      ],
+      "license_observation": "Apache-2.0（仓库 API 标识；README亦声明）",
+      "host_behavior_validation_status": "not_run_in_this_investigation",
+      "limitations": [
+        "固定的仓库源码 commit 不等于本机已安装或实测的 CLI 二进制版本。",
+        "本次没有核验任何具体扩展在该宿主的运行结果。"
+      ],
+      "source_ids": [
+        "host-codex-cli-readme",
+        "host-codex-cli-repository-metadata",
+        "official-codex-skills-redirect",
+        "host-codex-agents-md",
+        "host-codex-exec-mode",
+        "host-codex-skills-documentation-pointer"
+      ]
+    },
+    {
+      "harness_id": "claude-code",
+      "name": "Claude Code",
+      "repository_url": "https://github.com/anthropics/claude-code",
+      "previous_repository_url": null,
+      "revision_observation": {
+        "commit_sha": "65823ec0034ed0aa0266bc43903fefd3ff94a327",
+        "default_branch": "main",
+        "observation_kind": "default_branch_snapshot",
+        "stable_release_version": "unknown",
+        "checked_at_utc": "2026-10-23T16:07:37Z"
+      },
+      "intervention_scope": "agent_host_runtime",
+      "summary": "主要扩展与横评的宿主；公开 GitHub 仓库含插件、文档与问题跟踪，不能据此称产品核心开源。",
+      "extension_surfaces_documented": [
+        "skills",
+        "agents",
+        "hooks / mods",
+        "MCP servers",
+        "marketplace"
+      ],
+      "license_observation": "专有产品；公开仓库 LICENSE.md 指向 Commercial Terms",
+      "host_behavior_validation_status": "not_run_in_this_investigation",
+      "limitations": [
+        "LICENSE.md 声明 all rights reserved，使用受 Commercial Terms 约束。",
+        "此仓库 commit 固定的是公开材料，不是产品引擎源码或发行 binary。"
+      ],
+      "source_ids": [
+        "host-claude-code-readme",
+        "host-claude-code-repository-metadata",
+        "host-claude-code-license",
+        "official-claude-code-plugins"
+      ]
+    },
+    {
+      "harness_id": "gemini-cli",
+      "name": "Gemini CLI",
+      "repository_url": "https://github.com/google-gemini/gemini-cli",
+      "previous_repository_url": null,
+      "revision_observation": {
+        "commit_sha": "a713410aba5d594594e20d5c822e3aab8f822089",
+        "default_branch": "main",
+        "observation_kind": "default_branch_snapshot",
+        "stable_release_version": "unknown",
+        "checked_at_utc": "2026-10-23T16:07:37Z"
+      },
+      "intervention_scope": "agent_host_runtime",
+      "summary": "开源终端 agent；README 同时说明部分用户已转向 Antigravity CLI，最新模型适配不应从旧横评外推。",
+      "extension_surfaces_documented": [
+        "MCP",
+        "custom extensions",
+        "项目指令"
+      ],
+      "license_observation": "Apache-2.0（仓库 API 标识）",
+      "host_behavior_validation_status": "not_run_in_this_investigation",
+      "limitations": [
+        "当前 README 有迁移和最新模型适配提示；历史 Gemini CLI 结果不能自动代表 Antigravity CLI。",
+        "没有核验全部 Agent Skills 适配或模型组合。"
+      ],
+      "source_ids": [
+        "host-gemini-cli-readme",
+        "host-gemini-cli-repository-metadata"
+      ]
+    },
+    {
+      "harness_id": "opencode",
+      "name": "OpenCode",
+      "repository_url": "https://github.com/anomalyco/opencode",
+      "previous_repository_url": null,
+      "revision_observation": {
+        "commit_sha": "f6e202cb7b5d3a3a65c00ae25c77865f62c04369",
+        "default_branch": "dev",
+        "observation_kind": "default_branch_snapshot",
+        "stable_release_version": "unknown",
+        "checked_at_utc": "2026-10-23T16:07:37Z"
+      },
+      "intervention_scope": "agent_host_runtime",
+      "summary": "开源编程 agent；官方文档将按需 SKILL.md 加载与 JavaScript/TypeScript 事件插件分开。",
+      "extension_surfaces_documented": [
+        "按需 skill 工具",
+        "JavaScript/TypeScript 事件插件",
+        "MCP",
+        "自定义工具"
+      ],
+      "license_observation": "MIT（仓库 API 标识）",
+      "host_behavior_validation_status": "not_run_in_this_investigation",
+      "limitations": [
+        "默认分支为 dev；该源码观察不是稳定发行版身份。",
+        "官网文档是动态观察，未证明与本次 dev commit 完全同版。"
+      ],
+      "source_ids": [
+        "host-opencode-readme",
+        "host-opencode-repository-metadata",
+        "official-opencode-plugins",
+        "official-opencode-skills"
+      ]
+    },
+    {
+      "harness_id": "oh-my-pi",
+      "name": "oh-my-pi（OMP）",
+      "repository_url": "https://github.com/can1357/oh-my-pi",
+      "previous_repository_url": null,
+      "revision_observation": {
+        "commit_sha": "0b5c27ab24719c86a5986b95ee55f4e75bc1aaa0",
+        "default_branch": "main",
+        "observation_kind": "default_branch_snapshot",
+        "stable_release_version": "unknown",
+        "checked_at_utc": "2026-10-23T16:07:37Z"
+      },
+      "intervention_scope": "agent_host_runtime",
+      "summary": "Pi 的独立 fork，内建编辑、检索、模型角色、记忆及技能管理；可用于研究宿主工具设计本身带来的效率差异。",
+      "extension_surfaces_documented": [
+        "MCP",
+        "skill:// 与技能管理",
+        "model roles",
+        "SDK / RPC / ACP"
+      ],
+      "license_observation": "MIT（仓库 API 标识）",
+      "host_behavior_validation_status": "not_run_in_this_investigation",
+      "limitations": [
+        "不能把 OMP 与 Pi 合并成同一宿主版本。",
+        "README 的性能数字是作者主张，本概览没有审计其因果证据。"
+      ],
+      "source_ids": [
+        "host-oh-my-pi-readme",
+        "host-oh-my-pi-repository-metadata"
+      ]
+    },
+    {
+      "harness_id": "openhands",
+      "name": "OpenHands",
+      "repository_url": "https://github.com/OpenHands/OpenHands",
+      "previous_repository_url": null,
+      "revision_observation": {
+        "commit_sha": "8fdd6859aee5779ebbc12e44dc32823d7cb08527",
+        "default_branch": "main",
+        "observation_kind": "default_branch_snapshot",
+        "stable_release_version": "unknown",
+        "checked_at_utc": "2026-10-23T16:07:37Z"
+      },
+      "intervention_scope": "agent_host_runtime",
+      "summary": "当前主仓库为 Agent Canvas 控制界面；真正 agent loop 与 Agent Server 由 software-agent-sdk 仓库提供。",
+      "extension_surfaces_documented": [
+        "Software Agent SDK / Agent Server",
+        "多后端与 ACP agent 接入",
+        "独立控制界面"
+      ],
+      "license_observation": "MIT（两个仓库 API 标识）",
+      "host_behavior_validation_status": "not_run_in_this_investigation",
+      "limitations": [
+        "比较 benchmark 中的 OpenHands 时须追到 SDK、agent 实现和配置，不能只固定 Agent Canvas commit。",
+        "本次分别固定主仓库和 SDK 源码观察，未运行它们。"
+      ],
+      "source_ids": [
+        "host-openhands-readme",
+        "host-openhands-repository-metadata",
+        "host-openhands-sdk-readme"
+      ],
+      "runtime_repository_observation": {
+        "repository_url": "https://github.com/OpenHands/software-agent-sdk",
+        "commit_sha": "dd0892c80fffb1e59bac77242adafbd8b1168649",
+        "default_branch": "main"
+      }
+    },
+    {
+      "harness_id": "cline",
+      "name": "Cline",
+      "repository_url": "https://github.com/cline/cline",
+      "previous_repository_url": null,
+      "revision_observation": {
+        "commit_sha": "1619168bdeb570aa233d0f0a9af1d332d83a2816",
+        "default_branch": "main",
+        "observation_kind": "default_branch_snapshot",
+        "stable_release_version": "unknown",
+        "checked_at_utc": "2026-10-23T16:07:37Z"
+      },
+      "intervention_scope": "agent_host_runtime",
+      "summary": "共享 agent 引擎，覆盖 CLI、桌面和 IDE；README 明确列出 rules、按需 skills、插件与 MCP。",
+      "extension_surfaces_documented": [
+        ".clinerules",
+        "按需 skills",
+        "plugins",
+        "MCP",
+        "SDK"
+      ],
+      "license_observation": "Apache-2.0（主仓库 API 标识）；JetBrains plugin 源码边界另列",
+      "host_behavior_validation_status": "not_run_in_this_investigation",
+      "limitations": [
+        "CLI、桌面与 IDE 的能力需要按具体表面验证。",
+        "README 明确 JetBrains plugin 当前不公开源码，不能把所有产品表面概称为开源。"
+      ],
+      "source_ids": [
+        "host-cline-readme",
+        "host-cline-repository-metadata"
+      ]
+    },
+    {
+      "harness_id": "aider",
+      "name": "Aider",
+      "repository_url": "https://github.com/Aider-AI/aider",
+      "previous_repository_url": null,
+      "revision_observation": {
+        "commit_sha": "5dc9490bb35f9729ef2c95d00a19ccd30c26339c",
+        "default_branch": "main",
+        "observation_kind": "default_branch_snapshot",
+        "stable_release_version": "unknown",
+        "checked_at_utc": "2026-10-23T16:07:37Z"
+      },
+      "intervention_scope": "agent_host_runtime",
+      "summary": "终端结对编程宿主；以 repository map 提供代码上下文，是内建上下文选择机制的参照。",
+      "extension_surfaces_documented": [
+        "repository map",
+        "Git 集成",
+        "模型配置"
+      ],
+      "license_observation": "Apache-2.0（仓库 API 标识）",
+      "host_behavior_validation_status": "not_run_in_this_investigation",
+      "limitations": [
+        "本次未确认原生 SKILL.md/plugin 装载接口，不将其他宿主的扩展安装方法类推到 Aider。",
+        "README 列举的模型名称不视为当期推荐或完整兼容清单。"
+      ],
+      "source_ids": [
+        "host-aider-readme",
+        "host-aider-repository-metadata"
+      ]
+    },
+    {
+      "harness_id": "pi",
+      "name": "Pi",
+      "repository_url": "https://github.com/earendil-works/pi",
+      "previous_repository_url": "https://github.com/badlogic/pi-mono",
+      "revision_observation": {
+        "commit_sha": "ede2c9b468d8e061c557d16957513715e6d49cd6",
+        "default_branch": "main",
+        "observation_kind": "default_branch_snapshot",
+        "stable_release_version": "unknown",
+        "checked_at_utc": "2026-10-23T16:07:37Z"
+      },
+      "intervention_scope": "agent_host_runtime",
+      "summary": "最小、可扩展的编程宿主；已从 badlogic/pi-mono 迁至 earendil-works/pi。",
+      "extension_surfaces_documented": [
+        "extensions",
+        "skills",
+        "prompt templates",
+        "themes",
+        "Pi packages",
+        "JSON / RPC / SDK"
+      ],
+      "license_observation": "MIT（仓库 API 标识）",
+      "host_behavior_validation_status": "not_run_in_this_investigation",
+      "limitations": [
+        "包名与仓库已迁移，历史锁文件应保留别名及来源。",
+        "本次只核对公开接口说明，没有加载扩展。"
+      ],
+      "source_ids": [
+        "host-pi-readme",
+        "host-pi-repository-metadata",
+        "host-pi-repository-redirect"
+      ]
+    }
+  ],
+  "adjacent_projects": [
+    {
+      "project_id": "serena",
+      "name": "Serena",
+      "repository_url": "https://github.com/oraios/serena",
+      "review_depth": "overview_only",
+      "revision_observation": {
+        "commit_sha": "abb0a0f01b94bc8050086f0fb860077d17730324",
+        "default_branch": "main",
+        "observation_kind": "default_branch_snapshot",
+        "checked_at_utc": "2026-10-23T16:07:37Z"
+      },
+      "capability_categories": [
+        "semantic-code-tooling"
+      ],
+      "intervention_mechanism": "通过符号、引用和语义操作减少粗粒度全文读取与文本改写；MCP 工具服务器，当前还有 REPL 接口。",
+      "license_observation": "Serena application GPL-3.0-or-later；SolidLSP MIT（固定 LICENSE 已核对）",
+      "why_relevant": "作为精准上下文选择的参照，避免把所有输入节省都归为有损压缩。",
+      "published_evaluation_status": "not_audited_in_overview",
+      "limitations": [
+        "agent 自述推荐不是独立成功率或用户体验证据。"
+      ],
+      "source_ids": [
+        "adjacent-serena-readme",
+        "adjacent-serena-license",
+        "adjacent-serena-repository-metadata"
+      ]
+    },
+    {
+      "project_id": "llmlingua",
+      "name": "LLMLingua",
+      "repository_url": "https://github.com/microsoft/LLMLingua",
+      "review_depth": "overview_only",
+      "revision_observation": {
+        "commit_sha": "5a4c78ae18ab17a98cf997e8259354e546081d64",
+        "default_branch": "main",
+        "observation_kind": "default_branch_snapshot",
+        "checked_at_utc": "2026-10-23T16:07:37Z"
+      },
+      "capability_categories": [
+        "learned-prompt-compression"
+      ],
+      "intervention_mechanism": "使用小模型或编码器识别可删除 token，服务 prompt / RAG 压缩。",
+      "license_observation": "MIT（仓库 API 标识）",
+      "why_relevant": "解释 Headroom 一类压缩方案的研究邻域与压缩成本。",
+      "published_evaluation_status": "not_audited_in_overview",
+      "limitations": [
+        "RAG 或单轮压缩效果不能直接外推到长程软件开发任务。"
+      ],
+      "source_ids": [
+        "adjacent-llmlingua-readme",
+        "adjacent-llmlingua-repository-metadata"
+      ]
+    },
+    {
+      "project_id": "toon",
+      "name": "TOON",
+      "repository_url": "https://github.com/toon-format/toon",
+      "review_depth": "overview_only",
+      "revision_observation": {
+        "commit_sha": "e247c423e0a38bca3477b17fecdf6ef4feeb5584",
+        "default_branch": "main",
+        "observation_kind": "default_branch_snapshot",
+        "checked_at_utc": "2026-10-23T16:07:37Z"
+      },
+      "capability_categories": [
+        "structured-data-encoding"
+      ],
+      "intervention_mechanism": "以更紧凑的结构化表示编码 JSON 数据模型，尤其针对字段一致的数据。",
+      "license_observation": "MIT（仓库 API 标识）",
+      "why_relevant": "提供无损表示层优化的参照；数据形状可能比 skill 提示更重要。",
+      "published_evaluation_status": "not_audited_in_overview",
+      "limitations": [
+        "复杂嵌套或异构对象未必更省；序列化 token 降幅不等于任务总成本降幅。"
+      ],
+      "source_ids": [
+        "adjacent-toon-readme",
+        "adjacent-toon-repository-metadata"
+      ]
+    },
+    {
+      "project_id": "karpathy-inspired-guidelines",
+      "name": "Karpathy-Inspired Claude Code Guidelines",
+      "repository_url": "https://github.com/multica-ai/andrej-karpathy-skills",
+      "review_depth": "overview_only",
+      "revision_observation": {
+        "commit_sha": "2c606141936f1eeef17fa3043a72095b4765b9c2",
+        "default_branch": "main",
+        "observation_kind": "default_branch_snapshot",
+        "checked_at_utc": "2026-10-23T16:07:37Z"
+      },
+      "capability_categories": [
+        "minimal-coding-guidelines"
+      ],
+      "intervention_mechanism": "以四项原则约束假设、复杂度、修改范围和可验证目标。",
+      "license_observation": "unknown（本次未核对实际 LICENSE；仓库 API 未给出 SPDX）",
+      "why_relevant": "作为 Ponytail 邻近的短指令方案；可检验详细 skill 是否优于简单行为原则。",
+      "published_evaluation_status": "not_audited_in_overview",
+      "limitations": [
+        "该项目是作者依据 Karpathy 观点整理的指南，不是 Karpathy 本人发布或背书的已验证产品。"
+      ],
+      "source_ids": [
+        "adjacent-karpathy-inspired-guidelines-readme",
+        "adjacent-karpathy-inspired-guidelines-repository-metadata"
+      ]
+    },
+    {
+      "project_id": "spec-kit",
+      "name": "Spec Kit",
+      "repository_url": "https://github.com/github/spec-kit",
+      "review_depth": "overview_only",
+      "revision_observation": {
+        "commit_sha": "27d14e20c187c1f2916540ea201ecbdc9f8ed588",
+        "default_branch": "main",
+        "observation_kind": "default_branch_snapshot",
+        "checked_at_utc": "2026-10-23T16:07:37Z"
+      },
+      "capability_categories": [
+        "specification-driven-workflow"
+      ],
+      "intervention_mechanism": "用规格、模板、可组合流程与质量关口连接需求和实施。",
+      "license_observation": "MIT（仓库 API 标识）",
+      "why_relevant": "完整 workflow 对照扩展，检验流程开销与需求一致性的取舍。",
+      "published_evaluation_status": "not_audited_in_overview",
+      "limitations": [
+        "原生流程、扩展、预设与 bundle 不能当作单一不变处理。"
+      ],
+      "source_ids": [
+        "adjacent-spec-kit-readme",
+        "adjacent-spec-kit-repository-metadata"
+      ]
+    },
+    {
+      "project_id": "bmad-method",
+      "name": "BMad Method",
+      "repository_url": "https://github.com/bmad-code-org/BMAD-METHOD",
+      "review_depth": "overview_only",
+      "revision_observation": {
+        "commit_sha": "61e01f82644c4bb533750cfa0d6d61ab61d2cc9b",
+        "default_branch": "main",
+        "observation_kind": "default_branch_snapshot",
+        "checked_at_utc": "2026-10-23T16:07:37Z"
+      },
+      "capability_categories": [
+        "specification-driven-workflow"
+      ],
+      "intervention_mechanism": "通过明确决策、角色与持久上下文组织开发流程。",
+      "license_observation": "MIT（固定 LICENSE 已核对）",
+      "why_relevant": "与 GSD、Superpowers 形成范围较大的流程邻域。",
+      "published_evaluation_status": "not_audited_in_overview",
+      "limitations": [
+        "固定 main README 自称 V7 preview alpha，并另列 v6.12 稳定线；需实际固定 release，不能由预计发布日期推断已经发布。"
+      ],
+      "source_ids": [
+        "adjacent-bmad-method-readme",
+        "adjacent-bmad-method-license",
+        "adjacent-bmad-method-repository-metadata"
+      ]
+    }
+  ],
+  "directories_and_specifications": [
+    {
+      "directory_id": "skills-sh",
+      "name": "skills.sh",
+      "role": "技能发现与分发",
+      "ranking_basis": "官方说明按Skills CLI匿名安装遥测排名，衡量安装流行度；不是成功率、成本或交互效果排名。",
+      "source_ids": [
+        "directory-skills-sh-documentation"
+      ]
+    },
+    {
+      "directory_id": "agent-skills-specification",
+      "name": "Agent Skills Specification",
+      "role": "文件包装与渐进加载规范",
+      "ranking_basis": "不提供项目效果排行榜。",
+      "comparability_limit": "SKILL.md 可携带脚本与参考文件；共同文件格式不能保证各宿主以相同触发、注入和工具权限运行。",
+      "source_ids": [
+        "specification-agent-skills"
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "source_id": "host-codex-cli-readme",
+      "url": "https://github.com/openai/codex/blob/1c0c45bfc372fb7d7d581508fdef5eef8235eab7/README.md",
+      "title": "Codex CLI 固定版本 README",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "1c0c45bfc372fb7d7d581508fdef5eef8235eab7",
+      "file_blob_sha": "06b02fced7db972084bf0188cb03f60375b51c1c",
+      "source_type": "upstream_repository_documentation",
+      "observation_scope": "固定源码文档，不是本机运行或稳定发行版验证"
+    },
+    {
+      "source_id": "host-codex-cli-repository-metadata",
+      "url": "https://api.github.com/repos/openai/codex",
+      "title": "Codex CLI 仓库元数据",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_repository_metadata",
+      "observed_default_branch": "main",
+      "observed_license_spdx": "Apache-2.0",
+      "observed_archived": false
+    },
+    {
+      "source_id": "host-claude-code-readme",
+      "url": "https://github.com/anthropics/claude-code/blob/65823ec0034ed0aa0266bc43903fefd3ff94a327/README.md",
+      "title": "Claude Code 固定版本 README",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "65823ec0034ed0aa0266bc43903fefd3ff94a327",
+      "file_blob_sha": "80aa75edf74a5f9e1269811b4e8b5852be91e66e",
+      "source_type": "upstream_repository_documentation",
+      "observation_scope": "固定源码文档，不是本机运行或稳定发行版验证"
+    },
+    {
+      "source_id": "host-claude-code-repository-metadata",
+      "url": "https://api.github.com/repos/anthropics/claude-code",
+      "title": "Claude Code 仓库元数据",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_repository_metadata",
+      "observed_default_branch": "main",
+      "observed_license_spdx": "unknown",
+      "observed_archived": false
+    },
+    {
+      "source_id": "host-gemini-cli-readme",
+      "url": "https://github.com/google-gemini/gemini-cli/blob/a713410aba5d594594e20d5c822e3aab8f822089/README.md",
+      "title": "Gemini CLI 固定版本 README",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "a713410aba5d594594e20d5c822e3aab8f822089",
+      "file_blob_sha": "97c6ce91bb25d217fa1a096e5ddc97a8190084dc",
+      "source_type": "upstream_repository_documentation",
+      "observation_scope": "固定源码文档，不是本机运行或稳定发行版验证"
+    },
+    {
+      "source_id": "host-gemini-cli-repository-metadata",
+      "url": "https://api.github.com/repos/google-gemini/gemini-cli",
+      "title": "Gemini CLI 仓库元数据",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_repository_metadata",
+      "observed_default_branch": "main",
+      "observed_license_spdx": "Apache-2.0",
+      "observed_archived": false
+    },
+    {
+      "source_id": "host-opencode-readme",
+      "url": "https://github.com/anomalyco/opencode/blob/f6e202cb7b5d3a3a65c00ae25c77865f62c04369/README.md",
+      "title": "OpenCode 固定版本 README",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "f6e202cb7b5d3a3a65c00ae25c77865f62c04369",
+      "file_blob_sha": "a8551f97c57f9140c4c2ce9f7c004dc4bc21954b",
+      "source_type": "upstream_repository_documentation",
+      "observation_scope": "固定源码文档，不是本机运行或稳定发行版验证"
+    },
+    {
+      "source_id": "host-opencode-repository-metadata",
+      "url": "https://api.github.com/repos/anomalyco/opencode",
+      "title": "OpenCode 仓库元数据",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_repository_metadata",
+      "observed_default_branch": "dev",
+      "observed_license_spdx": "MIT",
+      "observed_archived": false
+    },
+    {
+      "source_id": "host-oh-my-pi-readme",
+      "url": "https://github.com/can1357/oh-my-pi/blob/0b5c27ab24719c86a5986b95ee55f4e75bc1aaa0/README.md",
+      "title": "oh-my-pi（OMP） 固定版本 README",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "0b5c27ab24719c86a5986b95ee55f4e75bc1aaa0",
+      "file_blob_sha": "5a38c5af4d292056119f271c641466b860a43bca",
+      "source_type": "upstream_repository_documentation",
+      "observation_scope": "固定源码文档，不是本机运行或稳定发行版验证"
+    },
+    {
+      "source_id": "host-oh-my-pi-repository-metadata",
+      "url": "https://api.github.com/repos/can1357/oh-my-pi",
+      "title": "oh-my-pi（OMP） 仓库元数据",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_repository_metadata",
+      "observed_default_branch": "main",
+      "observed_license_spdx": "MIT",
+      "observed_archived": false
+    },
+    {
+      "source_id": "host-openhands-readme",
+      "url": "https://github.com/OpenHands/OpenHands/blob/8fdd6859aee5779ebbc12e44dc32823d7cb08527/README.md",
+      "title": "OpenHands 固定版本 README",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "8fdd6859aee5779ebbc12e44dc32823d7cb08527",
+      "file_blob_sha": "54f41832322ab4701c202a102cd4db23e3e4dc3a",
+      "source_type": "upstream_repository_documentation",
+      "observation_scope": "固定源码文档，不是本机运行或稳定发行版验证"
+    },
+    {
+      "source_id": "host-openhands-repository-metadata",
+      "url": "https://api.github.com/repos/OpenHands/OpenHands",
+      "title": "OpenHands 仓库元数据",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_repository_metadata",
+      "observed_default_branch": "main",
+      "observed_license_spdx": "MIT",
+      "observed_archived": false
+    },
+    {
+      "source_id": "host-cline-readme",
+      "url": "https://github.com/cline/cline/blob/1619168bdeb570aa233d0f0a9af1d332d83a2816/README.md",
+      "title": "Cline 固定版本 README",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "1619168bdeb570aa233d0f0a9af1d332d83a2816",
+      "file_blob_sha": "1b870599c7e12943b5a71b69c975744d61cbc25a",
+      "source_type": "upstream_repository_documentation",
+      "observation_scope": "固定源码文档，不是本机运行或稳定发行版验证"
+    },
+    {
+      "source_id": "host-cline-repository-metadata",
+      "url": "https://api.github.com/repos/cline/cline",
+      "title": "Cline 仓库元数据",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_repository_metadata",
+      "observed_default_branch": "main",
+      "observed_license_spdx": "Apache-2.0",
+      "observed_archived": false
+    },
+    {
+      "source_id": "host-aider-readme",
+      "url": "https://github.com/Aider-AI/aider/blob/5dc9490bb35f9729ef2c95d00a19ccd30c26339c/README.md",
+      "title": "Aider 固定版本 README",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "5dc9490bb35f9729ef2c95d00a19ccd30c26339c",
+      "file_blob_sha": "816c876cb67021fa9f8d37267c8e57923eabdb07",
+      "source_type": "upstream_repository_documentation",
+      "observation_scope": "固定源码文档，不是本机运行或稳定发行版验证"
+    },
+    {
+      "source_id": "host-aider-repository-metadata",
+      "url": "https://api.github.com/repos/Aider-AI/aider",
+      "title": "Aider 仓库元数据",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_repository_metadata",
+      "observed_default_branch": "main",
+      "observed_license_spdx": "Apache-2.0",
+      "observed_archived": false
+    },
+    {
+      "source_id": "host-pi-readme",
+      "url": "https://github.com/earendil-works/pi/blob/ede2c9b468d8e061c557d16957513715e6d49cd6/packages/coding-agent/README.md",
+      "title": "Pi 固定版本 README",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "ede2c9b468d8e061c557d16957513715e6d49cd6",
+      "file_blob_sha": "db40c5e12c00d7a068a9642744dc6a9af528a099",
+      "source_type": "upstream_repository_documentation",
+      "observation_scope": "固定源码文档，不是本机运行或稳定发行版验证"
+    },
+    {
+      "source_id": "host-pi-repository-metadata",
+      "url": "https://api.github.com/repos/earendil-works/pi",
+      "title": "Pi 仓库元数据",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_repository_metadata",
+      "observed_default_branch": "main",
+      "observed_license_spdx": "MIT",
+      "observed_archived": false
+    },
+    {
+      "source_id": "adjacent-serena-readme",
+      "url": "https://github.com/oraios/serena/blob/abb0a0f01b94bc8050086f0fb860077d17730324/README.md",
+      "title": "Serena 固定版本 README",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "abb0a0f01b94bc8050086f0fb860077d17730324",
+      "file_blob_sha": "5cc92d57faf8fa44e9fb868ba69852314162888b",
+      "source_type": "upstream_repository_documentation"
+    },
+    {
+      "source_id": "adjacent-llmlingua-readme",
+      "url": "https://github.com/microsoft/LLMLingua/blob/5a4c78ae18ab17a98cf997e8259354e546081d64/README.md",
+      "title": "LLMLingua 固定版本 README",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "5a4c78ae18ab17a98cf997e8259354e546081d64",
+      "file_blob_sha": "1ca17bc04f61ed8cad86d566a924d7e8f36e030a",
+      "source_type": "upstream_repository_documentation"
+    },
+    {
+      "source_id": "adjacent-toon-readme",
+      "url": "https://github.com/toon-format/toon/blob/e247c423e0a38bca3477b17fecdf6ef4feeb5584/README.md",
+      "title": "TOON 固定版本 README",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "e247c423e0a38bca3477b17fecdf6ef4feeb5584",
+      "file_blob_sha": "afb4c23ddc542f9e598ded7165114856ee584656",
+      "source_type": "upstream_repository_documentation"
+    },
+    {
+      "source_id": "adjacent-karpathy-inspired-guidelines-readme",
+      "url": "https://github.com/multica-ai/andrej-karpathy-skills/blob/2c606141936f1eeef17fa3043a72095b4765b9c2/README.md",
+      "title": "Karpathy-Inspired Claude Code Guidelines 固定版本 README",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "2c606141936f1eeef17fa3043a72095b4765b9c2",
+      "file_blob_sha": "7cf07a786532bebe01c65179c8e2c3a98cc0a09b",
+      "source_type": "upstream_repository_documentation"
+    },
+    {
+      "source_id": "adjacent-spec-kit-readme",
+      "url": "https://github.com/github/spec-kit/blob/27d14e20c187c1f2916540ea201ecbdc9f8ed588/README.md",
+      "title": "Spec Kit 固定版本 README",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "27d14e20c187c1f2916540ea201ecbdc9f8ed588",
+      "file_blob_sha": "0d6d47f276feeda1afc2fe98b3ae653cd4b40fb4",
+      "source_type": "upstream_repository_documentation"
+    },
+    {
+      "source_id": "adjacent-bmad-method-readme",
+      "url": "https://github.com/bmad-code-org/BMAD-METHOD/blob/61e01f82644c4bb533750cfa0d6d61ab61d2cc9b/README.md",
+      "title": "BMad Method 固定版本 README",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "61e01f82644c4bb533750cfa0d6d61ab61d2cc9b",
+      "file_blob_sha": "08c6425912ff5db8eff25559c4d9765b37877bff",
+      "source_type": "upstream_repository_documentation"
+    },
+    {
+      "source_id": "host-claude-code-license",
+      "url": "https://github.com/anthropics/claude-code/blob/65823ec0034ed0aa0266bc43903fefd3ff94a327/LICENSE.md",
+      "title": "anthropics/claude-code LICENSE",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "65823ec0034ed0aa0266bc43903fefd3ff94a327",
+      "file_blob_sha": "645a5d67c6d1e16437bec850dad5bd3b6c81f77c",
+      "source_type": "upstream_license_file"
+    },
+    {
+      "source_id": "adjacent-serena-license",
+      "url": "https://github.com/oraios/serena/blob/abb0a0f01b94bc8050086f0fb860077d17730324/LICENSE",
+      "title": "oraios/serena LICENSE",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "abb0a0f01b94bc8050086f0fb860077d17730324",
+      "file_blob_sha": "c738366dedbd850de1fc01a0d4d2777b23370e84",
+      "source_type": "upstream_license_file"
+    },
+    {
+      "source_id": "adjacent-bmad-method-license",
+      "url": "https://github.com/bmad-code-org/BMAD-METHOD/blob/61e01f82644c4bb533750cfa0d6d61ab61d2cc9b/LICENSE",
+      "title": "bmad-code-org/BMAD-METHOD LICENSE",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "61e01f82644c4bb533750cfa0d6d61ab61d2cc9b",
+      "file_blob_sha": "557212d307dbed13aa72e8f158c9e4a626a3243a",
+      "source_type": "upstream_license_file"
+    },
+    {
+      "source_id": "host-openhands-sdk-readme",
+      "url": "https://github.com/OpenHands/software-agent-sdk/blob/dd0892c80fffb1e59bac77242adafbd8b1168649/README.md",
+      "title": "OpenHands Software Agent SDK 固定版本 README",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": "dd0892c80fffb1e59bac77242adafbd8b1168649",
+      "file_blob_sha": "386dc8945133cb51969192b0b29c8396719cbff6",
+      "source_type": "upstream_repository_documentation"
+    },
+    {
+      "source_id": "official-opencode-plugins",
+      "url": "https://opencode.ai/docs/plugins/",
+      "title": "OpenCode Plugins",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "official_live_documentation",
+      "observation_scope": "动态网页；没有假称固定到对应宿主源码commit"
+    },
+    {
+      "source_id": "official-opencode-skills",
+      "url": "https://opencode.ai/docs/skills/",
+      "title": "OpenCode Agent Skills",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "official_live_documentation",
+      "observation_scope": "动态网页；没有假称固定到对应宿主源码commit"
+    },
+    {
+      "source_id": "directory-skills-sh-documentation",
+      "url": "https://skills.sh/docs",
+      "title": "Skills CLI 排行与目录说明",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "official_live_documentation",
+      "observation_scope": "动态网页；没有假称固定到对应宿主源码commit"
+    },
+    {
+      "source_id": "specification-agent-skills",
+      "url": "https://agentskills.io/specification",
+      "title": "Agent Skills Specification",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "official_live_documentation",
+      "observation_scope": "动态网页；没有假称固定到对应宿主源码commit"
+    },
+    {
+      "source_id": "official-claude-code-plugins",
+      "url": "https://code.claude.com/docs/en/plugins",
+      "title": "Claude Code Plugins overview",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "official_live_documentation",
+      "observation_scope": "动态网页；没有假称固定到对应宿主源码commit"
+    },
+    {
+      "source_id": "official-codex-skills-redirect",
+      "url": "https://developers.openai.com/codex/skills",
+      "title": "Codex skills 文档入口（当前跳转 Build skills）",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "official_live_documentation",
+      "observation_scope": "动态网页；没有假称固定到对应宿主源码commit"
+    },
+    {
+      "source_id": "host-codex-agents-md",
+      "url": "https://github.com/openai/codex/blob/1c0c45bfc372fb7d7d581508fdef5eef8235eab7/docs/agents_md.md",
+      "title": "Codex AGENTS.md 文档入口",
+      "checked_at_utc": "2026-10-23T16:15:27Z",
+      "repository_commit_sha": "1c0c45bfc372fb7d7d581508fdef5eef8235eab7",
+      "file_blob_sha": "4fa02abd1d78a779dc8b6295e69429bcb5d7a129",
+      "source_type": "upstream_repository_documentation"
+    },
+    {
+      "source_id": "host-codex-exec-mode",
+      "url": "https://github.com/openai/codex/blob/1c0c45bfc372fb7d7d581508fdef5eef8235eab7/docs/exec.md",
+      "title": "Codex 非交互执行文档入口",
+      "checked_at_utc": "2026-10-23T16:15:27Z",
+      "repository_commit_sha": "1c0c45bfc372fb7d7d581508fdef5eef8235eab7",
+      "file_blob_sha": "57e432305bf70930fbbcbe808ab6c160dd266286",
+      "source_type": "upstream_repository_documentation"
+    },
+    {
+      "source_id": "host-codex-skills-documentation-pointer",
+      "url": "https://github.com/openai/codex/blob/1c0c45bfc372fb7d7d581508fdef5eef8235eab7/docs/skills.md",
+      "title": "Codex Skills 固定文档入口",
+      "checked_at_utc": "2026-10-23T16:15:27Z",
+      "repository_commit_sha": "1c0c45bfc372fb7d7d581508fdef5eef8235eab7",
+      "file_blob_sha": "a45e7d73917e4a5b67e3f417f2caaa8db6be248d",
+      "source_type": "upstream_repository_documentation"
+    },
+    {
+      "source_id": "host-pi-repository-redirect",
+      "url": "https://github.com/badlogic/pi-mono",
+      "title": "Pi 原仓库地址迁移观察",
+      "checked_at_utc": "2026-10-23T16:15:27Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_live_repository_redirect",
+      "observed_redirect_target": "https://github.com/earendil-works/pi"
+    },
+    {
+      "source_id": "adjacent-serena-repository-metadata",
+      "url": "https://api.github.com/repos/oraios/serena",
+      "title": "Serena 仓库元数据",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_repository_metadata",
+      "observation_scope": "用于默认分支和仓库级许可标识；不代替组件许可审计"
+    },
+    {
+      "source_id": "adjacent-llmlingua-repository-metadata",
+      "url": "https://api.github.com/repos/microsoft/LLMLingua",
+      "title": "LLMLingua 仓库元数据",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_repository_metadata",
+      "observation_scope": "用于默认分支和仓库级许可标识；不代替组件许可审计"
+    },
+    {
+      "source_id": "adjacent-toon-repository-metadata",
+      "url": "https://api.github.com/repos/toon-format/toon",
+      "title": "TOON 仓库元数据",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_repository_metadata",
+      "observation_scope": "用于默认分支和仓库级许可标识；不代替组件许可审计"
+    },
+    {
+      "source_id": "adjacent-karpathy-inspired-guidelines-repository-metadata",
+      "url": "https://api.github.com/repos/multica-ai/andrej-karpathy-skills",
+      "title": "Karpathy-Inspired Claude Code Guidelines 仓库元数据",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_repository_metadata",
+      "observation_scope": "用于默认分支和仓库级许可标识；不代替组件许可审计"
+    },
+    {
+      "source_id": "adjacent-spec-kit-repository-metadata",
+      "url": "https://api.github.com/repos/github/spec-kit",
+      "title": "Spec Kit 仓库元数据",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_repository_metadata",
+      "observation_scope": "用于默认分支和仓库级许可标识；不代替组件许可审计"
+    },
+    {
+      "source_id": "adjacent-bmad-method-repository-metadata",
+      "url": "https://api.github.com/repos/bmad-code-org/BMAD-METHOD",
+      "title": "BMad Method 仓库元数据",
+      "checked_at_utc": "2026-10-23T16:07:37Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_repository_metadata",
+      "observation_scope": "用于默认分支和仓库级许可标识；不代替组件许可审计"
+    }
+  ],
+  "research_notes": [
+    "所有宿主与邻近项目概览为文档调查，未安装或运行。",
+    "API license字段只作仓库元数据观察，关键分组件许可证另读LICENSE；unknown不推定为开源。",
+    "迁移、默认开发分支、产品表面及SDK边界保留，避免把不同实现拼成同一版本。"
+  ]
+}

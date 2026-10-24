@@ -1,0 +1,890 @@
+{
+  "projects": [
+    {
+      "project_id": "superpowers",
+      "name": "Superpowers",
+      "repository_url": "https://github.com/obra/superpowers",
+      "revision_observation": {
+        "commit_sha": "2ce8aa15d05bd57213e6f746f953aafb7ded7a8b",
+        "default_branch": "main",
+        "version": "v7.0.1",
+        "release_published_at": "2026-10-21T21:05:11Z",
+        "version_status": "latest_non_prerelease_observed",
+        "source_ids": [
+          "wf-superpowers-revision",
+          "wf-superpowers-release"
+        ]
+      },
+      "capability_categories": [
+        "完整开发工作流",
+        "需求澄清",
+        "信息分段呈现",
+        "TDD 与验证"
+      ],
+      "intervention_mechanism": "用可组合 skill 与启动指令串联澄清、设计、计划、实现、审查。brainstorming 先读项目上下文，明确任务可直接处理；有重要未知时通过开放式问题澄清，并在实现前呈现方案与设计。",
+      "packaging": [
+        "skillset",
+        "plugin",
+        "宿主适配器",
+        "可选视觉伴随工具"
+      ],
+      "components_and_license": [
+        {
+          "component": "主仓库 skill、脚本和文档",
+          "license": "MIT",
+          "license_source_id": "wf-superpowers-license",
+          "license_scope_note": "本次仅核对主仓库 LICENSE，外部宿主及依赖另计。"
+        }
+      ],
+      "activation_and_host_support": {
+        "declared_hosts": [
+          "Claude Code",
+          "Codex",
+          "Gemini CLI",
+          "OpenCode",
+          "Pi",
+          "Cursor",
+          "Kimi Code",
+          "GitHub Copilot CLI",
+          "Hermes",
+          "其他 README 列明宿主"
+        ],
+        "activation": "每个宿主分别安装；README 宣称自动触发。Pi 适配器在启动与 compaction 后注入 using-superpowers；具体激活仍需逐宿主验证。",
+        "verification_by_this_investigation": "只读核对上游，未安装或行为实测",
+        "source_ids": [
+          "wf-superpowers-readme"
+        ]
+      },
+      "declared_claims": [
+        {
+          "claim": "通过需求澄清、TDD、分步实现及审查减少偏离计划。",
+          "source_ids": [
+            "wf-superpowers-readme"
+          ]
+        }
+      ],
+      "interaction_policy": {
+        "presentation": "分段回放理解，正文尽量简洁；brainstorming 对已充分描述的请求首段约 200 英文词、理解回放约 200—300 词，均为指令目标而非效果统计。",
+        "questions": "优先开放式提问，每条消息一个问题；先读环境事实；用户卡住再给菜单。用户未主动要求 brainstorming 时提供跳过提问的出口。",
+        "risk": "强制方案选择和设计批准可能增加明确任务的交互成本；要测试这些分支在真实宿主是否被正确区分。",
+        "source_ids": [
+          "wf-superpowers-brainstorming"
+        ]
+      },
+      "published_evaluation_evidence": [
+        {
+          "evidence_type": "maintainer_behavior_evaluation_infrastructure",
+          "summary": "docs/testing 将非 LLM 插件测试与真实 CLI 行为 eval 分开；后者使用 actor/verifier、场景验收及确定性后检查。部分行为记录位于维护者外部 eval lab，不能把测试入口当全流程外部横评。",
+          "source_ids": [
+            "wf-superpowers-testing"
+          ]
+        },
+        {
+          "evidence_type": "maintainer_narrow_regression_study",
+          "scope": "2026-07-06 SDD 工作区恢复；fresh Sonnet subagents、手工逐条评分，非完整开发能力评测。",
+          "sample_size": "RED 阶段 25 次 controller repetitions",
+          "finding": "预期的盲信异任务 ledger 错误没有复现，25/25 拒绝错误完成声明；作者据结构性问题继续修改，并明确不声称该实验展示原先假设的错误率。",
+          "source_ids": [
+            "wf-superpowers-resume-eval"
+          ]
+        }
+      ],
+      "longitudinal_observation": {
+        "change": "v7.0.1 发布说明承认 v7.0.0 默认提问令人厌烦、公式化，随后调整为先查上下文、问题贴合已有请求。",
+        "interpretation": "即使项目名称不变，交互策略也会显著变化，评价必须固定 skill 版本。",
+        "source_ids": [
+          "wf-superpowers-release"
+        ]
+      },
+      "limitations": [
+        "未观察到覆盖上述完整工作流、与同类方案配对的独立公开效益评测；这仅描述本次检索范围。",
+        "窄场景行为合规不能证明质量、成本和用户体验整体更优。",
+        "英文 word budget 不能直接转换为中文可读性结论。"
+      ],
+      "source_ids": [
+        "wf-superpowers-readme",
+        "wf-superpowers-brainstorming",
+        "wf-superpowers-license",
+        "wf-superpowers-testing",
+        "wf-superpowers-release",
+        "wf-superpowers-revision",
+        "wf-superpowers-resume-eval"
+      ]
+    },
+    {
+      "project_id": "gstack",
+      "name": "gstack",
+      "repository_url": "https://github.com/garrytan/gstack",
+      "revision_observation": {
+        "commit_sha": "b04cc35832183a89ed71eed628de15a6f315a1a8",
+        "default_branch": "main",
+        "version": "1.91.182.0",
+        "version_source": "VERSION",
+        "github_releases_observation": "releases?per_page=3 返回空列表，不据此推断不存在标签或其他发行渠道。",
+        "source_ids": [
+          "wf-gstack-version",
+          "wf-gstack-revision",
+          "wf-gstack-releases"
+        ]
+      },
+      "capability_categories": [
+        "角色化开发工作流",
+        "需求与产品决策澄清",
+        "信息呈现",
+        "验证与审查"
+      ],
+      "intervention_mechanism": "通过角色化 slash commands、运行时脚本、问题记录与偏好控制组合产品判断、设计、工程审查和验证。office-hours 把选择组织成包含背景、推荐和权衡的 decision brief。",
+      "packaging": [
+        "skillset",
+        "CLI 辅助工具",
+        "运行时状态与偏好记录",
+        "宿主集成"
+      ],
+      "components_and_license": [
+        {
+          "component": "主仓库",
+          "license": "MIT",
+          "license_source_id": "wf-gstack-license",
+          "license_scope_note": "外部浏览器、宿主及模型服务未计入。"
+        }
+      ],
+      "activation_and_host_support": {
+        "declared_primary_host": "Claude Code",
+        "other_support": "README 说明 OpenClaw 经 ACP 启动已安装 gstack 的 Claude Code；其他宿主逐适配器核对，不能自动视为同等能力。",
+        "activation": "通过命令显式调用工作流；运行时 preamble 和状态门控会影响行为。",
+        "verification_by_this_investigation": "只读核对，未安装或运行工作流",
+        "source_ids": [
+          "wf-gstack-readme",
+          "wf-gstack-office-hours"
+        ]
+      },
+      "declared_claims": [
+        {
+          "claim": "README 用维护者跨年份自身产出及 logical code change 展示生产率提升；这些观察不是将 gstack 与无扩展配对的因果实验证据。",
+          "source_ids": [
+            "wf-gstack-readme"
+          ]
+        }
+      ],
+      "interaction_policy": {
+        "presentation": "decision brief 解释决策背景和 stakes，给推荐、选项权衡；覆盖程度不同才使用 Completeness 分数，类型不同的方案不应伪造分数。要求报告 DONE 等状态时带执行证据和未独立验证内容。",
+        "questions": "高影响歧义先澄清；问题偏好系统可自动处理已记录的用户偏好。实际 native 工具、prose fallback 与 spawned/unattended 路径不同。",
+        "tradeoff": "结构与证据要求有助审阅，但长 preamble、多项 pros/cons 和完整度导向也可能增加阅读量；需要真实用户任务的评价。",
+        "source_ids": [
+          "wf-gstack-office-hours"
+        ]
+      },
+      "published_evaluation_evidence": [
+        {
+          "evidence_type": "maintainer_native_interaction_and_runtime_tests",
+          "summary": "测试文档说明隔离配置、真实 native AskUserQuestion payload 与当前界面的配对抓取。question_captured 明确 workflowCompleted:false；第一题捕获不是完整工作流成功。",
+          "source_ids": [
+            "wf-gstack-testing"
+          ]
+        },
+        {
+          "evidence_type": "maintainer_model_eval_policy",
+          "summary": "支持以配置限制评测模型及最新代次，记录 scope 和来源；这是项目内模型选择与评测治理机制，并不等于跨所有插件的独立持续排行榜。",
+          "source_ids": [
+            "wf-gstack-eval-model-rules"
+          ]
+        }
+      ],
+      "limitations": [
+        "未在本次读取的材料中确认完整工作流对照用户实验或统一成本/质量改善幅度。",
+        "内部原生交互测试验证行为与证据链，不直接测量人类认知负担。",
+        "自动更新和运行时偏好可能改变同一项目名下的干预，基准须冻结版本与状态。"
+      ],
+      "source_ids": [
+        "wf-gstack-readme",
+        "wf-gstack-office-hours",
+        "wf-gstack-license",
+        "wf-gstack-testing",
+        "wf-gstack-eval-model-rules",
+        "wf-gstack-version",
+        "wf-gstack-revision",
+        "wf-gstack-releases"
+      ]
+    },
+    {
+      "project_id": "gsd-core",
+      "name": "GSD Core",
+      "repository_url": "https://github.com/open-gsd/gsd-core",
+      "revision_observation": {
+        "commit_sha": "6ddd0cef9cb26673bd8321c5480c0814a92d54cb",
+        "default_branch": "next",
+        "latest_non_prerelease_tag": "v1.18.0",
+        "latest_non_prerelease_commit_sha": "35f5a452239b897b8d6352c973e1e4efd683370f",
+        "release_published_at": "2026-10-19T00:04:03Z",
+        "stable_and_default_comparison": "本次读取的 README 与 questioning.md 在 next 和 v1.18.0 的文件 blob SHA 相同；仓库 commit 不同，不能推断其他行为也相同。",
+        "source_ids": [
+          "wf-gsd-revision",
+          "wf-gsd-release",
+          "wf-gsd-stable-revision",
+          "wf-gsd-readme",
+          "wf-gsd-stable-readme",
+          "wf-gsd-questioning",
+          "wf-gsd-stable-questioning"
+        ]
+      },
+      "capability_categories": [
+        "完整分阶段开发工作流",
+        "上下文管理",
+        "需求澄清",
+        "决策持久化"
+      ],
+      "intervention_mechanism": "Discuss→Plan→Execute→Verify→Ship 分阶段推进，重任务交给 fresh-context 执行者，主会话保留协调与持久化文档。讨论阶段将决策写入 CONTEXT.md，供研究与计划阶段消费。",
+      "packaging": [
+        "workflow framework",
+        "commands",
+        "agents",
+        "宿主适配安装器",
+        "持久化项目工件"
+      ],
+      "components_and_license": [
+        {
+          "component": "主仓库",
+          "license": "MIT",
+          "license_source_id": "wf-gsd-license",
+          "license_scope_note": "不包含宿主与外部服务的许可判断。"
+        }
+      ],
+      "activation_and_host_support": {
+        "declared_hosts": [
+          "Claude Code",
+          "OpenCode",
+          "Codex",
+          "Kimi CLI",
+          "Kilo",
+          "GitHub Copilot",
+          "Cursor",
+          "Windsurf",
+          "Antigravity CLI",
+          "其他 README 列明宿主"
+        ],
+        "activation": "文档要求通过安装器生成 runtime 适配，不应仅复制 agents/commands 后认定兼容；流程支持显式命令与不同讨论模式。",
+        "verification_by_this_investigation": "只读核对，未安装和实测",
+        "source_ids": [
+          "wf-gsd-readme"
+        ]
+      },
+      "declared_claims": [
+        {
+          "claim": "通过 fresh context 与持久状态缓解 context rot，并用阶段验证提升可靠性；未给可直接比较的统一效率数值。",
+          "source_ids": [
+            "wf-gsd-readme"
+          ]
+        }
+      ],
+      "interaction_policy": {
+        "presentation": "将当前阶段、已锁定偏好和下游可消费的 CONTEXT.md 分开；discussion audit trail 记录讨论。",
+        "questions": "初始化先开放探索、沿用户线索追问，明确目的、受众和完成条件；具体选项有助确认，不应使用诱导选项。阶段讨论只问未在先前 CONTEXT.md 解决的问题，并在发现灰区前 scout 代码。",
+        "modes": "支持 --auto 推荐默认、--batch 分组及其他懒加载模式；对非技术用户转为产品结果语言。",
+        "source_ids": [
+          "wf-gsd-questioning",
+          "wf-gsd-phase-discussion",
+          "wf-gsd-discussion-audit",
+          "wf-gsd-discuss-workflow"
+        ]
+      },
+      "published_evaluation_evidence": [
+        {
+          "evidence_type": "implementation_and_release_evidence_only",
+          "summary": "本次核查了实际讨论规则、阶段工件契约与稳定发布；没有运行项目测试，也未确认与其他完整 workflow 在同组任务上的独立效益评测。",
+          "source_ids": [
+            "wf-gsd-discuss-workflow",
+            "wf-gsd-release"
+          ]
+        }
+      ],
+      "limitations": [
+        "主会话上下文变小并不代表所有 subagents 的总 token 或总成本降低。",
+        "版本、讨论模式、并行度、状态文件与自动默认会共同影响结果，必须作为实验条件冻结。",
+        "仓库默认分支 next 与稳定 tag 分开；旧 gsd-build/get-shit-done 名称不能作为当前版本身份。"
+      ],
+      "source_ids": [
+        "wf-gsd-readme",
+        "wf-gsd-questioning",
+        "wf-gsd-phase-discussion",
+        "wf-gsd-discussion-audit",
+        "wf-gsd-discuss-workflow",
+        "wf-gsd-license",
+        "wf-gsd-release",
+        "wf-gsd-revision",
+        "wf-gsd-stable-revision",
+        "wf-gsd-stable-readme",
+        "wf-gsd-stable-questioning"
+      ]
+    }
+  ],
+  "benchmarks": [
+    {
+      "benchmark_id": "skillsbench",
+      "name": "SkillsBench",
+      "repository_url": "https://github.com/benchflow-ai/skillsbench",
+      "revision_observation": {
+        "commit_sha": "f860ecf02ef53412a030f8661c83d644b739ff01",
+        "default_branch": "main",
+        "current_published_task_set": "v1.1",
+        "published_task_set_commit_sha": "b63b7b2850226b6aa4fb5929a8c1ac7bc4d9a6af",
+        "registry_file_blob_sha": "c3888744899679548beaa65d147369535de85135",
+        "runner_constraint": ">=0.6.3,<0.7",
+        "source_ids": [
+          "bench-skillsbench-registry",
+          "bench-skillsbench-release",
+          "bench-skillsbench-revision"
+        ]
+      },
+      "comparison_unit": "同一个任务、模型+harness 配置，在 no-Skills 与任务专属 curated Skills bundle 条件下的配对差异；不是任意同类插件的直接横向排行榜。",
+      "dataset": {
+        "task_count": 87,
+        "domains": 8,
+        "software_engineering_tasks": 16,
+        "excluded_extra_tasks": 14,
+        "source_ids": [
+          "bench-skillsbench-release",
+          "bench-skillsbench-v1-1-post"
+        ]
+      },
+      "intervention": "挂载任务专属 Skills；指令不显式点名 Skills。self-generated 条件另行评价。harness 自带 Skills 当作宿主一部分，和外部任务 Skills 分开。",
+      "published_evaluation_evidence": [
+        {
+          "evidence_type": "upstream_paper_aggregate_and_current_public_leaderboard",
+          "measurement_scope": "发布说明对 v1.1 论文汇总及当前公共排行榜的说明，非本任务复跑",
+          "models_and_harnesses": "论文 18 个 model-harness 配置，四类宿主 Claude Code、Codex、Gemini CLI、OpenHands；当前网站 24 个配对配置与 1 个单边 with-Skills 配置。",
+          "tasks_and_repetitions": "87 tasks × 3 trials × 18 configs × 2 paired conditions = 9,396 scored trajectories（上游汇总）。",
+          "reported_result": {
+            "mean_resolution_without_skills_percent": 33.9,
+            "mean_resolution_with_skills_percent": 50.5,
+            "absolute_gain_percentage_points": 16.6
+          },
+          "quality_verification": "任务 deterministic tests、withheld oracle；先验证 oracle；记录 skill-invocation rate。",
+          "source_ids": [
+            "bench-skillsbench-v1-1-post",
+            "bench-skillsbench-current-site"
+          ]
+        }
+      ],
+      "public_reproduction_materials": "GitHub versioned tasks/registry/digests、HF 数据及公开 trajectory 数据集；本次核对 registry 每个 v1.1 条目都固定到上述 task-set commit。",
+      "model_release_tracking": {
+        "observed": "网站展示多代模型的 release-date 图，注明发布日期月份部分是近似编辑估计；网站当前快照写 recomputed 2026-07-16。",
+        "not_established": "没有在本次核查材料中确认每次模型发布都触发完整重跑、固定扩展版本及固定宿主版本的公开保证。不能将多代模型点图本身当连续受控监测。",
+        "source_ids": [
+          "bench-skillsbench-current-site",
+          "bench-skillsbench-agentbeats-sync"
+        ]
+      },
+      "license": {
+        "identifier": "Apache-2.0",
+        "source_ids": [
+          "bench-skillsbench-license"
+        ]
+      },
+      "limitations": [
+        "同一任务的 bundled domain skills 与 Caveman/Ponytail 等通用干预不是同一个比较问题。",
+        "论文历史 v1 是 86 个构造任务／84 个实际评估任务；不得和当前 87-task v1.1 的汇总混用。",
+        "AgentBeats 同步文档维护任务集版本，不能据此断言所有新模型自动纳入。",
+        "公开展示支持跨模型查询，但因果比较仍须匹配 harness、skill 内容、任务版本、日期和采样条件。"
+      ],
+      "source_ids": [
+        "bench-skillsbench-readme",
+        "bench-skillsbench-license",
+        "bench-skillsbench-registry",
+        "bench-skillsbench-agentbeats-sync",
+        "bench-skillsbench-release",
+        "bench-skillsbench-revision",
+        "bench-skillsbench-current-site",
+        "bench-skillsbench-v1-1-post"
+      ]
+    },
+    {
+      "benchmark_id": "swe-skills-bench",
+      "name": "SWE-Skills-Bench",
+      "repository_url": "https://github.com/GeniusHTX/SWE-Skills-Bench",
+      "revision_observation": {
+        "github_commit_sha": "unknown",
+        "github_access": "本次 GitHub API 返回 404",
+        "paper_version": "arXiv:2603.15401v1 (2026-03-16)",
+        "dataset_repository_url": "https://huggingface.co/datasets/GeniusHTX/SWE-Skills-Bench",
+        "dataset_commit_sha": "a111a9d9e53722c7aafd951830b459b08439f2da",
+        "dataset_last_modified": "2026-08-19T00:14:01.000Z",
+        "source_ids": [
+          "bench-swe-skills-paper-v1",
+          "bench-swe-skills-hf-card",
+          "bench-swe-skills-hf-metadata",
+          "bench-swe-skills-github-unavailable"
+        ]
+      },
+      "comparison_unit": "每个 curated skill 所配真实仓库任务，在 with-skill 与 no-skill 下满足 acceptance criteria 的差异。",
+      "dataset": {
+        "skill_count": 49,
+        "reported_task_instances_approximately": 565,
+        "domains": 6,
+        "public_hf_row_count": 49,
+        "row_count_note": "49 是 HF skills/task bundles 行数，不是 565 个断言或实验实例的同一计量单位。",
+        "source_ids": [
+          "bench-swe-skills-paper-v1",
+          "bench-swe-skills-hf-card",
+          "bench-swe-skills-hf-metadata"
+        ]
+      },
+      "published_evaluation_evidence": [
+        {
+          "evidence_type": "paper_reported_preliminary_experiment",
+          "model": "Claude Haiku 4.5",
+          "harness": "Claude Code；论文未在读取段落精确固定 CLI 版本",
+          "environment": "Ubuntu 24.04 CPU-only Docker，per-task resource limits",
+          "activation": "SKILL.md 放项目根目录，agent 自主发现应用；没有显式激活提示。",
+          "repetitions": "论文读取的实验设置未明确给每个相同 task-condition 的独立重复次数，记 unknown。",
+          "reported_result": {
+            "skills_without_pass_rate_change": 39,
+            "total_skills": 49,
+            "mean_without_skills_pass_rate_percent": 89.8,
+            "mean_with_skills_pass_rate_percent": 91,
+            "absolute_gain_percentage_points": 1.2,
+            "mean_total_token_change_percent": 10.5,
+            "max_zero_gain_token_overhead_percent": 450.8
+          },
+          "measurement_denominator": "论文 Token Cost 为 agent 总 input+output tokens；不是 USD 实际账单，未分 cached input/reasoning streams。",
+          "quality_verification": "文档定义的确定性 pytest acceptance checks；论文标注 preliminary results/work in progress。",
+          "source_ids": [
+            "bench-swe-skills-paper-v1"
+          ]
+        }
+      ],
+      "public_reproduction_materials": "作者 HF 数据卡与 dataset API 当前可达，含 skill_document、test_code、repo_url、repo_commit、docker_image 字段；论文所指 GitHub repo 当前连接返回 404，不能在本次确认完整 runner 及原始轨迹可复现。",
+      "model_release_tracking": {
+        "observed": "读取的原始论文是单一 Haiku 4.5/Claude Code 实验；HF 当前卡无公开多代模型持续排行榜。",
+        "not_established": "未核实新模型发布触发的重复评测或同一干预的时间序列。",
+        "source_ids": [
+          "bench-swe-skills-paper-v1",
+          "bench-swe-skills-hf-card"
+        ]
+      },
+      "license": {
+        "identifier": "MIT (HF 数据卡声明)",
+        "scope_note": "无法核对当前 GitHub LICENSE；不把 HF 元数据许可自动扩展到不可达 runner。",
+        "source_ids": [
+          "bench-swe-skills-hf-card"
+        ]
+      },
+      "limitations": [
+        "自主发现且不显式激活时，实际读到 skill 的比例是重要混杂；论文均值不能解释为所有已激活 skill 的因果收益。",
+        "该模型、任务和激活设置下的低平均增益不能推广到所有模型或所有 workflow。",
+        "+1.2 是百分点变化；450.8% 是总 token 增幅，不能写成美元成本增加 451%。",
+        "HF 字段定义声称固定 repo_commit；未逐行验证全部条目完整性。"
+      ],
+      "source_ids": [
+        "bench-swe-skills-paper-v1",
+        "bench-swe-skills-hf-card",
+        "bench-swe-skills-hf-metadata",
+        "bench-swe-skills-github-unavailable"
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "source_id": "wf-superpowers-readme",
+      "url": "https://github.com/obra/superpowers/blob/2ce8aa15d05bd57213e6f746f953aafb7ded7a8b/README.md",
+      "title": "obra/superpowers README.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "2ce8aa15d05bd57213e6f746f953aafb7ded7a8b",
+      "file_blob_sha": "c5bb59fdaf17ba154e803c549cd71a73ef36c24b",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "wf-superpowers-brainstorming",
+      "url": "https://github.com/obra/superpowers/blob/2ce8aa15d05bd57213e6f746f953aafb7ded7a8b/skills/brainstorming/SKILL.md",
+      "title": "obra/superpowers skills/brainstorming/SKILL.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "2ce8aa15d05bd57213e6f746f953aafb7ded7a8b",
+      "file_blob_sha": "7f5eef02f894c4f24cea313660c0465ce9c084ed",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "wf-superpowers-license",
+      "url": "https://github.com/obra/superpowers/blob/2ce8aa15d05bd57213e6f746f953aafb7ded7a8b/LICENSE",
+      "title": "obra/superpowers LICENSE",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "2ce8aa15d05bd57213e6f746f953aafb7ded7a8b",
+      "file_blob_sha": "abf0390320aa14406af7a520b9b0739fdda9bf08",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "wf-superpowers-testing",
+      "url": "https://github.com/obra/superpowers/blob/2ce8aa15d05bd57213e6f746f953aafb7ded7a8b/docs/testing.md",
+      "title": "obra/superpowers docs/testing.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "2ce8aa15d05bd57213e6f746f953aafb7ded7a8b",
+      "file_blob_sha": "19f8aed23a61da34675303825a54a7a4a62294c2",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "wf-superpowers-resume-eval",
+      "url": "https://github.com/obra/superpowers/blob/2ce8aa15d05bd57213e6f746f953aafb7ded7a8b/docs/superpowers/specs/2026-07-06-sdd-plan-scoped-workspace-eval-results.md",
+      "title": "obra/superpowers docs/superpowers/specs/2026-07-06-sdd-plan-scoped-workspace-eval-results.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "2ce8aa15d05bd57213e6f746f953aafb7ded7a8b",
+      "file_blob_sha": "2ee1872cf8587c2720215e473128552b32366c5e",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "wf-superpowers-release",
+      "url": "https://api.github.com/repos/obra/superpowers/releases/tags/v7.0.1",
+      "title": "obra/superpowers releases/tags/v7.0.1",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "2ce8aa15d05bd57213e6f746f953aafb7ded7a8b",
+      "file_blob_sha": null,
+      "source_type": "upstream_release",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "wf-superpowers-revision",
+      "url": "https://api.github.com/repos/obra/superpowers/branches/main",
+      "title": "obra/superpowers branches/main",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "2ce8aa15d05bd57213e6f746f953aafb7ded7a8b",
+      "file_blob_sha": null,
+      "source_type": "upstream_revision_metadata",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "wf-gstack-readme",
+      "url": "https://github.com/garrytan/gstack/blob/b04cc35832183a89ed71eed628de15a6f315a1a8/README.md",
+      "title": "garrytan/gstack README.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "b04cc35832183a89ed71eed628de15a6f315a1a8",
+      "file_blob_sha": "2e2fd0eaae60ec7641eac0177e4784d396ce9325",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "wf-gstack-office-hours",
+      "url": "https://github.com/garrytan/gstack/blob/b04cc35832183a89ed71eed628de15a6f315a1a8/office-hours/SKILL.md",
+      "title": "garrytan/gstack office-hours/SKILL.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "b04cc35832183a89ed71eed628de15a6f315a1a8",
+      "file_blob_sha": "c22b3db499f43f6c6a627f5d9f7a48c18ab0f0da",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "wf-gstack-license",
+      "url": "https://github.com/garrytan/gstack/blob/b04cc35832183a89ed71eed628de15a6f315a1a8/LICENSE",
+      "title": "garrytan/gstack LICENSE",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "b04cc35832183a89ed71eed628de15a6f315a1a8",
+      "file_blob_sha": "35029511144443297cad2d26e4bac17d0e352f93",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "wf-gstack-testing",
+      "url": "https://github.com/garrytan/gstack/blob/b04cc35832183a89ed71eed628de15a6f315a1a8/docs/TESTING_INTERNALS.md",
+      "title": "garrytan/gstack docs/TESTING_INTERNALS.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "b04cc35832183a89ed71eed628de15a6f315a1a8",
+      "file_blob_sha": "aec69f4e7d43b283be9996027761679b02bd867a",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "wf-gstack-eval-model-rules",
+      "url": "https://github.com/garrytan/gstack/blob/b04cc35832183a89ed71eed628de15a6f315a1a8/docs/eval-models.md",
+      "title": "garrytan/gstack docs/eval-models.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "b04cc35832183a89ed71eed628de15a6f315a1a8",
+      "file_blob_sha": "406149101787ffe3667cd3e340efee04d1ab153e",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "wf-gstack-version",
+      "url": "https://github.com/garrytan/gstack/blob/b04cc35832183a89ed71eed628de15a6f315a1a8/VERSION",
+      "title": "garrytan/gstack VERSION",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "b04cc35832183a89ed71eed628de15a6f315a1a8",
+      "file_blob_sha": "1f6481848c913474912ae4d271f862dce74beec9",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "wf-gstack-revision",
+      "url": "https://api.github.com/repos/garrytan/gstack/branches/main",
+      "title": "garrytan/gstack branches/main",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "b04cc35832183a89ed71eed628de15a6f315a1a8",
+      "file_blob_sha": null,
+      "source_type": "upstream_revision_metadata",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "wf-gstack-releases",
+      "url": "https://api.github.com/repos/garrytan/gstack/releases?per_page=3",
+      "title": "garrytan/gstack releases?per_page=3",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "b04cc35832183a89ed71eed628de15a6f315a1a8",
+      "file_blob_sha": null,
+      "source_type": "upstream_release_collection",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "wf-gsd-readme",
+      "url": "https://github.com/open-gsd/gsd-core/blob/6ddd0cef9cb26673bd8321c5480c0814a92d54cb/README.md",
+      "title": "open-gsd/gsd-core README.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "6ddd0cef9cb26673bd8321c5480c0814a92d54cb",
+      "file_blob_sha": "82770333164cd599dfa2f1ee44cc66997913cc40",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "wf-gsd-license",
+      "url": "https://github.com/open-gsd/gsd-core/blob/6ddd0cef9cb26673bd8321c5480c0814a92d54cb/LICENSE",
+      "title": "open-gsd/gsd-core LICENSE",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "6ddd0cef9cb26673bd8321c5480c0814a92d54cb",
+      "file_blob_sha": "d47f8ea21c0c46de01da7f0f61f92d4bee44631b",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "wf-gsd-questioning",
+      "url": "https://github.com/open-gsd/gsd-core/blob/6ddd0cef9cb26673bd8321c5480c0814a92d54cb/gsd-core/references/questioning.md",
+      "title": "open-gsd/gsd-core gsd-core/references/questioning.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "6ddd0cef9cb26673bd8321c5480c0814a92d54cb",
+      "file_blob_sha": "14a03db3873a70ea48655154eba8974dde13fce4",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "wf-gsd-phase-discussion",
+      "url": "https://github.com/open-gsd/gsd-core/blob/6ddd0cef9cb26673bd8321c5480c0814a92d54cb/docs/features/phase-discussion.md",
+      "title": "open-gsd/gsd-core docs/features/phase-discussion.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "6ddd0cef9cb26673bd8321c5480c0814a92d54cb",
+      "file_blob_sha": "3efef70948fb160f0c348583074549d9a9760fdd",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "wf-gsd-discussion-audit",
+      "url": "https://github.com/open-gsd/gsd-core/blob/6ddd0cef9cb26673bd8321c5480c0814a92d54cb/docs/features/discussion-audit-trail.md",
+      "title": "open-gsd/gsd-core docs/features/discussion-audit-trail.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "6ddd0cef9cb26673bd8321c5480c0814a92d54cb",
+      "file_blob_sha": "4b84a178f21561e11ec0b5300c683bc5fd5dddef",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "wf-gsd-discuss-workflow",
+      "url": "https://github.com/open-gsd/gsd-core/blob/6ddd0cef9cb26673bd8321c5480c0814a92d54cb/gsd-core/workflows/discuss-phase.md",
+      "title": "open-gsd/gsd-core gsd-core/workflows/discuss-phase.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "6ddd0cef9cb26673bd8321c5480c0814a92d54cb",
+      "file_blob_sha": "54068f0007ca0bc91573ccf935cd1af97a935380",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "wf-gsd-stable-readme",
+      "url": "https://github.com/open-gsd/gsd-core/blob/35f5a452239b897b8d6352c973e1e4efd683370f/README.md",
+      "title": "open-gsd/gsd-core README.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "35f5a452239b897b8d6352c973e1e4efd683370f",
+      "file_blob_sha": "82770333164cd599dfa2f1ee44cc66997913cc40",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "wf-gsd-stable-questioning",
+      "url": "https://github.com/open-gsd/gsd-core/blob/35f5a452239b897b8d6352c973e1e4efd683370f/gsd-core/references/questioning.md",
+      "title": "open-gsd/gsd-core gsd-core/references/questioning.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "35f5a452239b897b8d6352c973e1e4efd683370f",
+      "file_blob_sha": "14a03db3873a70ea48655154eba8974dde13fce4",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "wf-gsd-release",
+      "url": "https://api.github.com/repos/open-gsd/gsd-core/releases/tags/v1.18.0",
+      "title": "open-gsd/gsd-core releases/tags/v1.18.0",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "35f5a452239b897b8d6352c973e1e4efd683370f",
+      "file_blob_sha": null,
+      "source_type": "upstream_release",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "wf-gsd-revision",
+      "url": "https://api.github.com/repos/open-gsd/gsd-core/branches/next",
+      "title": "open-gsd/gsd-core branches/next",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "6ddd0cef9cb26673bd8321c5480c0814a92d54cb",
+      "file_blob_sha": null,
+      "source_type": "upstream_revision_metadata",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "wf-gsd-stable-revision",
+      "url": "https://api.github.com/repos/open-gsd/gsd-core/commits/v1.18.0",
+      "title": "open-gsd/gsd-core commits/v1.18.0",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "35f5a452239b897b8d6352c973e1e4efd683370f",
+      "file_blob_sha": null,
+      "source_type": "upstream_revision_metadata",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "bench-skillsbench-readme",
+      "url": "https://github.com/benchflow-ai/skillsbench/blob/f860ecf02ef53412a030f8661c83d644b739ff01/README.md",
+      "title": "benchflow-ai/skillsbench README.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "f860ecf02ef53412a030f8661c83d644b739ff01",
+      "file_blob_sha": "ad4487830652ebc8aad76040a0239e88d981a794",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "bench-skillsbench-license",
+      "url": "https://github.com/benchflow-ai/skillsbench/blob/f860ecf02ef53412a030f8661c83d644b739ff01/LICENSE",
+      "title": "benchflow-ai/skillsbench LICENSE",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "f860ecf02ef53412a030f8661c83d644b739ff01",
+      "file_blob_sha": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "bench-skillsbench-registry",
+      "url": "https://github.com/benchflow-ai/skillsbench/blob/f860ecf02ef53412a030f8661c83d644b739ff01/registry.json",
+      "title": "benchflow-ai/skillsbench registry.json",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "f860ecf02ef53412a030f8661c83d644b739ff01",
+      "file_blob_sha": "c3888744899679548beaa65d147369535de85135",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "bench-skillsbench-agentbeats-sync",
+      "url": "https://github.com/benchflow-ai/skillsbench/blob/f860ecf02ef53412a030f8661c83d644b739ff01/docs/agentbeats-leaderboard-sync.md",
+      "title": "benchflow-ai/skillsbench docs/agentbeats-leaderboard-sync.md",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "f860ecf02ef53412a030f8661c83d644b739ff01",
+      "file_blob_sha": "04b2fdd5c35dda38c1d997dedf5469e815423983",
+      "source_type": "upstream_repository_file",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "bench-skillsbench-release",
+      "url": "https://api.github.com/repos/benchflow-ai/skillsbench/releases/tags/v1.1",
+      "title": "benchflow-ai/skillsbench releases/tags/v1.1",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "b63b7b2850226b6aa4fb5929a8c1ac7bc4d9a6af",
+      "file_blob_sha": null,
+      "source_type": "upstream_release",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "bench-skillsbench-revision",
+      "url": "https://api.github.com/repos/benchflow-ai/skillsbench/branches/main",
+      "title": "benchflow-ai/skillsbench branches/main",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "f860ecf02ef53412a030f8661c83d644b739ff01",
+      "file_blob_sha": null,
+      "source_type": "upstream_revision_metadata",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "bench-skillsbench-current-site",
+      "url": "https://www.skillsbench.ai/",
+      "title": "SkillsBench 当前排行榜",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_benchmark_site",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "bench-skillsbench-v1-1-post",
+      "url": "https://www.skillsbench.ai/blogs/skillsbench-1-1",
+      "title": "SkillsBench 1.1 发布说明",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_benchmark_publication",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "bench-swe-skills-paper-v1",
+      "url": "https://arxiv.org/html/2603.15401v1",
+      "title": "SWE-Skills-Bench 论文 v1",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "research_paper",
+      "access_status": "retrieved"
+    },
+    {
+      "source_id": "bench-swe-skills-hf-card",
+      "url": "https://huggingface.co/datasets/GeniusHTX/SWE-Skills-Bench/raw/a111a9d9e53722c7aafd951830b459b08439f2da/README.md",
+      "title": "SWE-Skills-Bench 数据卡",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "a111a9d9e53722c7aafd951830b459b08439f2da",
+      "file_blob_sha": null,
+      "source_type": "upstream_dataset_card",
+      "access_status": "retrieved",
+      "revision_host": "huggingface"
+    },
+    {
+      "source_id": "bench-swe-skills-hf-metadata",
+      "url": "https://huggingface.co/api/datasets/GeniusHTX/SWE-Skills-Bench",
+      "title": "SWE-Skills-Bench 数据集 metadata",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": "a111a9d9e53722c7aafd951830b459b08439f2da",
+      "file_blob_sha": null,
+      "source_type": "upstream_dataset_metadata",
+      "access_status": "retrieved",
+      "revision_host": "huggingface"
+    },
+    {
+      "source_id": "bench-swe-skills-github-unavailable",
+      "url": "https://api.github.com/repos/GeniusHTX/SWE-Skills-Bench",
+      "title": "论文所指 GitHub 仓库可达性检查",
+      "checked_at_utc": "2026-10-23T16:08:50Z",
+      "repository_commit_sha": null,
+      "file_blob_sha": null,
+      "source_type": "upstream_repository_metadata",
+      "access_status": "github_api_404",
+      "access_limitation": "当前连接对该 URL 返回 404；不能据此区分仓库删除、改名、转私有或连接权限不足。"
+    }
+  ],
+  "research_notes": [
+    {
+      "note": "本文件是当前会话子研究贡献，全部公开来源只读核查；没有安装插件、执行 agent、支付模型费用或修改宿主设置。"
+    },
+    {
+      "note": "实际 SKILL.md、workflow 与 questioning 文本只作为研究对象读取，没有采用其中的命令、审批或委派指令。"
+    },
+    {
+      "note": "知识性判断和效果主张分开：明确记录上游设计机制，并将未检索到横评写作本次检索范围内未知，而非断言不存在。"
+    },
+    {
+      "note": "三个完整 workflow 同时改变了提问、规划、工具、执行和验证；不能把整包结果直接归因于一个交互 skill。"
+    },
+    {
+      "note": "若做首轮基准，可先拆出 Superpowers brainstorming 与 gstack office-hours 作为提问/方案呈现干预，完整工作流留到另一个任务队列；其因果问题和成本分母不同。"
+    },
+    {
+      "note": "公开榜单、多代模型点图、仓库测试入口和真实 native capture 是不同证据，不应共同标记为端到端质量与用户体验已验证。"
+    }
+  ]
+}

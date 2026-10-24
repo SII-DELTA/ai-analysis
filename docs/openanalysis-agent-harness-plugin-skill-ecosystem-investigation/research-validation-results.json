@@ -1,0 +1,37 @@
+{
+  "status": "passed",
+  "validated_at_utc": "2026-10-24T20:22:31.964199+00:00",
+  "counts": {
+    "projects": 12,
+    "harnesses": 9,
+    "adjacent_projects": 6,
+    "benchmarks": 7,
+    "external_evaluations": 5,
+    "sources": 147,
+    "recommended_baseline_candidates": 8,
+    "research_notes": 23
+  },
+  "checks": [
+    "JSON 可解析；来源 ID 唯一且引用全部存在",
+    "重点项目、宿主和邻近项目固定完整 commit，来源 commit 与 blob 分开",
+    "固定 GitHub 文件 URL 与记录的 commit 一致，检查时间可解析",
+    "公开评测引用与项目关联完整",
+    "汇总内容、归一化研究备注及 SHA256 与四份调查记录一致",
+    "报告本地链接存在且无草稿占位符"
+  ],
+  "input_sha256_by_research_relative_path": {
+    "ecosystem-project-evidence-catalog.json": "b414c039534a8ba3930660500eba6fded9308dfa4a37f5640cfb555509f30276",
+    "research-contributions/harness-and-directory-evidence.json": "2382dc4abe31371cc98f7bf29fc5a2f3d23f6df425be116cf44a91e3692dc154",
+    "research-contributions/interaction-experience-evidence.json": "7fd0227921592a501b62befc4033dd46e38eaab9366624b160b4e7928074eeb1",
+    "research-contributions/token-efficiency-evidence.json": "3b30a80b7fa6ada6081975add19ef1bff68b11f86e88f9f5ffadcfde63490769",
+    "research-contributions/workflow-and-benchmark-evidence.json": "a2bbae1e034bef8f7b96aec0b99d176acc0ab48ed7a863de16db25914446ad12",
+    "README.md": "9550d81301a4fe0af9d02ecf763107c33e0a3a72311e06bab189ce9bd15162ff",
+    "validate_research_evidence_catalog.py": "56ca2c4eaab6b503e8c10e27efcc823b2915f180307dbf19cfd4e7d8aeb9eede"
+  },
+  "verification_boundaries": [
+    "检查目录结构与已采集证据的一致性，不验证上游实验结果真实或可复现",
+    "没有安装或运行被调查扩展，没有付费模型调用或公开 benchmark 复跑",
+    "没有执行远程链接可达性全量扫描；不可达材料及动态网页限制见来源记录",
+    "git diff --check 单独执行，不由本脚本冒充已完成"
+  ]
+}
