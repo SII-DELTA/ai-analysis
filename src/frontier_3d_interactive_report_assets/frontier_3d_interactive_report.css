@@ -269,6 +269,62 @@ select {
   white-space: nowrap;
 }
 
+.aa-frontier-geometry-toggle-and-explanation {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  width: min(360px, calc(100vw - 20px));
+}
+
+.aa-frontier-geometry-explanation-toggle {
+  padding: 4px 6px;
+  border: 1px solid #c9d1db;
+  border-radius: 4px;
+  color: #334155;
+  background: #ffffff;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.aa-frontier-geometry-explanation-toggle::after {
+  content: " ▾";
+}
+
+.aa-frontier-geometry-explanation-toggle[aria-expanded="true"]::after {
+  content: " ▴";
+}
+
+.aa-frontier-geometry-explanation-toggle:hover {
+  background: #eef1f4;
+}
+
+.aa-frontier-geometry-explanation-toggle:focus-visible {
+  outline: 2px solid #245c9a;
+  outline-offset: 2px;
+}
+
+.aa-frontier-geometry-explanation {
+  flex-basis: 100%;
+  margin: 0;
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.aa-frontier-geometry-explanation[hidden] {
+  display: none;
+}
+
+.aa-frontier-geometry-controls button:disabled {
+  color: #52606d;
+  background: #eef1f4;
+  cursor: not-allowed;
+}
+
 .aa-toolbar-field {
   display: inline-flex;
   align-items: center;
