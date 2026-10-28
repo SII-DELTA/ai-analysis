@@ -466,6 +466,8 @@ HTML 使用独立的 `frontier_3d_browser_projection/v1`。完整科学契约先
   各口径的显示点、未上图记录和谱系节点通过 `model_index` 引用，并保存坐标、分析资格及指标等差异。
 - 浏览器投影只带四口径显示并集的 logo；重复的分析资格存入
   `analysis_eligibility_definitions`，引用通过 `analysis_eligibility_index` 指向它。
+  重复的未上图解释存入 `excluded_model_explanation_definitions`，由
+  `excluded_model_explanation_index` 引用；浏览器展开后保留完整缺维、原因和目录缺席标记。
   与公共 panel 相同的坐标及与厂商表相同的身份字段通过继承还原。
 - 搜索需要的排除原因、UUID、基模型、推理档位、分析资格和口径 `description` 保留。
   `trend_residual_standard_deviation_units` 和厂商注册来源等审计字段留在完整科学契约。

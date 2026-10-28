@@ -367,7 +367,6 @@ def _build_lineage_payload(
             "panel": {
                 "release_date": rd.strftime("%Y-%m-%d") if pd.notna(rd) else "?",
                 "intelligence": _finite_float_or_none(r["intelligence"]),
-                "output_mtokens": _finite_float_or_none(r.get("output_mtokens")),
                 "output_speed": _finite_float_or_none(r["output_speed"]),
                 "eff_speed": _finite_float_or_none(r["eff_speed"]),
                 "cost_to_run": _finite_float_or_none(r["cost_to_run"]),

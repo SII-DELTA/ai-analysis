@@ -108,6 +108,12 @@
       "items": {
         "$ref": "#/$defs/eligibility"
       }
+    },
+    "excluded_model_explanation_definitions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/excludedModelExplanation"
+      }
     }
   },
   "required": [
@@ -571,6 +577,12 @@
         },
         "reasoning_level_sort_order": {
           "type": "integer"
+        },
+        "tier": {
+          "type": [
+            "string",
+            "null"
+          ]
         }
       },
       "required": [
@@ -625,12 +637,20 @@
         },
         "analysis_eligibility": {
           "$ref": "#/$defs/eligibility"
+        },
+        "tier": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "excluded_model_explanation_index": {
+          "type": "integer",
+          "minimum": 0
         }
       },
       "required": [
-        "model_index",
-        "missing_dimension_names",
-        "drop_reason"
+        "model_index"
       ],
       "additionalProperties": false,
       "not": {
@@ -638,7 +658,44 @@
           "analysis_eligibility",
           "analysis_eligibility_index"
         ]
-      }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "excluded_model_explanation_index"
+          ],
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "missing_dimension_names"
+                ]
+              },
+              {
+                "required": [
+                  "drop_reason"
+                ]
+              },
+              {
+                "required": [
+                  "is_absent_from_accepted_embedded_model_catalog_partition"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "required": [
+            "missing_dimension_names",
+            "drop_reason"
+          ],
+          "not": {
+            "required": [
+              "excluded_model_explanation_index"
+            ]
+          }
+        }
+      ]
     },
     "lineageReference": {
       "type": "object",
@@ -1290,6 +1347,28 @@
       "required": [
         "column_name",
         "label"
+      ],
+      "additionalProperties": false
+    },
+    "excludedModelExplanation": {
+      "type": "object",
+      "properties": {
+        "missing_dimension_names": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "drop_reason": {
+          "type": "string"
+        },
+        "is_absent_from_accepted_embedded_model_catalog_partition": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "missing_dimension_names",
+        "drop_reason"
       ],
       "additionalProperties": false
     }

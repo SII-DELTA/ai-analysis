@@ -129,3 +129,38 @@ def test_legacy_variant_group_labels_are_preserved_as_reference_differences():
     dataset_builder.validate_frontier_3d_visualization_dataset(migrated)
     expanded = dataset_builder.expand_frontier_3d_visualization_dataset_for_scene_consumers(migrated)
     assert expanded["metric_variants"]["effective__raw"]["three_dimensional_scene"]["displayed_model_markers"][0]["base_model_name"] == marker["base_model_name"]
+
+
+def test_repeated_excluded_explanations_are_referenced_without_losing_search_fields():
+    dataset = build_dataset()
+    original = copy.deepcopy(dataset)
+    projection = dataset_builder.build_frontier_3d_browser_projection(dataset)
+    projected_original = copy.deepcopy(projection)
+    reference_count = 0
+    for variant in projection["metric_variants"].values():
+        for reference in variant["excluded_models_with_drop_reason"]:
+            reference_count += 1
+            assert "excluded_model_explanation_index" in reference
+            assert "drop_reason" not in reference and "missing_dimension_names" not in reference
+    assert 0 < len(projection["excluded_model_explanation_definitions"]) < reference_count
+    expanded = dataset_builder.expand_frontier_3d_visualization_dataset_for_scene_consumers(projection)
+    scientific = dataset_builder.expand_frontier_3d_visualization_dataset_for_scene_consumers(dataset)
+    for key, variant in expanded["metric_variants"].items():
+        assert variant["excluded_models_with_drop_reason"] == scientific["metric_variants"][key]["excluded_models_with_drop_reason"]
+    expanded["metric_variants"]["effective__effective"]["excluded_models_with_drop_reason"][0]["missing_dimension_names"].append("合成修改")
+    assert projection == projected_original and dataset == original
+
+
+@pytest.mark.parametrize("invalid_reference", [-1, True, 999999])
+def test_excluded_explanation_indices_reject_wrong_type_and_out_of_bounds(invalid_reference):
+    projection = dataset_builder.build_frontier_3d_browser_projection(build_dataset())
+    projection["metric_variants"]["effective__effective"]["excluded_models_with_drop_reason"][0]["excluded_model_explanation_index"] = invalid_reference
+    with pytest.raises(ValueError, match="excluded_model_explanation_index"):
+        dataset_builder.validate_frontier_3d_browser_projection(projection)
+
+
+def test_excluded_explanation_reference_cannot_mix_conflicting_inline_fields():
+    projection = dataset_builder.build_frontier_3d_browser_projection(build_dataset())
+    projection["metric_variants"]["effective__effective"]["excluded_models_with_drop_reason"][0]["drop_reason"] = "与共享解释冲突"
+    with pytest.raises(ValueError, match="Schema"):
+        dataset_builder.validate_frontier_3d_browser_projection(projection)

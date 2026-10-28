@@ -1,10 +1,10 @@
 """W3 的可见行为：口径解释、搜索、固定比较、尺寸、触屏与窄屏。"""
 from playwright.sync_api import expect
 import pytest
-import copy
 import re
 
 from src.frontier_3d_self_contained_html_renderer import write_frontier_3d_self_contained_html_report
+from src.frontier_3d_visualization_dataset_builder import expand_frontier_3d_visualization_dataset_for_scene_consumers
 
 
 def test_search_identity_reasons_keyboard_and_pinned_comparison(frontier_page):
@@ -126,7 +126,7 @@ def test_preference_persistence_and_storage_failure(browser, synthetic_frontier_
 
 
 def test_legacy_v2_degrades_without_new_fields(frontier_page, synthetic_frontier_dataset, tmp_path):
-    dataset = copy.deepcopy(synthetic_frontier_dataset)
+    dataset = expand_frontier_3d_visualization_dataset_for_scene_consumers(synthetic_frontier_dataset)
     for definitions in [dataset["cost_metric_definitions"], dataset["speed_metric_definitions"]]:
         for definition in definitions.values():
             definition.pop("description", None)
@@ -207,7 +207,7 @@ def test_marker_css_pixels_match_actual_webgl_pixels_at_zoom_and_dpr(browser, sy
     for multiplier in [.5, 1, 1.5]:
         page.evaluate("value=>setFrontierMarkerSizeMultiplier(value)", multiplier)
         measured_widths = page.evaluate("""() => {
-          const d=frontierThreeDimensionalRendererDiagnostics, THREE=window.THREE;
+          const d=frontierThreeDimensionalRendererDiagnostics, THREE=d.verificationGeometryConstructors;
           const encoding=d.markerVisualEncodingSummary()[0];
           if (encoding.logoSizeAttenuation !== false) throw new Error('标记仍随透视衰减');
           const sprite=new THREE.Sprite(new THREE.SpriteMaterial({color:0xff00ff,sizeAttenuation:encoding.logoSizeAttenuation}));

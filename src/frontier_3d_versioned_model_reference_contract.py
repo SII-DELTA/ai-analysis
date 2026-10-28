@@ -25,11 +25,11 @@ LINEAGE_MODEL_INFORMATION_FIELD_NAMES = frozenset({
     "name", "model_uuid", "creator", "base_model_name", "lineage_family_key",
     "reasoning_level_label", "reasoning_level_sort_order",
 })
-EXCLUDED_MODEL_REFERENCE_FIELD_NAMES = frozenset({
+EXCLUDED_MODEL_EXPLANATION_FIELD_NAMES = (
     "missing_dimension_names", "drop_reason", "is_absent_from_accepted_embedded_model_catalog_partition",
-    "analysis_eligibility",
-})
-MODEL_REASONING_GROUP_INFORMATION_FIELD_NAMES = ("base_model_name", "reasoning_level_label", "reasoning_level_sort_order")
+)
+EXCLUDED_MODEL_REFERENCE_FIELD_NAMES = frozenset((*EXCLUDED_MODEL_EXPLANATION_FIELD_NAMES, "analysis_eligibility"))
+MODEL_REASONING_GROUP_INFORMATION_FIELD_NAMES = ("base_model_name", "tier", "reasoning_level_label", "reasoning_level_sort_order")
 TOP_LEVEL_SCIENTIFIC_CONTRACT_FIELD_NAMES = frozenset({
     "schema_version", "interactive_renderer", "generated_at", "data_date", "artificial_analysis_data_provenance",
     "graph_div_id", "initial_variant_key", "speed_scale", "cost_metric_definitions", "speed_metric_definitions",
@@ -138,6 +138,7 @@ def expand_frontier_3d_visualization_dataset_for_scene_consumers(dataset):
     result = copy.deepcopy(dataset)
     models = result.pop("models")
     eligibility_definitions = result.pop("analysis_eligibility_definitions", [])
+    excluded_model_explanation_definitions = result.pop("excluded_model_explanation_definitions", [])
     result["schema_version"] = LEGACY_SCENE_SCHEMA_VERSION
 
     def model_information(reference):
@@ -147,12 +148,17 @@ def expand_frontier_3d_visualization_dataset_for_scene_consumers(dataset):
         return {key: copy.deepcopy(value) for key, value in models[index].items() if key != "identity_resolution"}
 
     def expanded_reference_fields(reference):
-        fields = {key: value for key, value in reference.items() if key not in ("model_index", "analysis_eligibility_index")}
+        fields = {key: value for key, value in reference.items() if key not in ("model_index", "analysis_eligibility_index", "excluded_model_explanation_index")}
         if "analysis_eligibility_index" in reference:
             index = reference["analysis_eligibility_index"]
             if not isinstance(index, int) or isinstance(index, bool) or not 0 <= index < len(eligibility_definitions):
                 raise ValueError(f"analysis_eligibility_index 引用越界：{index!r}")
             fields["analysis_eligibility"] = copy.deepcopy(eligibility_definitions[index])
+        if "excluded_model_explanation_index" in reference:
+            index = reference["excluded_model_explanation_index"]
+            if not isinstance(index, int) or isinstance(index, bool) or not 0 <= index < len(excluded_model_explanation_definitions):
+                raise ValueError(f"excluded_model_explanation_index 引用越界：{index!r}")
+            fields.update(copy.deepcopy(excluded_model_explanation_definitions[index]))
         return fields
 
     for variant in result["metric_variants"].values():
@@ -314,6 +320,18 @@ def build_frontier_3d_browser_projection(dataset):
                 eligibility_index_by_serialized_definition[serialized] = len(eligibility_definitions)
                 eligibility_definitions.append(definition)
             reference["analysis_eligibility_index"] = eligibility_index_by_serialized_definition[serialized]
+    explanation_definitions = result.setdefault("excluded_model_explanation_definitions", [])
+    explanation_index_by_serialized_definition = {json.dumps(definition, ensure_ascii=False, sort_keys=True): index for index, definition in enumerate(explanation_definitions)}
+    for variant in result["metric_variants"].values():
+        for reference in variant["excluded_models_with_drop_reason"]:
+            if "excluded_model_explanation_index" in reference:
+                continue
+            explanation = {field: reference.pop(field) for field in EXCLUDED_MODEL_EXPLANATION_FIELD_NAMES if field in reference}
+            serialized = json.dumps(explanation, ensure_ascii=False, sort_keys=True)
+            if serialized not in explanation_index_by_serialized_definition:
+                explanation_index_by_serialized_definition[serialized] = len(explanation_definitions)
+                explanation_definitions.append(explanation)
+            reference["excluded_model_explanation_index"] = explanation_index_by_serialized_definition[serialized]
     validate_frontier_3d_browser_projection(result)
     return result
 

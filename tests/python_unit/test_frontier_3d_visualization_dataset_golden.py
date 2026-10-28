@@ -113,18 +113,11 @@ def project_frontier_3d_visualization_dataset_for_golden_comparison(
         if metric_variant_keys_to_keep is None or variant_key in metric_variant_keys_to_keep
     }
     projected_dataset = _without_recent_release_grace_period_additions(projected_dataset)
-    for definitions in (projected_dataset["cost_metric_definitions"], projected_dataset["speed_metric_definitions"]):
-        for definition in definitions.values():
-            definition.pop("description", None)
     for variant in projected_dataset["metric_variants"].values():
         variant["three_dimensional_scene"]["current_view"].pop("pruning_reference_date", None)
         for marker in variant["three_dimensional_scene"]["displayed_model_markers"]:
             for field in ("creator_uuid", "artificial_analysis_release_slug", "artificial_analysis_reasoning_effort_slug", "artificial_analysis_is_reasoning_model"):
                 marker.pop(field, None)
-            marker["panel"].pop("output_mtokens", None)
-        for excluded in variant["excluded_models_with_drop_reason"]:
-            for field in ("model_uuid", "base_model_name", "reasoning_level_label", "reasoning_level_sort_order", "analysis_eligibility"):
-                excluded.pop(field, None)
     # 经一次严格 JSON 往返：确认可序列化（无 NaN、无 numpy 标量），并统一 tuple → list
     return _round_floats_to_significant_digits(
         json.loads(json.dumps(projected_dataset, ensure_ascii=False, allow_nan=False))

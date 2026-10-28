@@ -1,9 +1,11 @@
-"""W3 只扩展显示契约，不改变分析数值。"""
+"""W3 显示字段在 v3 去重与旧场景展开后保留，不改变分析数值。"""
 import numpy as np
 import pandas as pd
 
 from src import visualize
-from src.frontier_3d_visualization_dataset_builder import build_frontier_3d_visualization_dataset
+from tests.fixtures.build_expanded_frontier_3d_dataset_for_legacy_scene_assertions import (
+    build_expanded_frontier_3d_dataset_for_legacy_scene_assertions as build_frontier_3d_visualization_dataset,
+)
 from src.frontier_3d_organization_identity_metadata_registry import _generated_wordmark_svg, _generated_monogram_svg
 from tests.fixtures.build_frontier_3d_synthetic_fixture_models_dataframe import build_frontier_3d_synthetic_fixture_models_dataframe
 
@@ -17,7 +19,7 @@ def test_axis_range_uses_only_complete_finite_displayed_rows():
     assert actual[1][1] < 210
 
 
-def test_v2_additions_include_tokens_metric_explanations_and_excluded_identity():
+def test_w3_fields_survive_versioned_contract_generation_and_scene_expansion():
     dataset = build_frontier_3d_visualization_dataset(build_frontier_3d_synthetic_fixture_models_dataframe(), since_months=18, max_layers=3, hard_age_cutoff_months=36, speed_scale="log")
     assert dataset["schema_version"].endswith("/v2")
     assert all(definition["description"] for definitions in [dataset["cost_metric_definitions"], dataset["speed_metric_definitions"]] for definition in definitions.values())
@@ -27,6 +29,7 @@ def test_v2_additions_include_tokens_metric_explanations_and_excluded_identity()
         for model in variant["excluded_models_with_drop_reason"]:
             assert model["model_uuid"]
             assert model["base_model_name"]
+            assert model["tier"]
             assert isinstance(model["reasoning_level_sort_order"], int)
             assert "is_analysis_eligible_for_current_metric_variant" in model["analysis_eligibility"]
 

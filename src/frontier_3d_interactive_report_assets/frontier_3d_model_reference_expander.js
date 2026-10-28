@@ -13,7 +13,7 @@ export function expandFrontierModelReferencesForSceneConsumers(dataset) {
     const { identity_resolution, ...information } = dataset.models[index];
     return information;
   };
-  const referenceOverrides = ({ model_index, analysis_eligibility_index, ...fields }) => {
+  const referenceOverrides = ({ model_index, analysis_eligibility_index, excluded_model_explanation_index, ...fields }) => {
     if (analysis_eligibility_index !== undefined) {
       if (!Number.isInteger(analysis_eligibility_index) || analysis_eligibility_index < 0 || analysis_eligibility_index >= (dataset.analysis_eligibility_definitions?.length || 0)) {
         throw new Error(`analysis_eligibility_index 引用越界：${analysis_eligibility_index}`);
@@ -21,6 +21,13 @@ export function expandFrontierModelReferencesForSceneConsumers(dataset) {
       const definition = dataset.analysis_eligibility_definitions[analysis_eligibility_index];
       fields.analysis_eligibility = { ...definition };
       if (Array.isArray(definition.ineligibility_reason_codes)) fields.analysis_eligibility.ineligibility_reason_codes = [...definition.ineligibility_reason_codes];
+    }
+    if (excluded_model_explanation_index !== undefined) {
+      if (!Number.isInteger(excluded_model_explanation_index) || excluded_model_explanation_index < 0 || excluded_model_explanation_index >= (dataset.excluded_model_explanation_definitions?.length || 0)) {
+        throw new Error(`excluded_model_explanation_index 引用越界：${excluded_model_explanation_index}`);
+      }
+      const explanation = dataset.excluded_model_explanation_definitions[excluded_model_explanation_index];
+      Object.assign(fields, explanation, { missing_dimension_names: [...explanation.missing_dimension_names] });
     }
     return fields;
   };
@@ -41,7 +48,7 @@ export function expandFrontierModelReferencesForSceneConsumers(dataset) {
     excluded_models_with_drop_reason: (variant.excluded_models_with_drop_reason || []).map((reference) => {
       const information = informationForReference(reference);
       return { name: information.name, creator: information.creator, model_uuid: information.model_uuid,
-        ...Object.fromEntries(["base_model_name", "reasoning_level_label", "reasoning_level_sort_order"].filter((field) => field in information).map((field) => [field, information[field]])),
+        ...Object.fromEntries(["base_model_name", "tier", "reasoning_level_label", "reasoning_level_sort_order"].filter((field) => field in information).map((field) => [field, information[field]])),
         intelligence: information.panel?.intelligence,
         release_date: information.panel?.release_date === "?" ? null : information.panel?.release_date,
         ...referenceOverrides(reference) };
