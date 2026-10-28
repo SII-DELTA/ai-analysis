@@ -232,33 +232,40 @@ VALUE_SOURCE_COLUMN_NAME_BY_METRIC_COLUMN_NAME = {
 }
 
 
-def _models_dataframe_with_non_positive_axis_values_treated_as_missing(df: pd.DataFrame) -> pd.DataFrame:
-    """成本轴恒为对数、速度轴默认对数：≤0 的成本/速度值（如「无托管定价」的 input=output=0 算出的
-    7:2:1 混合价 0）无法上对数轴，也不是真「免费」，一律按缺失处理并汇总告警一次。
+def _models_dataframe_with_invalid_axis_coordinates_treated_as_missing(df: pd.DataFrame) -> pd.DataFrame:
+    """五个坐标来源列的非有限值，以及成本/速度的非正值，均在剪枝与谱系构建前按缺失处理。
 
-    与 fetch_data 对 cost_to_run / output_speed 的处理一致；同时清空对应的值来源列，避免
-    「值缺失但来源非空」。
+    仅修改输入副本中的异常字段，不重算其他口径；有限智能分保持原值。
+    同时清空对应的值来源列，避免「值缺失但来源非空」，按指标汇总已提供异常值的告警。
     """
     df = df.copy()
     metric_column_display_label_by_column_name = {
         metric_definition["column_name"]: metric_definition["label"]
         for metric_definition in (*COST_METRIC_DEFINITIONS.values(), *SPEED_METRIC_DEFINITIONS.values())
     }
+    metric_column_display_label_by_column_name["intelligence"] = "智能分"
     for metric_column_name, metric_column_display_label in metric_column_display_label_by_column_name.items():
         if metric_column_name not in df.columns:
             continue
-        non_positive_value_row_mask = pd.to_numeric(df[metric_column_name], errors="coerce").le(0)
-        if not non_positive_value_row_mask.any():
+        numeric_metric_values = pd.to_numeric(df[metric_column_name], errors="coerce")
+        invalid_value_row_mask = (~np.isfinite(numeric_metric_values)).fillna(True)
+        invalid_value_description = "为非有限数"
+        if metric_column_name != "intelligence":
+            invalid_value_row_mask |= numeric_metric_values.le(0)
+            invalid_value_description = "≤ 0 或为非有限数"
+        if not invalid_value_row_mask.any():
             continue
-        print(
-            f"[warn] {int(non_positive_value_row_mask.sum())} 个模型的 {metric_column_display_label} ≤ 0"
-            "（无托管定价/未测速的占位 0，无法上对数轴），按缺失处理"
-        )
-        df.loc[non_positive_value_row_mask, metric_column_name] = np.nan
+        invalid_provided_value_count = int((invalid_value_row_mask & df[metric_column_name].notna()).sum())
+        if invalid_provided_value_count:
+            print(
+                f"[warn] {invalid_provided_value_count} 个模型的 {metric_column_display_label} "
+                f"{invalid_value_description}，按缺失处理"
+            )
+        df.loc[invalid_value_row_mask, metric_column_name] = np.nan
         value_source_column_name = VALUE_SOURCE_COLUMN_NAME_BY_METRIC_COLUMN_NAME.get(metric_column_name)
         if value_source_column_name in df.columns:
             df[value_source_column_name] = df[value_source_column_name].astype(object)
-            df.loc[non_positive_value_row_mask, value_source_column_name] = None
+            df.loc[invalid_value_row_mask, value_source_column_name] = None
     return df
 
 
@@ -398,7 +405,7 @@ def build_frontier_3d_visualization_dataset(
     ):
         artificial_analysis_data_provenance.setdefault(specification_5_1_provenance_key, None)
 
-    df = _models_dataframe_with_non_positive_axis_values_treated_as_missing(df)
+    df = _models_dataframe_with_invalid_axis_coordinates_treated_as_missing(df)
     df["creator"] = df["creator"].map(_creator_name_or_placeholder)
     metric_variants: dict[str, dict[str, Any]] = {}
     organization_identity_metadata = organization_identity_metadata_by_creator_name(df["creator"])
@@ -665,7 +672,7 @@ def _validate_displayed_model_markers(displayed_model_markers: object, field_pat
 
 
 def _validate_three_dimensional_scene(three_dimensional_scene: object, variant_key: str) -> None:
-    field_path = f"{variant_key}.three_dimensional_scene"
+    field_path = f"metric_variants.{variant_key}.three_dimensional_scene"
     if not isinstance(three_dimensional_scene, dict):
         raise ValueError(f"{field_path} 应为对象")
     missing_scene_keys = [
@@ -685,6 +692,39 @@ def _validate_three_dimensional_scene(three_dimensional_scene: object, variant_k
         _validate_triangle_mesh(three_dimensional_scene[triangle_mesh_key], f"{field_path}.{triangle_mesh_key}")
     if not isinstance(three_dimensional_scene["three_dimensional_axis_configuration"], dict):
         raise ValueError(f"{field_path}.three_dimensional_axis_configuration 应为对象")
+    for axis_name in ("x_axis", "y_axis", "z_axis"):
+        axis_field_path = f"{field_path}.three_dimensional_axis_configuration.{axis_name}"
+        axis_configuration = three_dimensional_scene["three_dimensional_axis_configuration"].get(axis_name)
+        if not isinstance(axis_configuration, dict):
+            raise ValueError(f"{axis_field_path} 应为对象")
+        fixed_range = axis_configuration.get("fixed_range")
+        if (
+            not isinstance(fixed_range, list)
+            or len(fixed_range) != 2
+            or not all(_is_finite_json_number(endpoint) for endpoint in fixed_range)
+            or fixed_range[0] >= fixed_range[1]
+        ):
+            raise ValueError(f"{axis_field_path}.fixed_range 固定范围必须是两个严格递增的有限数: {fixed_range!r}")
+
+
+def _validate_lineage_coordinates(interaction_relationships: object, variant_key: str) -> None:
+    field_path = f"metric_variants.{variant_key}.interaction_relationships"
+    if not isinstance(interaction_relationships, dict):
+        raise ValueError(f"{field_path} 应为对象")
+    lineages = interaction_relationships.get("lineages", {})
+    if not isinstance(lineages, dict):
+        raise ValueError(f"{field_path}.lineages 应为对象")
+    for lineage_key, lineage_nodes in lineages.items():
+        lineage_field_path = f"{field_path}.lineages[{lineage_key!r}]"
+        if not isinstance(lineage_nodes, list):
+            raise ValueError(f"{lineage_field_path} 应为数组")
+        for node_position, lineage_node in enumerate(lineage_nodes):
+            node_field_path = f"{lineage_field_path}[{node_position}]"
+            if not isinstance(lineage_node, dict):
+                raise ValueError(f"{node_field_path} 应为对象")
+            for coordinate_key in ("x", "y", "z"):
+                if not _is_finite_json_number(lineage_node.get(coordinate_key)):
+                    raise ValueError(f"{node_field_path}.{coordinate_key} 不是有限数: {lineage_node.get(coordinate_key)!r}")
 
 
 def _validate_recent_release_grace_period_metadata(dataset: dict[str, Any]) -> None:
@@ -733,7 +773,8 @@ def validate_frontier_3d_visualization_dataset(dataset: dict[str, Any]) -> None:
     """验证 renderer 依赖的契约结构与数值语义（规格 5.4），避免生成半坏 HTML。
 
     数值语义：网格/线段坐标为有限数（线段允许 null 断线）；三角索引为 [0, n) 内整数且三组等长；
-    显示点 x/y/z 有限、带 panel 且 panel 里没有 NaN。零模型、零 Pareto 的空网格是合法场景；
+    显示点与谱系节点 x/y/z 有限，显示点带 panel 且 panel 里没有 NaN；三轴范围有限且严格递增。
+    零模型、零 Pareto 的空网格是合法场景；
     缺键的空 scene 不合法。
     """
     if dataset.get("schema_version") != FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION:
@@ -767,6 +808,7 @@ def validate_frontier_3d_visualization_dataset(dataset: dict[str, Any]) -> None:
             if required_key not in variant:
                 raise ValueError(f"{variant_key} 缺少 {required_key}")
         _validate_three_dimensional_scene(variant["three_dimensional_scene"], variant_key)
+        _validate_lineage_coordinates(variant["interaction_relationships"], variant_key)
     _validate_recent_release_grace_period_metadata(dataset)
     organization_identity_metadata = dataset.get(
         "organization_identity_metadata_by_creator_name"

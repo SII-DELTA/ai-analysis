@@ -10,11 +10,13 @@ import json
 import math
 
 import numpy as np
+import pandas as pd
 import pytest
 from plotly.utils import PlotlyJSONEncoder
 
 from src import frontier_3d_visualization_dataset_builder as dataset_builder
 from src import visualize
+from src.frontier_3d_self_contained_html_renderer import render_frontier_3d_self_contained_html_report
 from tests.fixtures.build_frontier_3d_synthetic_fixture_models_dataframe import (
     FRONTIER_3D_SYNTHETIC_FIXTURE_PRUNING_REFERENCE_DATE,
     build_frontier_3d_synthetic_fixture_models_dataframe,
@@ -131,6 +133,178 @@ def _plotly_typed_array(values, dtype: str, shape: str | None = None) -> dict:
     if shape is not None:
         typed_array["shape"] = shape
     return typed_array
+
+
+@pytest.mark.parametrize("speed_scale", ["log", "linear"])
+@pytest.mark.parametrize("model_name", ["Gemini 2 Pro", "Gemini 3 Pro"])
+@pytest.mark.parametrize("metric_column_name", [
+    "cost_to_run", "blended_price_cache_input_output_7_to_2_to_1",
+    "eff_speed", "output_speed", "intelligence",
+])
+@pytest.mark.parametrize("invalid_value", [math.inf, -math.inf, math.nan])
+def test_nonfinite_source_coordinates_match_explicit_missing_values_without_mutating_input(
+    speed_scale, model_name, metric_column_name, invalid_value,
+) -> None:
+    models = build_frontier_3d_synthetic_fixture_models_dataframe()
+    selected_model = models["name"].eq(model_name)
+    models.loc[selected_model, metric_column_name] = invalid_value
+    original_models = models.copy(deep=True)
+    missing_value_models = models.copy(deep=True)
+    missing_value_models.loc[selected_model, metric_column_name] = math.nan
+    source_column = dataset_builder.VALUE_SOURCE_COLUMN_NAME_BY_METRIC_COLUMN_NAME.get(metric_column_name)
+    if source_column is not None:
+        missing_value_models.loc[selected_model, source_column] = None
+
+    datasets = [
+        dataset_builder.build_frontier_3d_visualization_dataset(
+            model_frame, since_months=18, max_layers=3, hard_age_cutoff_months=36,
+            speed_scale=speed_scale,
+            pruning_reference_date=FRONTIER_3D_SYNTHETIC_FIXTURE_PRUNING_REFERENCE_DATE,
+        )
+        for model_frame in (models, missing_value_models)
+    ]
+    for dataset in datasets:
+        dataset_builder.validate_frontier_3d_visualization_dataset(dataset)
+        dataset.pop("generated_at")
+    assert json.loads(json.dumps(datasets[0], cls=PlotlyJSONEncoder)) == json.loads(
+        json.dumps(datasets[1], cls=PlotlyJSONEncoder)
+    )
+    pd.testing.assert_frame_equal(models, original_models)
+    assert models.attrs == original_models.attrs
+    assert all(_scene(datasets[0], key)["displayed_model_markers"] for key in ALL_METRIC_VARIANT_KEYS)
+
+
+def _assert_invalid_contract_rejected_by_all_entry_points(dataset, field_path, artifact_directory) -> None:
+    contract_path = artifact_directory / "invalid-frontier-3d-contract.json"
+    contract_path.write_text(json.dumps(dataset), encoding="utf-8")
+    output_path = artifact_directory / "rejected-frontier-3d-contract.json"
+    for operation in (
+        lambda: dataset_builder.validate_frontier_3d_visualization_dataset(dataset),
+        lambda: dataset_builder.read_frontier_3d_visualization_dataset(contract_path),
+        lambda: dataset_builder.write_frontier_3d_visualization_dataset(dataset, output_path),
+        lambda: render_frontier_3d_self_contained_html_report(dataset),
+    ):
+        with pytest.raises(ValueError) as error:
+            operation()
+        assert field_path in str(error.value)
+    assert not output_path.exists()
+
+
+@pytest.mark.parametrize("variant_key", ALL_METRIC_VARIANT_KEYS)
+@pytest.mark.parametrize("axis_name", ["x_axis", "y_axis", "z_axis"])
+@pytest.mark.parametrize("invalid_range", [
+    None, [], [0], [0, 1, 2], [None, 1], [0, None],
+    [math.inf, 1], [-math.inf, 1], [0, math.inf], [math.nan, 1], [0, math.nan],
+    [1, 1], [2, 1], [False, 1], [0, True], ["0", 1], [0, "1"],
+])
+def test_invalid_axis_ranges_are_rejected_by_validation_read_write_and_render(
+    variant_key, axis_name, invalid_range, tmp_path,
+) -> None:
+    dataset = _zero_model_legal_dataset()
+    _scene(dataset, variant_key)["three_dimensional_axis_configuration"][axis_name]["fixed_range"] = invalid_range
+    _assert_invalid_contract_rejected_by_all_entry_points(
+        dataset, f"metric_variants.{variant_key}.three_dimensional_scene."
+        f"three_dimensional_axis_configuration.{axis_name}.fixed_range", tmp_path,
+    )
+
+
+@pytest.mark.parametrize("axis_name", ["x_axis", "y_axis", "z_axis"])
+@pytest.mark.parametrize("missing_field", ["axis", "fixed_range"])
+def test_missing_axis_ranges_are_rejected(axis_name, missing_field, tmp_path) -> None:
+    dataset = _zero_model_legal_dataset()
+    axes = _scene(dataset)["three_dimensional_axis_configuration"]
+    if missing_field == "axis":
+        del axes[axis_name]
+    else:
+        del axes[axis_name]["fixed_range"]
+    _assert_invalid_contract_rejected_by_all_entry_points(
+        dataset, "metric_variants.effective__effective.three_dimensional_scene."
+        f"three_dimensional_axis_configuration.{axis_name}", tmp_path,
+    )
+
+
+@pytest.mark.parametrize("variant_key", ALL_METRIC_VARIANT_KEYS)
+@pytest.mark.parametrize("coordinate_key", ["x", "y", "z"])
+@pytest.mark.parametrize("invalid_coordinate", [None, math.inf, -math.inf, math.nan, True, False, "1"])
+def test_invalid_lineage_coordinates_are_rejected_by_validation_read_write_and_render(
+    variant_key, coordinate_key, invalid_coordinate, tmp_path,
+) -> None:
+    dataset = _zero_model_legal_dataset()
+    node = {"x": 1, "y": 2, "z": 3}
+    node[coordinate_key] = invalid_coordinate
+    dataset["metric_variants"][variant_key]["interaction_relationships"]["lineages"] = {"Google||Gemini pro||non-reasoning": [node]}
+    _assert_invalid_contract_rejected_by_all_entry_points(
+        dataset, f"metric_variants.{variant_key}.interaction_relationships."
+        f"lineages['Google||Gemini pro||non-reasoning'][0].{coordinate_key}", tmp_path,
+    )
+
+
+@pytest.mark.parametrize("coordinate_key", ["x", "y", "z"])
+def test_missing_lineage_coordinates_are_rejected(coordinate_key, tmp_path) -> None:
+    dataset = _zero_model_legal_dataset()
+    node = {"x": 1, "y": 2, "z": 3}
+    del node[coordinate_key]
+    dataset["metric_variants"]["effective__effective"]["interaction_relationships"]["lineages"] = {"family": [node]}
+    _assert_invalid_contract_rejected_by_all_entry_points(
+        dataset, f"metric_variants.effective__effective.interaction_relationships.lineages['family'][0].{coordinate_key}",
+        tmp_path,
+    )
+
+
+def test_negative_log_projection_ranges_and_finite_lineage_coordinates_remain_valid() -> None:
+    dataset = _zero_model_legal_dataset()
+    for variant in dataset["metric_variants"].values():
+        axes = variant["three_dimensional_scene"]["three_dimensional_axis_configuration"]
+        for axis_name in ("x_axis", "y_axis"):
+            axes[axis_name]["fixed_range"] = [-2, -1]
+        variant["interaction_relationships"]["lineages"] = {"family": [{"x": 0.1, "y": 0.2, "z": -1}]}
+    dataset_builder.validate_frontier_3d_visualization_dataset(dataset)
+
+
+@pytest.mark.parametrize("metric_column_name", [
+    "cost_to_run", "blended_price_cache_input_output_7_to_2_to_1",
+    "eff_speed", "output_speed", "intelligence",
+])
+@pytest.mark.parametrize("coordinate_value", [math.inf, -math.inf, math.nan, -1.0, 0.0, 1.0])
+def test_coordinate_cleaning_preserves_other_fields_and_finite_intelligence_values(
+    metric_column_name, coordinate_value, capsys,
+) -> None:
+    models = build_frontier_3d_synthetic_fixture_models_dataframe()
+    models.loc[0, metric_column_name] = coordinate_value
+    expected = models.copy(deep=True)
+    is_invalid = not math.isfinite(coordinate_value) or (
+        metric_column_name != "intelligence" and coordinate_value <= 0
+    )
+    if is_invalid:
+        expected.loc[0, metric_column_name] = math.nan
+        source_column = dataset_builder.VALUE_SOURCE_COLUMN_NAME_BY_METRIC_COLUMN_NAME.get(metric_column_name)
+        if source_column is not None:
+            expected.loc[0, source_column] = None
+    cleaned = dataset_builder._models_dataframe_with_invalid_axis_coordinates_treated_as_missing(models)
+    pd.testing.assert_frame_equal(cleaned, expected)
+    assert len(capsys.readouterr().out.splitlines()) == int(is_invalid and not math.isnan(coordinate_value))
+
+
+@pytest.mark.parametrize("relationships, field_suffix", [
+    (None, ""), ([], ""),
+    ({"lineages": None}, ".lineages"), ({"lineages": []}, ".lineages"),
+    ({"lineages": {"family": None}}, ".lineages['family']"),
+    ({"lineages": {"family": {}}}, ".lineages['family']"),
+    ({"lineages": {"family": [None]}}, ".lineages['family'][0]"),
+])
+def test_malformed_lineage_containers_are_rejected(relationships, field_suffix, tmp_path) -> None:
+    dataset = _zero_model_legal_dataset()
+    dataset["metric_variants"]["effective__effective"]["interaction_relationships"] = relationships
+    _assert_invalid_contract_rejected_by_all_entry_points(
+        dataset, f"metric_variants.effective__effective.interaction_relationships{field_suffix}", tmp_path,
+    )
+
+
+@pytest.mark.parametrize("lineages", [{}, {"family": []}])
+def test_empty_lineages_remain_legal(lineages) -> None:
+    dataset = _zero_model_legal_dataset()
+    dataset["metric_variants"]["effective__effective"]["interaction_relationships"]["lineages"] = lineages
+    dataset_builder.validate_frontier_3d_visualization_dataset(dataset)
 
 
 # ---------------------------------------------------------------- P0-4：bdata 根修与解码兜底
