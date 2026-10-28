@@ -188,6 +188,8 @@ import {
   let sidePanelExpanded = !window.matchMedia("(max-width: 640px)").matches;
   let hoveredModelIndex = null;
   let hoveredPrunedLineageAncestorName = null;
+  // 保留实际命中节点的关系类型，避免重绘 sprite 后把同代档位改写为谱系前身。
+  let hoveredPrunedLineageAncestorNode = null;
   let hoveredLineageKey = null;
   let hoveredReasoningBaseModelName = null;
   let pinnedBaseModelNames = new Set();
@@ -296,6 +298,18 @@ import {
   tooltip.id = "aa-threejs-model-tooltip";
   tooltip.className = "aa-threejs-model-tooltip";
   tooltip.hidden = true;
+  const modelTooltipBody = document.createElement("div");
+  tooltip.append(modelTooltipBody);
+  const touchDetailsActions = textElement("div", "aa-touch-details-actions");
+  const touchDetailsPinButton = textElement("button", "aa-secondary-button");
+  touchDetailsPinButton.type = "button";
+  touchDetailsPinButton.addEventListener("click", () => {
+    if (touchDetailsModel && hoveredModelIndex !== null) togglePinnedBaseModelName(touchDetailsModel.base_model_name);
+  });
+  const touchDetailsCloseButton = textElement("button", "aa-secondary-button", "关闭详情");
+  touchDetailsCloseButton.type = "button";
+  touchDetailsCloseButton.addEventListener("click", clearHoverInteractionImmediately);
+  touchDetailsActions.append(touchDetailsCloseButton);
   plotRegion.appendChild(tooltip);
 
   const axisAnnotations = [];
@@ -1064,9 +1078,8 @@ import {
   // 厂商筛选、「仅当期可比」与非有限坐标共同决定标记可见性；不可见的 sprite 同时退出拾取。
   function applyModelMarkerVisibilityAndRefreshDependentViews() {
     cancelHoverDepartureGracePeriod();
-    const hoveredAncestor = clickablePrunedLineageAncestorSprites.find((sprite) => sprite.userData.prunedLineageAncestorNode.name === hoveredPrunedLineageAncestorName)?.userData.prunedLineageAncestorNode;
     if ((hoveredModelIndex !== null && !modelMarkerIsCurrentlyVisible(hoveredModelIndex)) ||
-      (hoveredAncestor && !lineageNodePassesCurrentVisibilityFilters(hoveredAncestor))) clearHoverInteractionImmediately();
+      (hoveredPrunedLineageAncestorNode && !lineageNodePassesCurrentVisibilityFilters(hoveredPrunedLineageAncestorNode))) clearHoverInteractionImmediately();
     modelVisualObjectsByModelIndex.forEach((visualObjects, modelIndex) => {
       const model = displayedModelMarkers[modelIndex];
       const markerVisible = modelMarkerIsCurrentlyVisible(modelIndex);
@@ -1364,6 +1377,32 @@ import {
     return Number(value).toFixed(digits);
   }
 
+  function synchronizeTouchDetailsActions() {
+    if (!touchDetailsModel) return;
+    if (hoveredModelIndex === null) {
+      touchDetailsPinButton.remove();
+    } else {
+      touchDetailsPinButton.textContent = allKnownBaseModelIdentitiesArePinned(touchDetailsModel.base_model_name) ? "取消固定全部档位" : "固定全部档位";
+      if (!touchDetailsPinButton.parentElement) touchDetailsActions.prepend(touchDetailsPinButton);
+    }
+    if (!touchDetailsActions.parentElement) tooltip.append(touchDetailsActions);
+  }
+
+  function refreshVisibleModelDetails(preserveScrollPosition = true) {
+    if (tooltip.hidden) return;
+    const model = hoveredModelIndex === null ? null : displayedModelMarkers[hoveredModelIndex];
+    const ancestor = model ? null : hoveredPrunedLineageAncestorNode;
+    if (!model && !ancestor) return;
+    const preservedScrollTop = preserveScrollPosition ? tooltip.scrollTop : 0;
+    modelTooltipBody.innerHTML = model ? modelTooltipHtml(model) : prunedLineageAncestorTooltipHtml(ancestor);
+    if (touchDetailsModel) {
+      touchDetailsModel = model || ancestor;
+      synchronizeTouchDetailsActions();
+    }
+    tooltip.scrollTop = preservedScrollTop;
+    if (latestTooltipPointerCoordinates) positionTooltip(latestTooltipPointerCoordinates);
+  }
+
   function setHoveredModelIndex(nextModelIndex, pointerEvent) {
     if (
       nextModelIndex === hoveredModelIndex &&
@@ -1374,6 +1413,7 @@ import {
     }
     hoveredModelIndex = nextModelIndex;
     hoveredPrunedLineageAncestorName = null;
+    hoveredPrunedLineageAncestorNode = null;
     if (nextModelIndex === null) {
       hoveredLineageKey = null;
       hoveredReasoningBaseModelName = null;
@@ -1384,8 +1424,8 @@ import {
     const model = displayedModelMarkers[nextModelIndex];
     hoveredLineageKey = model.lineage_key;
     hoveredReasoningBaseModelName = model.base_model_name;
-    tooltip.innerHTML = modelTooltipHtml(model);
     tooltip.hidden = false;
+    refreshVisibleModelDetails(false);
     positionTooltip(pointerEvent || { clientX: plotRegion.getBoundingClientRect().left, clientY: plotRegion.getBoundingClientRect().top });
     redrawHoveredAndPinnedRelationships();
   }
@@ -1404,12 +1444,11 @@ import {
     }
     hoveredModelIndex = null;
     hoveredPrunedLineageAncestorName = prunedLineageAncestorNode.name;
+    hoveredPrunedLineageAncestorNode = prunedLineageAncestorNode;
     hoveredLineageKey = lineageKey;
     hoveredReasoningBaseModelName = null;
-    tooltip.innerHTML = prunedLineageAncestorTooltipHtml(
-      prunedLineageAncestorNode,
-    );
     tooltip.hidden = false;
+    refreshVisibleModelDetails(false);
     positionTooltip(pointerEvent || { clientX: plotRegion.getBoundingClientRect().left, clientY: plotRegion.getBoundingClientRect().top });
     redrawHoveredAndPinnedRelationships();
   }
@@ -1426,29 +1465,16 @@ import {
   }
 
   function openTouchDetails(interactionTarget, pointerEvent) {
-    touchDetailsModel = null;
-    applyHoveredInteractionTarget(interactionTarget, pointerEvent, false);
-    if (!interactionTarget) return;
+    if (!interactionTarget) {
+      clearHoverInteractionImmediately();
+      return;
+    }
     touchDetailsModel = interactionTarget.interactionTargetKind === "displayed_model" ? displayedModelMarkers[interactionTarget.modelIndex] : interactionTarget.prunedLineageAncestorNode;
     tooltip.classList.add("is-touch-details");
     tooltip.setAttribute("role", "dialog");
     tooltip.setAttribute("aria-label", "模型详情");
-    const actions = textElement("div", "aa-touch-details-actions");
-    if (interactionTarget.interactionTargetKind === "displayed_model") {
-      const wholeGroupPinActionLabel = () => allKnownBaseModelIdentitiesArePinned(touchDetailsModel.base_model_name) ? "取消固定全部档位" : "固定全部档位";
-      const pin = textElement("button", "aa-secondary-button", wholeGroupPinActionLabel());
-      pin.type = "button";
-      pin.addEventListener("click", () => {
-        togglePinnedBaseModelName(touchDetailsModel.base_model_name);
-        pin.textContent = wholeGroupPinActionLabel();
-      });
-      actions.append(pin);
-    }
-    const close = textElement("button", "aa-secondary-button", "关闭详情");
-    close.type = "button";
-    close.addEventListener("click", clearHoverInteractionImmediately);
-    actions.append(close);
-    tooltip.append(actions);
+    applyHoveredInteractionTarget(interactionTarget, pointerEvent, false);
+    refreshVisibleModelDetails();
     positionTooltip(pointerEvent);
   }
 
@@ -1500,8 +1526,10 @@ import {
   }
   function clearHoverInteractionImmediately() {
     touchDetailsModel = null;
+    touchDetailsActions.remove();
     tooltip.classList.remove("is-touch-details");
     tooltip.removeAttribute("role");
+    tooltip.removeAttribute("aria-label");
     cancelHoverDepartureGracePeriod();
     if (pendingPointerMoveFrame !== null) window.cancelAnimationFrame(pendingPointerMoveFrame);
     pendingPointerMoveFrame = null;
@@ -1626,6 +1654,7 @@ import {
     redrawHoveredAndPinnedRelationships();
     renderPinnedModelsPanel();
     renderPinnedModelNameLabels();
+    synchronizeTouchDetailsActions();
     requestThreeDimensionalSceneRender();
   }
 
@@ -1700,6 +1729,7 @@ import {
     latestStandoutRanksByModelName = {};
     models.map((model, index) => ({ model, value: values[index] })).filter(row => Number.isFinite(row.value))
       .sort((left, right) => right.value - left.value).forEach((row, index) => { latestStandoutRanksByModelName[row.model.name] = index + 1; });
+    refreshVisibleModelDetails();
     applyRelationshipForegroundVisualEncoding();
     renderStandoutRanking(models, values);
     renderPinnedComparisonTable();
