@@ -48,7 +48,7 @@ def main() -> None:
     (artifact_directory / "offline-data-load-log.txt").write_text(load_log.getvalue(), encoding="utf-8")
     provenance = builder.artificial_analysis_data_provenance_from_models_dataframe(models)
     reference_date = builder._api_response_fetched_at_calendar_date_text(provenance)
-    models = builder._models_dataframe_with_non_positive_axis_values_treated_as_missing(models)
+    models = builder._models_dataframe_with_invalid_axis_coordinates_treated_as_missing(models)
     reference_timestamp = pd.Timestamp(reference_date)
     result = {"pruning_reference_date": reference_date, "model_count": len(models), "input_fingerprints": input_fingerprints, "variants": {}}
     report_lines = [
