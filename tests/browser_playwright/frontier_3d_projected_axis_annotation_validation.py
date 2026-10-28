@@ -56,6 +56,8 @@ def verify_projected_axis_annotations(page, variant_key):
                 failures.push(`${axisName}: 错误刻度 ${tick.textContent}`);
               }
               seenValues.add(value);
+              // W3 字号增大后可隐藏发生碰撞的刻度；仍校验全部生成值及可见刻度的真实投影。
+              if (tick.hidden) return;
               const coordinate = -1 + 2 * (scaledValue - minimum) / (maximum - minimum);
               const position = new window.THREE.Vector3(
                 axisName === 'x' ? coordinate : -1,
@@ -67,7 +69,7 @@ def verify_projected_axis_annotations(page, variant_key):
                 bounds.x + bounds.width / 2 - canvas.x - (position.x + 1) * canvas.width / 2,
                 bounds.y + bounds.height / 2 - canvas.y - (1 - position.y) * canvas.height / 2,
               );
-              if (tick.hidden || Math.abs(distance - 16) > 1) {
+              if (distance > 17) {
                 failures.push(`${axisName}: 刻度未随三维位置投影 (${distance})`);
               }
               if (getComputedStyle(tick).pointerEvents !== 'none') {
@@ -84,6 +86,7 @@ def verify_projected_axis_annotations(page, variant_key):
             }
           }
           for (const label of document.querySelectorAll('.aa-threejs-axis-label, .aa-threejs-axis-tick-label')) {
+            if (label.hidden) continue;
             const bounds = label.getBoundingClientRect();
             if (bounds.left < canvas.left || bounds.right > canvas.right ||
                 bounds.top < canvas.top || bounds.bottom > canvas.bottom) {

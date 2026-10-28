@@ -360,30 +360,21 @@ uv run --frozen python scripts/generate_model_intelligence_verbosity_report.py \
 
 ## 交互
 
-- **页头**：标题「AI 模型三维 Pareto 前沿」，以及「数据：Artificial Analysis ↗」、API 抓取日期（推断时注明
-  「按缓存文件时间推断」）、智能指数版本、「显示 N 个模型 · Pareto M · 历史口径 K」。「如何阅读 ⓘ」抽屉说明三轴方向、
-  成本与速度口径说明、Pareto 与历史口径点的含义及数据来源，按 Escape 关闭。
-- 拖拽旋转、滚轮缩放；悬浮看 名称/厂商/发布日期/智能/原始速度/冗长度/有效速度/有效运行成本/混合价/
-  Pareto 层，以及**四个突出度值**（趋势残差 / 智能抬升 / 加权超体积 / 到前沿垂距）。
-- 右上角可独立切换成本口径（有效运行成本 / 7:2:1 混合单价）和速度口径（有效速度 / 原始速度）；
-  四种组合各自重新计算 Pareto、剪枝、前沿和轴范围。
-- “显示近 N 个月发布的远离前沿模型”默认开启，跨口径保留选择；关闭后清除被隐藏点的 hover，保留 pin 并标注隐藏原因。
-  搜索与厂商筛选保留隐藏模型的入口；页头、当前视图和图例计数随筛选更新。`0` 或旧契约没有宽限设置时开关禁用并说明原因。
-- 其下的「**突出度**」面板：指标选择器决定哪个口径驱动 **突出度光晕的大小（按秩映射）** 与
-  **前沿排行榜**；选「加权超体积」时 3 个轴权重滑杆(智能/成本/速度，各带输入框)可用，拖动即时重排
-  （见上「突出度指标」节的权重语义）。
-- 每个模型点使用始终面向相机的**厂商 Logo Sprite**；右栏「厂商筛选」以
-  `Logo + 完整厂商名 + 模型数` 逐家显示并可独立过滤，不再靠颜色区分厂商。
-  54 家已注册厂商均使用随仓库版本化的真实品牌资产；未来未注册 creator 才使用带完整厂商名的
-  wordmark 兜底，避免伪造品牌图形或退回易撞色的调色板。
-- 顶部「模型标识」可选开启**国别外框**：中国=红色双圆环、美国=蓝色圆角方环、
-  其他/未分类=灰色菱形环。该能力默认关闭，且与厂商 Logo、Pareto 突出度和 pin 高亮互不替代。
-  同一组里的「**仅当期可比**」开关隐藏历史口径点（见 D-1）。
-- **Pareto 最优** 点使用固定大小的深色身份环；独立光晕按突出度分位数改变大小，指标缺值时显示虚线光晕。历史口径点使用半透明虚线底板。
-- 顶部按钮分两组：左组切前沿样式 `前沿线框` / `前沿实心面` / `隐藏前沿` / `仅散点`，
-  右组独立开关 `+可达前沿曲面` / `−可达前沿曲面`（两组互不干扰）。
-- **为什么默认线框**：线框能在密集 Logo 点云中保留更好的层次与可读性。three.js 的模型拾取与
-  前沿曲面不再共享 Plotly 的 trace picking，因此切换到实心面后仍可悬浮和点击模型。
+- **页头与说明**：标题、如何阅读、模型计数、AA 署名、API 抓取日期及智能指数版本。抓取时间或版本由目录/文件时间推定时明确标注。≤640px 把计数放到元数据行最前，横滑可见其他信息。「口径说明」和「如何阅读」都可打开包含口径、方向、动态图例、历史点和未上图厂商原因的说明，Esc 关闭。
+- **口径与相机**：独立选择有效运行成本 / 7:2:1 混合单价、有效速度 / 原始速度；「正交分解视角」切换至混合单价 × 原始速度并保持相机。拖拽旋转、滚轮围绕光标缩放、右键平移。四口径各自在生成时用完整、有限的显示模型固定轴域，含宽限点和历史口径点；筛选、宽限开关、hover 和固定都不重算轴域。超范围谱系前身夹紧到箱壁，详情显示方向和原始数值。
+- **标记与图例**：标记保持恒定 CSS 像素，默认 0.5×，滑杆为 0.5–1.5×，1× 对应 Logo 容器 22px；各层等比缩放，偏好自动保存。深色环是帕累托身份，金色环是已固定，蓝色光晕是当前突出度，缺数值时使用虚线光晕。历史口径点为虚线底板与半透明 Logo。国别外框默认关闭，开启时同步显示中国双圆环、美国圆角方环、其他菱形环的图例；外框不参与拾取。
+- **详情与触屏**：桌面 hover 显示身份、三轴/备用口径与冗长度、帕累托层级和当前突出度数值及名次；成本按契约单位显示，小数保留有效位。详情按实际尺寸限制在绘图区内。触屏首次轻点打开可滚动详情卡，通过卡内按钮固定；拖拽和随后的合成 click 不固定模型。
+- **搜索**：可按完整模型名、基模型、厂商或档位检索，包含未上图记录和实际排除原因。筛选隐藏与历史口径分别说明；最多显示 40 组并提示总组数。↑↓ 选择可操作结果、Enter 固定、Esc 关闭；完全不可显示的结果只给原因。
+- **固定与比较**：桌面点击模型固定全部档位，排行按钮只固定对应模型，单档位组同样可用。身份沿用 UUID，档位按升序显示；切口径缺席会注明原因，恢复口径后自动重新显示。侧栏提供摘要、逐组移除和清空全部，画布显示固定模型名。底部对比表按需展开且最高 40vh，模型档位为列、指标为行；默认包含身份、三轴、层级和当前突出度，备用口径与冗长度可选并保存到 localStorage。Δ% 以首个当前可比固定模型为基准，历史口径不参与基准和最优值高亮，零基准不计算百分比。
+- **突出度**：侧栏选择指标并查看说明。加权超体积展示「排他贡献 ÷ 完整前沿超体积」的百分比，原始贡献值和排序保持不变；筛选不改变分母或排行。三个权重支持即时滑杆、数字草稿编辑、失焦或 Enter 提交到 0.25–4，以及一键重置为三个 1。
+- **几何与筛选**：默认使用 Delaunay 邻接参照，可选参照线框、实心或隐藏；「实际可达前沿（精确阶梯）」独立切换至精确预算阶梯与立面。邻接参照不是帕累托面，面内位置不代表可达模型。保留相邻且一分钟自动折叠的说明。厂商筛选、「仅当期可比」与六个月近期发布宽限只改变可见性，保留固定状态并显示隐藏原因。
+- **窄屏**：≤1200px 页头稳定两行，≤1024px 控制栏移到下方，收起固定 44px；≤640px 工具栏收入「视图设置」且控制栏初始收起。窄屏对比表复用下方面板，避免同时压缩画布。存储不可用时，本页仍可正常编辑尺寸与比较字段。
+
+本地品牌 SVG 优先，缺少资产的已注册厂商使用完整名称 wordmark，未知厂商使用 monogram；两类 fallback 均使用方形容器。品牌资产来源、Lobe Icons MIT 许可和商标说明见 [资产来源](src/frontier_3d_organization_identity_assets/THIRD_PARTY_ASSET_SOURCES.md)。HTML 已内嵌许可，不依赖 CDN。
+
+### Provider 粒度与权限记录
+
+2026-10-28 复核了 [2026-09-30 审计收录的 3c8b8 调查结论](docs/frontier-3d-pareto-visualization-full-audit-and-improvement-roadmap-2026-09-30/README.md)：免费 API 没有 provider 粒度；当时 `/language/providers*` 需要 Commercial 权限，Pro 请求也返回 403。这是历史权限记录，本轮未联网重新探测。当前模型点代表模型聚合值，不提供 `(model, provider)` 比较，也没有据此过滤 provider 的量化版本。该能力仍需独立的数据与权限方案。
 
 ### 修改 three.js 前端资源
 
@@ -423,7 +414,7 @@ scripts/run_all_frontier_3d_verifications.sh --allow-html-renderer-bundle-differ
 - `verify_frontier_3d_axis_annotations.py` 把截图写到环境变量 `FRONTIER_3D_AXIS_ANNOTATION_SCREENSHOT_DIRECTORY`
   指定的目录；缺省为本 checkout 的 `.frontier-3d-worktree-artifacts/axis-annotation-screenshots/`，不会写到共享目录。
 
-### W2：隔离路径与浏览器验证
+### 隔离路径与浏览器验证（W2 / W3）
 
 主 checkout 保留 `output/`、`data/raw`、`data/processed` 默认路径；linked worktree（包括 detached HEAD）
 默认改用 `.frontier-3d-worktree-artifacts/` 下的 `rendered-reports/`、
@@ -434,7 +425,7 @@ scripts/run_all_frontier_3d_verifications.sh --allow-html-renderer-bundle-differ
 export UV_PROJECT_ENVIRONMENT="$PWD/.frontier-3d-worktree-artifacts/python-environment"
 uv sync --frozen --all-extras
 npm ci
-uv run --frozen --all-extras python -m playwright install chromium firefox webkit
+uv run --frozen --no-sync --all-extras python -m playwright install chromium firefox webkit
 scripts/run_all_frontier_3d_verifications.sh
 ```
 
@@ -448,9 +439,9 @@ macOS 27 若 Firefox 报 `Could not find profile folder`，可按
 
 ```bash
 export PLAYWRIGHT_BROWSERS_PATH="$PWD/.frontier-3d-worktree-artifacts/playwright-browser-installations"
-uv run --frozen --all-extras python -m playwright install firefox
+uv run --frozen --no-sync --all-extras python -m playwright install firefox
 # 将下面参数换成本次安装的 Firefox 可执行文件；安装器会打印位置。
-uv run --frozen --all-extras python scripts/prepare_frontier_3d_isolated_firefox_verification_launcher.py \
+uv run --frozen --no-sync --all-extras python scripts/prepare_frontier_3d_isolated_firefox_verification_launcher.py \
   --firefox-executable-path "$PLAYWRIGHT_BROWSERS_PATH/firefox-1543/firefox/Nightly.app/Contents/MacOS/firefox"
 unset PLAYWRIGHT_BROWSERS_PATH
 export FRONTIER_3D_FIREFOX_EXECUTABLE_PATH="$PWD/.frontier-3d-worktree-artifacts/browser-launch-wrappers/firefox-verification"
@@ -463,6 +454,8 @@ scripts/run_all_frontier_3d_verifications.sh
 CI 只运行锁定依赖及合成 fixture；不运行真实数据刷新。能力对等状态见
 [渲染器能力清单](docs/frontier-3d-renderer-capability-parity-checklist.md)。
 
+W3 实施范围、验证记录与边界见 [W3 交付说明](docs/frontier-3d-wave-3-implementation-and-verification.md)。
+
 ## 数据契约（`frontier_3d_visualization_dataset/v2`，只增字段）
 
 - 顶层 `artificial_analysis_data_provenance`，包括：
@@ -474,7 +467,7 @@ CI 只运行锁定依赖及合成 fixture；不运行真实数据刷新。能力
 - 每个口径包括：
   - `analysis_eligible_model_count`、`historical_version_value_model_count`；
   - `recent_release_grace_period_only_model_count`（宽限专属点数）、`kept_model_count_without_recent_release_grace_period`（关闭宽限后的保留数）；
-  - `excluded_models_with_drop_reason`：有智能分但未上图的模型，写明缺哪一维与剪枝原因；
+  - `excluded_models_with_drop_reason`：有智能分但未上图的模型，写明缺哪一维与剪枝原因；W3 增补 UUID、基模型、档位标签/顺序、分析资格，供搜索解释使用；
   - `current_view` 中的 `speed_axis_title_text`、`cost_metric_note`、`speed_metric_note`。
     其中也记录宽限月数、剪枝参考日和上述宽限计数；分析计数始终指契约全集，页面筛选不会改写它们。
 - 每个显示点包括：
@@ -482,7 +475,7 @@ CI 只运行锁定依赖及合成 fixture；不运行真实数据刷新。能力
   - `analysis_eligibility`：是否参与本口径分析、原因码与原因文案；
   - `value_provenance`：成本与 token 数的来源、版本、采集时间，以及混合价来源；
   - `artificial_analysis_intelligence_index_is_estimated`。
-  - 非参与分析点的 `panel.layer` 为 `null`；契约里不出现 NaN。
+  - 非参与分析点的 `panel.layer` 为 `null`；W3 增补 `panel.output_mtokens`（M tokens），成本/速度定义增补统一 `description`。旧契约缺字段时降级显示；名称式浏览器接口与超体积数组接口保留。契约里不出现 NaN。
 - 契约校验会拒绝以下情况：
   - 非有限数坐标（线段允许 `null` 作断线）；
   - 越界或非整数的三角索引；

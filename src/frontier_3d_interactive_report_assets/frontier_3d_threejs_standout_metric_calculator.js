@@ -73,7 +73,7 @@ function calculateThreeDimensionalHypervolume(points) {
   );
 }
 
-function calculateWeightedExclusiveHypervolumeValues(
+export function calculateWeightedExclusiveHypervolumeSummary(
   frontierModels,
   standoutAxisWeights,
 ) {
@@ -88,7 +88,7 @@ function calculateWeightedExclusiveHypervolumeValues(
   const completeFrontierHypervolume = calculateThreeDimensionalHypervolume(
     weightedNormalizedImprovementPoints,
   );
-  return weightedNormalizedImprovementPoints.map(
+  const contributions = weightedNormalizedImprovementPoints.map(
     (unusedPoint, excludedPointIndex) =>
       completeFrontierHypervolume -
       calculateThreeDimensionalHypervolume(
@@ -98,6 +98,7 @@ function calculateWeightedExclusiveHypervolumeValues(
         ),
       ),
   );
+  return { contributions, completeFrontierHypervolume };
 }
 
 export function calculateFrontierStandoutMetricValues(
@@ -111,10 +112,10 @@ export function calculateFrontierStandoutMetricValues(
     throw new Error(`Unknown frontier standout metric: ${selectedStandoutMetricName}`);
   }
   if (metricDefinition.usesAdjustableAxisWeights) {
-    return calculateWeightedExclusiveHypervolumeValues(
+    return calculateWeightedExclusiveHypervolumeSummary(
       frontierModels,
       standoutAxisWeights,
-    );
+    ).contributions;
   }
   return frontierModels.map((model) => {
     const value = model.standout_metrics[metricDefinition.modelMetricFieldName];

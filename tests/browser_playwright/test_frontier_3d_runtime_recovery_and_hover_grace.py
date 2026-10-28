@@ -87,3 +87,8 @@ def test_runtime_errors_are_reported_and_dpr_is_refreshed(frontier_page):
     }""")
     expect(page.locator("#frontier-3d-runtime-diagnostic-banner")).to_contain_text("合成拒绝")
     assert page.evaluate("frontierThreeDimensionalRendererDiagnostics.renderer.getPixelRatio()") == 1.5
+    assert page.evaluate("""() => {
+      const gl=frontierThreeDimensionalRendererDiagnostics.renderer.getContext();
+      const viewport=gl.getParameter(gl.VIEWPORT);
+      return viewport[2] <= gl.drawingBufferWidth && viewport[3] <= gl.drawingBufferHeight;
+    }""")

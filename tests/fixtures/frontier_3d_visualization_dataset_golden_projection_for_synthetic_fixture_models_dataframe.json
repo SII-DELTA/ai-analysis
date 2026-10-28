@@ -22,11 +22,13 @@
   "cost_metric_definitions": {
    "blended": {
     "column_name": "blended_price_cache_input_output_7_to_2_to_1",
+    "description": "缓存命中输入、普通输入、输出按 7:2:1 加权，单位 USD/M tokens；配合原始速度构成正交分解视角。",
     "label": "7:2:1 混合单价",
     "unit": "USD/M tokens"
    },
    "effective": {
     "column_name": "cost_to_run",
+    "description": "运行当前智能指数测试的总成本，单位 USD；包含输出长度的影响。",
     "label": "有效运行成本",
     "unit": "USD"
    }
@@ -40,6 +42,12 @@
     "analysis_eligible_model_count": 11,
     "excluded_models_with_drop_reason": [
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Speedless Genius",
       "creator": "Anthropic",
       "drop_reason": "缺维度：速度",
       "intelligence": 70.0,
@@ -47,10 +55,22 @@
       "missing_dimension_names": [
        "speed"
       ],
+      "model_uuid": "00000000-0000-4000-9000-000000000017",
       "name": "Speedless Genius (Max Effort)",
-      "release_date": "2026-09-01"
+      "reasoning_level_label": "max effort",
+      "reasoning_level_sort_order": 60,
+      "release_date": "2026-09-01",
+      "tier": "(default)"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [
+        "output_token_count_value_not_from_current_intelligence_index_version"
+       ],
+       "ineligibility_reason_text": "历史口径（版本未知 冗长度），不参与本口径前沿计算",
+       "is_analysis_eligible_for_current_metric_variant": false
+      },
+      "base_model_name": "Brand New Model (V-3)",
       "creator": "OpenAI",
       "drop_reason": "缺维度：速度",
       "intelligence": 56.0,
@@ -58,10 +78,22 @@
       "missing_dimension_names": [
        "speed"
       ],
+      "model_uuid": "00000000-0000-4000-9000-000000000022",
       "name": "Brand New Model (V-3)",
-      "release_date": "2026-09-20"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2026-09-20",
+      "tier": "(default)"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [
+        "cost_to_run_value_not_from_current_intelligence_index_version"
+       ],
+       "ineligibility_reason_text": "历史口径（版本未知 成本），不参与本口径前沿计算",
+       "is_analysis_eligible_for_current_metric_variant": false
+      },
+      "base_model_name": "Costless Model",
       "creator": "xAI",
       "drop_reason": "缺维度：成本",
       "intelligence": 52.0,
@@ -69,62 +101,126 @@
       "missing_dimension_names": [
        "cost"
       ],
+      "model_uuid": "00000000-0000-4000-9000-000000000018",
       "name": "Costless Model",
-      "release_date": "2026-05-20"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2026-05-20",
+      "tier": "(default)"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Gemini 2.5 Pro",
       "creator": "Google",
       "drop_reason": "过旧(软窗外且非前沿)",
       "intelligence": 40.0,
       "is_absent_from_accepted_embedded_model_catalog_partition": false,
       "missing_dimension_names": [],
+      "model_uuid": "00000000-0000-4000-9000-000000000007",
       "name": "Gemini 2.5 Pro",
-      "release_date": "2025-03-01"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2025-03-01",
+      "tier": "pro"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Gemini 2 Pro",
       "creator": "Google",
       "drop_reason": "过旧(硬截断)",
       "intelligence": 30.0,
       "is_absent_from_accepted_embedded_model_catalog_partition": false,
       "missing_dimension_names": [],
+      "model_uuid": "00000000-0000-4000-9000-000000000008",
       "name": "Gemini 2 Pro",
-      "release_date": "2023-06-01"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2023-06-01",
+      "tier": "pro"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Laggard Chain A",
       "creator": "Meta",
       "drop_reason": "离前沿太远",
       "intelligence": 20.0,
       "is_absent_from_accepted_embedded_model_catalog_partition": false,
       "missing_dimension_names": [],
+      "model_uuid": "00000000-0000-4000-9000-000000000013",
       "name": "Laggard Chain A",
-      "release_date": "2026-01-01"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2026-01-01",
+      "tier": "(default)"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Laggard Chain B",
       "creator": "Meta",
       "drop_reason": "离前沿太远",
       "intelligence": 19.0,
       "is_absent_from_accepted_embedded_model_catalog_partition": false,
       "missing_dimension_names": [],
+      "model_uuid": "00000000-0000-4000-9000-000000000014",
       "name": "Laggard Chain B",
-      "release_date": "2026-01-01"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2026-01-01",
+      "tier": "(default)"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Laggard Chain C",
       "creator": "Meta",
       "drop_reason": "离前沿太远",
       "intelligence": 18.0,
       "is_absent_from_accepted_embedded_model_catalog_partition": false,
       "missing_dimension_names": [],
+      "model_uuid": "00000000-0000-4000-9000-000000000015",
       "name": "Laggard Chain C",
-      "release_date": "2026-01-01"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2026-01-01",
+      "tier": "(default)"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Laggard Chain D",
       "creator": "Meta",
       "drop_reason": "离前沿太远",
       "intelligence": 17.0,
       "is_absent_from_accepted_embedded_model_catalog_partition": false,
       "missing_dimension_names": [],
+      "model_uuid": "00000000-0000-4000-9000-000000000016",
       "name": "Laggard Chain D",
-      "release_date": "2026-01-01"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2026-01-01",
+      "tier": "(default)"
      }
     ],
     "historical_version_value_model_count": 3,
@@ -2034,6 +2130,7 @@
         "eff_speed": 52.2,
         "intelligence": 60.0,
         "layer": 1.0,
+        "output_mtokens": 100.0,
         "output_speed": 60.0,
         "release_date": "2026-08-01"
        },
@@ -2086,6 +2183,7 @@
         "eff_speed": 101.5,
         "intelligence": 55.0,
         "layer": 1.0,
+        "output_mtokens": 60.0,
         "output_speed": 70.0,
         "release_date": "2026-08-01"
        },
@@ -2138,6 +2236,7 @@
         "eff_speed": 232.0,
         "intelligence": 48.0,
         "layer": 1.0,
+        "output_mtokens": 30.0,
         "output_speed": 80.0,
         "release_date": "2026-08-01"
        },
@@ -2190,6 +2289,7 @@
         "eff_speed": 87.0,
         "intelligence": 50.0,
         "layer": 1.0,
+        "output_mtokens": 40.0,
         "output_speed": 40.0,
         "release_date": "2026-05-01"
        },
@@ -2242,6 +2342,7 @@
         "eff_speed": 65.25,
         "intelligence": 65.0,
         "layer": 1.0,
+        "output_mtokens": 120.0,
         "output_speed": 90.0,
         "release_date": "2026-07-01"
        },
@@ -2294,6 +2395,7 @@
         "eff_speed": 522.0,
         "intelligence": 45.0,
         "layer": 1.0,
+        "output_mtokens": 25.0,
         "output_speed": 150.0,
         "release_date": "2026-06-15"
        },
@@ -2346,6 +2448,7 @@
         "eff_speed": 130.5,
         "intelligence": 58.0,
         "layer": 1.0,
+        "output_mtokens": 80.0,
         "output_speed": 120.0,
         "release_date": "2025-11-01"
        },
@@ -2398,6 +2501,7 @@
         "eff_speed": 174.0,
         "intelligence": 42.0,
         "layer": 2.0,
+        "output_mtokens": 35.0,
         "output_speed": 70.0,
         "release_date": "2026-02-01"
        },
@@ -2450,6 +2554,7 @@
         "eff_speed": 217.5,
         "intelligence": 38.0,
         "layer": 1.0,
+        "output_mtokens": 20.0,
         "output_speed": 50.0,
         "release_date": "2026-04-01"
        },
@@ -2502,6 +2607,7 @@
         "eff_speed": 265.8333333,
         "intelligence": 35.0,
         "layer": 1.0,
+        "output_mtokens": 18.0,
         "output_speed": 55.0,
         "release_date": "2026-03-01"
        },
@@ -2554,6 +2660,7 @@
         "eff_speed": 261.0,
         "intelligence": 33.0,
         "layer": 1.0,
+        "output_mtokens": 15.0,
         "output_speed": 45.0,
         "release_date": "2026-03-15"
        },
@@ -2609,6 +2716,7 @@
         "eff_speed": 210.0,
         "intelligence": 62.0,
         "layer": null,
+        "output_mtokens": 10.0,
         "output_speed": 100.0,
         "release_date": "2026-01-15"
        },
@@ -2663,6 +2771,7 @@
         "eff_speed": 105.0,
         "intelligence": 47.0,
         "layer": null,
+        "output_mtokens": 12.0,
         "output_speed": 60.0,
         "release_date": "2026-06-01"
        },
@@ -2717,6 +2826,7 @@
         "eff_speed": 121.8,
         "intelligence": 54.0,
         "layer": null,
+        "output_mtokens": 50.0,
         "output_speed": 70.0,
         "release_date": "2026-04-15"
        },
@@ -3069,8 +3179,8 @@
       },
       "z_axis": {
        "fixed_range": [
-        28.25,
-        66.75
+        31.4,
+        66.6
        ],
        "scale_type": "linear",
        "title_text": "智能指数（AA Intelligence Index v4.3.2）"
@@ -3185,11 +3295,13 @@
    "effective": {
     "axis_title_text": "有效速度（按冗长度归一的生成速度，不含 TTFT 与工具耗时）",
     "column_name": "eff_speed",
+    "description": "按同指数版本的固定参考输出 token 数归一生成速度，不含首 token 延迟与工具耗时。",
     "label": "有效速度"
    },
    "raw": {
     "axis_title_text": "原始速度",
     "column_name": "output_speed",
+    "description": "原始生成速度，单位 tok/s；不代表端到端任务耗时。",
     "label": "原始速度"
    }
   },
@@ -3218,11 +3330,13 @@
   "cost_metric_definitions": {
    "blended": {
     "column_name": "blended_price_cache_input_output_7_to_2_to_1",
+    "description": "缓存命中输入、普通输入、输出按 7:2:1 加权，单位 USD/M tokens；配合原始速度构成正交分解视角。",
     "label": "7:2:1 混合单价",
     "unit": "USD/M tokens"
    },
    "effective": {
     "column_name": "cost_to_run",
+    "description": "运行当前智能指数测试的总成本，单位 USD；包含输出长度的影响。",
     "label": "有效运行成本",
     "unit": "USD"
    }
@@ -3236,6 +3350,12 @@
     "analysis_eligible_model_count": 12,
     "excluded_models_with_drop_reason": [
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Speedless Genius",
       "creator": "Anthropic",
       "drop_reason": "缺维度：速度",
       "intelligence": 70.0,
@@ -3243,10 +3363,22 @@
       "missing_dimension_names": [
        "speed"
       ],
+      "model_uuid": "00000000-0000-4000-9000-000000000017",
       "name": "Speedless Genius (Max Effort)",
-      "release_date": "2026-09-01"
+      "reasoning_level_label": "max effort",
+      "reasoning_level_sort_order": 60,
+      "release_date": "2026-09-01",
+      "tier": "(default)"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [
+        "output_token_count_value_not_from_current_intelligence_index_version"
+       ],
+       "ineligibility_reason_text": "历史口径（版本未知 冗长度），不参与本口径前沿计算",
+       "is_analysis_eligible_for_current_metric_variant": false
+      },
+      "base_model_name": "Brand New Model (V-3)",
       "creator": "OpenAI",
       "drop_reason": "缺维度：速度",
       "intelligence": 56.0,
@@ -3254,10 +3386,20 @@
       "missing_dimension_names": [
        "speed"
       ],
+      "model_uuid": "00000000-0000-4000-9000-000000000022",
       "name": "Brand New Model (V-3)",
-      "release_date": "2026-09-20"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2026-09-20",
+      "tier": "(default)"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Costless Model",
       "creator": "xAI",
       "drop_reason": "缺维度：成本",
       "intelligence": 52.0,
@@ -3265,62 +3407,126 @@
       "missing_dimension_names": [
        "cost"
       ],
+      "model_uuid": "00000000-0000-4000-9000-000000000018",
       "name": "Costless Model",
-      "release_date": "2026-05-20"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2026-05-20",
+      "tier": "(default)"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Gemini 2.5 Pro",
       "creator": "Google",
       "drop_reason": "过旧(软窗外且非前沿)",
       "intelligence": 40.0,
       "is_absent_from_accepted_embedded_model_catalog_partition": false,
       "missing_dimension_names": [],
+      "model_uuid": "00000000-0000-4000-9000-000000000007",
       "name": "Gemini 2.5 Pro",
-      "release_date": "2025-03-01"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2025-03-01",
+      "tier": "pro"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Gemini 2 Pro",
       "creator": "Google",
       "drop_reason": "过旧(硬截断)",
       "intelligence": 30.0,
       "is_absent_from_accepted_embedded_model_catalog_partition": false,
       "missing_dimension_names": [],
+      "model_uuid": "00000000-0000-4000-9000-000000000008",
       "name": "Gemini 2 Pro",
-      "release_date": "2023-06-01"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2023-06-01",
+      "tier": "pro"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Laggard Chain A",
       "creator": "Meta",
       "drop_reason": "离前沿太远",
       "intelligence": 20.0,
       "is_absent_from_accepted_embedded_model_catalog_partition": false,
       "missing_dimension_names": [],
+      "model_uuid": "00000000-0000-4000-9000-000000000013",
       "name": "Laggard Chain A",
-      "release_date": "2026-01-01"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2026-01-01",
+      "tier": "(default)"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Laggard Chain B",
       "creator": "Meta",
       "drop_reason": "离前沿太远",
       "intelligence": 19.0,
       "is_absent_from_accepted_embedded_model_catalog_partition": false,
       "missing_dimension_names": [],
+      "model_uuid": "00000000-0000-4000-9000-000000000014",
       "name": "Laggard Chain B",
-      "release_date": "2026-01-01"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2026-01-01",
+      "tier": "(default)"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Laggard Chain C",
       "creator": "Meta",
       "drop_reason": "离前沿太远",
       "intelligence": 18.0,
       "is_absent_from_accepted_embedded_model_catalog_partition": false,
       "missing_dimension_names": [],
+      "model_uuid": "00000000-0000-4000-9000-000000000015",
       "name": "Laggard Chain C",
-      "release_date": "2026-01-01"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2026-01-01",
+      "tier": "(default)"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Laggard Chain D",
       "creator": "Meta",
       "drop_reason": "离前沿太远",
       "intelligence": 17.0,
       "is_absent_from_accepted_embedded_model_catalog_partition": false,
       "missing_dimension_names": [],
+      "model_uuid": "00000000-0000-4000-9000-000000000016",
       "name": "Laggard Chain D",
-      "release_date": "2026-01-01"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2026-01-01",
+      "tier": "(default)"
      }
     ],
     "historical_version_value_model_count": 2,
@@ -5032,6 +5238,7 @@
         "eff_speed": 52.2,
         "intelligence": 60.0,
         "layer": 1.0,
+        "output_mtokens": 100.0,
         "output_speed": 60.0,
         "release_date": "2026-08-01"
        },
@@ -5084,6 +5291,7 @@
         "eff_speed": 101.5,
         "intelligence": 55.0,
         "layer": 2.0,
+        "output_mtokens": 60.0,
         "output_speed": 70.0,
         "release_date": "2026-08-01"
        },
@@ -5136,6 +5344,7 @@
         "eff_speed": 232.0,
         "intelligence": 48.0,
         "layer": 1.0,
+        "output_mtokens": 30.0,
         "output_speed": 80.0,
         "release_date": "2026-08-01"
        },
@@ -5188,6 +5397,7 @@
         "eff_speed": 87.0,
         "intelligence": 50.0,
         "layer": 1.0,
+        "output_mtokens": 40.0,
         "output_speed": 40.0,
         "release_date": "2026-05-01"
        },
@@ -5240,6 +5450,7 @@
         "eff_speed": 65.25,
         "intelligence": 65.0,
         "layer": 1.0,
+        "output_mtokens": 120.0,
         "output_speed": 90.0,
         "release_date": "2026-07-01"
        },
@@ -5292,6 +5503,7 @@
         "eff_speed": 522.0,
         "intelligence": 45.0,
         "layer": 1.0,
+        "output_mtokens": 25.0,
         "output_speed": 150.0,
         "release_date": "2026-06-15"
        },
@@ -5344,6 +5556,7 @@
         "eff_speed": 130.5,
         "intelligence": 58.0,
         "layer": 1.0,
+        "output_mtokens": 80.0,
         "output_speed": 120.0,
         "release_date": "2025-11-01"
        },
@@ -5396,6 +5609,7 @@
         "eff_speed": 174.0,
         "intelligence": 42.0,
         "layer": 2.0,
+        "output_mtokens": 35.0,
         "output_speed": 70.0,
         "release_date": "2026-02-01"
        },
@@ -5448,6 +5662,7 @@
         "eff_speed": 217.5,
         "intelligence": 38.0,
         "layer": 1.0,
+        "output_mtokens": 20.0,
         "output_speed": 50.0,
         "release_date": "2026-04-01"
        },
@@ -5500,6 +5715,7 @@
         "eff_speed": 265.8333333,
         "intelligence": 35.0,
         "layer": 1.0,
+        "output_mtokens": 18.0,
         "output_speed": 55.0,
         "release_date": "2026-03-01"
        },
@@ -5552,6 +5768,7 @@
         "eff_speed": 261.0,
         "intelligence": 33.0,
         "layer": 1.0,
+        "output_mtokens": 15.0,
         "output_speed": 45.0,
         "release_date": "2026-03-15"
        },
@@ -5606,6 +5823,7 @@
         "eff_speed": 210.0,
         "intelligence": 62.0,
         "layer": null,
+        "output_mtokens": 10.0,
         "output_speed": 100.0,
         "release_date": "2026-01-15"
        },
@@ -5660,6 +5878,7 @@
         "eff_speed": 105.0,
         "intelligence": 47.0,
         "layer": null,
+        "output_mtokens": 12.0,
         "output_speed": 60.0,
         "release_date": "2026-06-01"
        },
@@ -5712,6 +5931,7 @@
         "eff_speed": 121.8,
         "intelligence": 54.0,
         "layer": 1.0,
+        "output_mtokens": 50.0,
         "output_speed": 70.0,
         "release_date": "2026-04-15"
        },
@@ -6052,8 +6272,8 @@
       },
       "z_axis": {
        "fixed_range": [
-        28.25,
-        66.75
+        31.4,
+        66.6
        ],
        "scale_type": "linear",
        "title_text": "智能指数（AA Intelligence Index v4.3.2）"
@@ -6065,6 +6285,12 @@
     "analysis_eligible_model_count": 15,
     "excluded_models_with_drop_reason": [
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Speedless Genius",
       "creator": "Anthropic",
       "drop_reason": "缺维度：速度",
       "intelligence": 70.0,
@@ -6072,10 +6298,20 @@
       "missing_dimension_names": [
        "speed"
       ],
+      "model_uuid": "00000000-0000-4000-9000-000000000017",
       "name": "Speedless Genius (Max Effort)",
-      "release_date": "2026-09-01"
+      "reasoning_level_label": "max effort",
+      "reasoning_level_sort_order": 60,
+      "release_date": "2026-09-01",
+      "tier": "(default)"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Costless Model",
       "creator": "xAI",
       "drop_reason": "缺维度：成本",
       "intelligence": 52.0,
@@ -6083,62 +6319,126 @@
       "missing_dimension_names": [
        "cost"
       ],
+      "model_uuid": "00000000-0000-4000-9000-000000000018",
       "name": "Costless Model",
-      "release_date": "2026-05-20"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2026-05-20",
+      "tier": "(default)"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Gemini 2.5 Pro",
       "creator": "Google",
       "drop_reason": "过旧(软窗外且非前沿)",
       "intelligence": 40.0,
       "is_absent_from_accepted_embedded_model_catalog_partition": false,
       "missing_dimension_names": [],
+      "model_uuid": "00000000-0000-4000-9000-000000000007",
       "name": "Gemini 2.5 Pro",
-      "release_date": "2025-03-01"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2025-03-01",
+      "tier": "pro"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Gemini 2 Pro",
       "creator": "Google",
       "drop_reason": "过旧(硬截断)",
       "intelligence": 30.0,
       "is_absent_from_accepted_embedded_model_catalog_partition": false,
       "missing_dimension_names": [],
+      "model_uuid": "00000000-0000-4000-9000-000000000008",
       "name": "Gemini 2 Pro",
-      "release_date": "2023-06-01"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2023-06-01",
+      "tier": "pro"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Laggard Chain A",
       "creator": "Meta",
       "drop_reason": "离前沿太远",
       "intelligence": 20.0,
       "is_absent_from_accepted_embedded_model_catalog_partition": false,
       "missing_dimension_names": [],
+      "model_uuid": "00000000-0000-4000-9000-000000000013",
       "name": "Laggard Chain A",
-      "release_date": "2026-01-01"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2026-01-01",
+      "tier": "(default)"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Laggard Chain B",
       "creator": "Meta",
       "drop_reason": "离前沿太远",
       "intelligence": 19.0,
       "is_absent_from_accepted_embedded_model_catalog_partition": false,
       "missing_dimension_names": [],
+      "model_uuid": "00000000-0000-4000-9000-000000000014",
       "name": "Laggard Chain B",
-      "release_date": "2026-01-01"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2026-01-01",
+      "tier": "(default)"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Laggard Chain C",
       "creator": "Meta",
       "drop_reason": "离前沿太远",
       "intelligence": 18.0,
       "is_absent_from_accepted_embedded_model_catalog_partition": false,
       "missing_dimension_names": [],
+      "model_uuid": "00000000-0000-4000-9000-000000000015",
       "name": "Laggard Chain C",
-      "release_date": "2026-01-01"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2026-01-01",
+      "tier": "(default)"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Laggard Chain D",
       "creator": "Meta",
       "drop_reason": "离前沿太远",
       "intelligence": 17.0,
       "is_absent_from_accepted_embedded_model_catalog_partition": false,
       "missing_dimension_names": [],
+      "model_uuid": "00000000-0000-4000-9000-000000000016",
       "name": "Laggard Chain D",
-      "release_date": "2026-01-01"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2026-01-01",
+      "tier": "(default)"
      }
     ],
     "historical_version_value_model_count": 0,
@@ -7385,6 +7685,7 @@
         "eff_speed": 52.2,
         "intelligence": 60.0,
         "layer": 2.0,
+        "output_mtokens": 100.0,
         "output_speed": 60.0,
         "release_date": "2026-08-01"
        },
@@ -7437,6 +7738,7 @@
         "eff_speed": 101.5,
         "intelligence": 55.0,
         "layer": 2.0,
+        "output_mtokens": 60.0,
         "output_speed": 70.0,
         "release_date": "2026-08-01"
        },
@@ -7489,6 +7791,7 @@
         "eff_speed": 232.0,
         "intelligence": 48.0,
         "layer": 2.0,
+        "output_mtokens": 30.0,
         "output_speed": 80.0,
         "release_date": "2026-08-01"
        },
@@ -7541,6 +7844,7 @@
         "eff_speed": 87.0,
         "intelligence": 50.0,
         "layer": 1.0,
+        "output_mtokens": 40.0,
         "output_speed": 40.0,
         "release_date": "2026-05-01"
        },
@@ -7593,6 +7897,7 @@
         "eff_speed": 65.25,
         "intelligence": 65.0,
         "layer": 1.0,
+        "output_mtokens": 120.0,
         "output_speed": 90.0,
         "release_date": "2026-07-01"
        },
@@ -7645,6 +7950,7 @@
         "eff_speed": 522.0,
         "intelligence": 45.0,
         "layer": 1.0,
+        "output_mtokens": 25.0,
         "output_speed": 150.0,
         "release_date": "2026-06-15"
        },
@@ -7697,6 +8003,7 @@
         "eff_speed": 130.5,
         "intelligence": 58.0,
         "layer": 1.0,
+        "output_mtokens": 80.0,
         "output_speed": 120.0,
         "release_date": "2025-11-01"
        },
@@ -7749,6 +8056,7 @@
         "eff_speed": 174.0,
         "intelligence": 42.0,
         "layer": 2.0,
+        "output_mtokens": 35.0,
         "output_speed": 70.0,
         "release_date": "2026-02-01"
        },
@@ -7801,6 +8109,7 @@
         "eff_speed": 217.5,
         "intelligence": 38.0,
         "layer": 1.0,
+        "output_mtokens": 20.0,
         "output_speed": 50.0,
         "release_date": "2026-04-01"
        },
@@ -7853,6 +8162,7 @@
         "eff_speed": 265.8333333,
         "intelligence": 35.0,
         "layer": 1.0,
+        "output_mtokens": 18.0,
         "output_speed": 55.0,
         "release_date": "2026-03-01"
        },
@@ -7905,6 +8215,7 @@
         "eff_speed": 261.0,
         "intelligence": 33.0,
         "layer": 1.0,
+        "output_mtokens": 15.0,
         "output_speed": 45.0,
         "release_date": "2026-03-15"
        },
@@ -7957,6 +8268,7 @@
         "eff_speed": 210.0,
         "intelligence": 62.0,
         "layer": 1.0,
+        "output_mtokens": 10.0,
         "output_speed": 100.0,
         "release_date": "2026-01-15"
        },
@@ -8009,6 +8321,7 @@
         "eff_speed": 105.0,
         "intelligence": 47.0,
         "layer": 1.0,
+        "output_mtokens": 12.0,
         "output_speed": 60.0,
         "release_date": "2026-06-01"
        },
@@ -8061,6 +8374,7 @@
         "eff_speed": 121.8,
         "intelligence": 54.0,
         "layer": 2.0,
+        "output_mtokens": 50.0,
         "output_speed": 70.0,
         "release_date": "2026-04-15"
        },
@@ -8113,6 +8427,7 @@
         "eff_speed": null,
         "intelligence": 56.0,
         "layer": 1.0,
+        "output_mtokens": null,
         "output_speed": 200.0,
         "release_date": "2026-09-20"
        },
@@ -8453,8 +8768,8 @@
       },
       "z_axis": {
        "fixed_range": [
-        28.25,
-        66.75
+        31.4,
+        66.6
        ],
        "scale_type": "linear",
        "title_text": "智能指数（AA Intelligence Index v4.3.2）"
@@ -8466,6 +8781,12 @@
     "analysis_eligible_model_count": 11,
     "excluded_models_with_drop_reason": [
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Speedless Genius",
       "creator": "Anthropic",
       "drop_reason": "缺维度：速度",
       "intelligence": 70.0,
@@ -8473,10 +8794,22 @@
       "missing_dimension_names": [
        "speed"
       ],
+      "model_uuid": "00000000-0000-4000-9000-000000000017",
       "name": "Speedless Genius (Max Effort)",
-      "release_date": "2026-09-01"
+      "reasoning_level_label": "max effort",
+      "reasoning_level_sort_order": 60,
+      "release_date": "2026-09-01",
+      "tier": "(default)"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [
+        "output_token_count_value_not_from_current_intelligence_index_version"
+       ],
+       "ineligibility_reason_text": "历史口径（版本未知 冗长度），不参与本口径前沿计算",
+       "is_analysis_eligible_for_current_metric_variant": false
+      },
+      "base_model_name": "Brand New Model (V-3)",
       "creator": "OpenAI",
       "drop_reason": "缺维度：速度",
       "intelligence": 56.0,
@@ -8484,10 +8817,22 @@
       "missing_dimension_names": [
        "speed"
       ],
+      "model_uuid": "00000000-0000-4000-9000-000000000022",
       "name": "Brand New Model (V-3)",
-      "release_date": "2026-09-20"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2026-09-20",
+      "tier": "(default)"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [
+        "cost_to_run_value_not_from_current_intelligence_index_version"
+       ],
+       "ineligibility_reason_text": "历史口径（版本未知 成本），不参与本口径前沿计算",
+       "is_analysis_eligible_for_current_metric_variant": false
+      },
+      "base_model_name": "Costless Model",
       "creator": "xAI",
       "drop_reason": "缺维度：成本",
       "intelligence": 52.0,
@@ -8495,62 +8840,126 @@
       "missing_dimension_names": [
        "cost"
       ],
+      "model_uuid": "00000000-0000-4000-9000-000000000018",
       "name": "Costless Model",
-      "release_date": "2026-05-20"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2026-05-20",
+      "tier": "(default)"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Gemini 2.5 Pro",
       "creator": "Google",
       "drop_reason": "过旧(软窗外且非前沿)",
       "intelligence": 40.0,
       "is_absent_from_accepted_embedded_model_catalog_partition": false,
       "missing_dimension_names": [],
+      "model_uuid": "00000000-0000-4000-9000-000000000007",
       "name": "Gemini 2.5 Pro",
-      "release_date": "2025-03-01"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2025-03-01",
+      "tier": "pro"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Gemini 2 Pro",
       "creator": "Google",
       "drop_reason": "过旧(硬截断)",
       "intelligence": 30.0,
       "is_absent_from_accepted_embedded_model_catalog_partition": false,
       "missing_dimension_names": [],
+      "model_uuid": "00000000-0000-4000-9000-000000000008",
       "name": "Gemini 2 Pro",
-      "release_date": "2023-06-01"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2023-06-01",
+      "tier": "pro"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Laggard Chain A",
       "creator": "Meta",
       "drop_reason": "离前沿太远",
       "intelligence": 20.0,
       "is_absent_from_accepted_embedded_model_catalog_partition": false,
       "missing_dimension_names": [],
+      "model_uuid": "00000000-0000-4000-9000-000000000013",
       "name": "Laggard Chain A",
-      "release_date": "2026-01-01"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2026-01-01",
+      "tier": "(default)"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Laggard Chain B",
       "creator": "Meta",
       "drop_reason": "离前沿太远",
       "intelligence": 19.0,
       "is_absent_from_accepted_embedded_model_catalog_partition": false,
       "missing_dimension_names": [],
+      "model_uuid": "00000000-0000-4000-9000-000000000014",
       "name": "Laggard Chain B",
-      "release_date": "2026-01-01"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2026-01-01",
+      "tier": "(default)"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Laggard Chain C",
       "creator": "Meta",
       "drop_reason": "离前沿太远",
       "intelligence": 18.0,
       "is_absent_from_accepted_embedded_model_catalog_partition": false,
       "missing_dimension_names": [],
+      "model_uuid": "00000000-0000-4000-9000-000000000015",
       "name": "Laggard Chain C",
-      "release_date": "2026-01-01"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2026-01-01",
+      "tier": "(default)"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Laggard Chain D",
       "creator": "Meta",
       "drop_reason": "离前沿太远",
       "intelligence": 17.0,
       "is_absent_from_accepted_embedded_model_catalog_partition": false,
       "missing_dimension_names": [],
+      "model_uuid": "00000000-0000-4000-9000-000000000016",
       "name": "Laggard Chain D",
-      "release_date": "2026-01-01"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2026-01-01",
+      "tier": "(default)"
      }
     ],
     "historical_version_value_model_count": 3,
@@ -10460,6 +10869,7 @@
         "eff_speed": 52.2,
         "intelligence": 60.0,
         "layer": 1.0,
+        "output_mtokens": 100.0,
         "output_speed": 60.0,
         "release_date": "2026-08-01"
        },
@@ -10512,6 +10922,7 @@
         "eff_speed": 101.5,
         "intelligence": 55.0,
         "layer": 1.0,
+        "output_mtokens": 60.0,
         "output_speed": 70.0,
         "release_date": "2026-08-01"
        },
@@ -10564,6 +10975,7 @@
         "eff_speed": 232.0,
         "intelligence": 48.0,
         "layer": 1.0,
+        "output_mtokens": 30.0,
         "output_speed": 80.0,
         "release_date": "2026-08-01"
        },
@@ -10616,6 +11028,7 @@
         "eff_speed": 87.0,
         "intelligence": 50.0,
         "layer": 1.0,
+        "output_mtokens": 40.0,
         "output_speed": 40.0,
         "release_date": "2026-05-01"
        },
@@ -10668,6 +11081,7 @@
         "eff_speed": 65.25,
         "intelligence": 65.0,
         "layer": 1.0,
+        "output_mtokens": 120.0,
         "output_speed": 90.0,
         "release_date": "2026-07-01"
        },
@@ -10720,6 +11134,7 @@
         "eff_speed": 522.0,
         "intelligence": 45.0,
         "layer": 1.0,
+        "output_mtokens": 25.0,
         "output_speed": 150.0,
         "release_date": "2026-06-15"
        },
@@ -10772,6 +11187,7 @@
         "eff_speed": 130.5,
         "intelligence": 58.0,
         "layer": 1.0,
+        "output_mtokens": 80.0,
         "output_speed": 120.0,
         "release_date": "2025-11-01"
        },
@@ -10824,6 +11240,7 @@
         "eff_speed": 174.0,
         "intelligence": 42.0,
         "layer": 2.0,
+        "output_mtokens": 35.0,
         "output_speed": 70.0,
         "release_date": "2026-02-01"
        },
@@ -10876,6 +11293,7 @@
         "eff_speed": 217.5,
         "intelligence": 38.0,
         "layer": 1.0,
+        "output_mtokens": 20.0,
         "output_speed": 50.0,
         "release_date": "2026-04-01"
        },
@@ -10928,6 +11346,7 @@
         "eff_speed": 265.8333333,
         "intelligence": 35.0,
         "layer": 1.0,
+        "output_mtokens": 18.0,
         "output_speed": 55.0,
         "release_date": "2026-03-01"
        },
@@ -10980,6 +11399,7 @@
         "eff_speed": 261.0,
         "intelligence": 33.0,
         "layer": 1.0,
+        "output_mtokens": 15.0,
         "output_speed": 45.0,
         "release_date": "2026-03-15"
        },
@@ -11035,6 +11455,7 @@
         "eff_speed": 210.0,
         "intelligence": 62.0,
         "layer": null,
+        "output_mtokens": 10.0,
         "output_speed": 100.0,
         "release_date": "2026-01-15"
        },
@@ -11089,6 +11510,7 @@
         "eff_speed": 105.0,
         "intelligence": 47.0,
         "layer": null,
+        "output_mtokens": 12.0,
         "output_speed": 60.0,
         "release_date": "2026-06-01"
        },
@@ -11143,6 +11565,7 @@
         "eff_speed": 121.8,
         "intelligence": 54.0,
         "layer": null,
+        "output_mtokens": 50.0,
         "output_speed": 70.0,
         "release_date": "2026-04-15"
        },
@@ -11483,8 +11906,8 @@
       },
       "z_axis": {
        "fixed_range": [
-        28.25,
-        66.75
+        31.4,
+        66.6
        ],
        "scale_type": "linear",
        "title_text": "智能指数（AA Intelligence Index v4.3.2）"
@@ -11496,6 +11919,12 @@
     "analysis_eligible_model_count": 13,
     "excluded_models_with_drop_reason": [
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Speedless Genius",
       "creator": "Anthropic",
       "drop_reason": "缺维度：速度",
       "intelligence": 70.0,
@@ -11503,10 +11932,22 @@
       "missing_dimension_names": [
        "speed"
       ],
+      "model_uuid": "00000000-0000-4000-9000-000000000017",
       "name": "Speedless Genius (Max Effort)",
-      "release_date": "2026-09-01"
+      "reasoning_level_label": "max effort",
+      "reasoning_level_sort_order": 60,
+      "release_date": "2026-09-01",
+      "tier": "(default)"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [
+        "cost_to_run_value_not_from_current_intelligence_index_version"
+       ],
+       "ineligibility_reason_text": "历史口径（版本未知 成本），不参与本口径前沿计算",
+       "is_analysis_eligible_for_current_metric_variant": false
+      },
+      "base_model_name": "Costless Model",
       "creator": "xAI",
       "drop_reason": "缺维度：成本",
       "intelligence": 52.0,
@@ -11514,62 +11955,126 @@
       "missing_dimension_names": [
        "cost"
       ],
+      "model_uuid": "00000000-0000-4000-9000-000000000018",
       "name": "Costless Model",
-      "release_date": "2026-05-20"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2026-05-20",
+      "tier": "(default)"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Gemini 2.5 Pro",
       "creator": "Google",
       "drop_reason": "过旧(软窗外且非前沿)",
       "intelligence": 40.0,
       "is_absent_from_accepted_embedded_model_catalog_partition": false,
       "missing_dimension_names": [],
+      "model_uuid": "00000000-0000-4000-9000-000000000007",
       "name": "Gemini 2.5 Pro",
-      "release_date": "2025-03-01"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2025-03-01",
+      "tier": "pro"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Gemini 2 Pro",
       "creator": "Google",
       "drop_reason": "过旧(硬截断)",
       "intelligence": 30.0,
       "is_absent_from_accepted_embedded_model_catalog_partition": false,
       "missing_dimension_names": [],
+      "model_uuid": "00000000-0000-4000-9000-000000000008",
       "name": "Gemini 2 Pro",
-      "release_date": "2023-06-01"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2023-06-01",
+      "tier": "pro"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Laggard Chain A",
       "creator": "Meta",
       "drop_reason": "离前沿太远",
       "intelligence": 20.0,
       "is_absent_from_accepted_embedded_model_catalog_partition": false,
       "missing_dimension_names": [],
+      "model_uuid": "00000000-0000-4000-9000-000000000013",
       "name": "Laggard Chain A",
-      "release_date": "2026-01-01"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2026-01-01",
+      "tier": "(default)"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Laggard Chain B",
       "creator": "Meta",
       "drop_reason": "离前沿太远",
       "intelligence": 19.0,
       "is_absent_from_accepted_embedded_model_catalog_partition": false,
       "missing_dimension_names": [],
+      "model_uuid": "00000000-0000-4000-9000-000000000014",
       "name": "Laggard Chain B",
-      "release_date": "2026-01-01"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2026-01-01",
+      "tier": "(default)"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Laggard Chain C",
       "creator": "Meta",
       "drop_reason": "离前沿太远",
       "intelligence": 18.0,
       "is_absent_from_accepted_embedded_model_catalog_partition": false,
       "missing_dimension_names": [],
+      "model_uuid": "00000000-0000-4000-9000-000000000015",
       "name": "Laggard Chain C",
-      "release_date": "2026-01-01"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2026-01-01",
+      "tier": "(default)"
      },
      {
+      "analysis_eligibility": {
+       "ineligibility_reason_codes": [],
+       "ineligibility_reason_text": null,
+       "is_analysis_eligible_for_current_metric_variant": true
+      },
+      "base_model_name": "Laggard Chain D",
       "creator": "Meta",
       "drop_reason": "离前沿太远",
       "intelligence": 17.0,
       "is_absent_from_accepted_embedded_model_catalog_partition": false,
       "missing_dimension_names": [],
+      "model_uuid": "00000000-0000-4000-9000-000000000016",
       "name": "Laggard Chain D",
-      "release_date": "2026-01-01"
+      "reasoning_level_label": "non-reasoning",
+      "reasoning_level_sort_order": 0,
+      "release_date": "2026-01-01",
+      "tier": "(default)"
      }
     ],
     "historical_version_value_model_count": 2,
@@ -13302,6 +13807,7 @@
         "eff_speed": 52.2,
         "intelligence": 60.0,
         "layer": 1.0,
+        "output_mtokens": 100.0,
         "output_speed": 60.0,
         "release_date": "2026-08-01"
        },
@@ -13354,6 +13860,7 @@
         "eff_speed": 101.5,
         "intelligence": 55.0,
         "layer": 2.0,
+        "output_mtokens": 60.0,
         "output_speed": 70.0,
         "release_date": "2026-08-01"
        },
@@ -13406,6 +13913,7 @@
         "eff_speed": 232.0,
         "intelligence": 48.0,
         "layer": 1.0,
+        "output_mtokens": 30.0,
         "output_speed": 80.0,
         "release_date": "2026-08-01"
        },
@@ -13458,6 +13966,7 @@
         "eff_speed": 87.0,
         "intelligence": 50.0,
         "layer": 1.0,
+        "output_mtokens": 40.0,
         "output_speed": 40.0,
         "release_date": "2026-05-01"
        },
@@ -13510,6 +14019,7 @@
         "eff_speed": 65.25,
         "intelligence": 65.0,
         "layer": 1.0,
+        "output_mtokens": 120.0,
         "output_speed": 90.0,
         "release_date": "2026-07-01"
        },
@@ -13562,6 +14072,7 @@
         "eff_speed": 522.0,
         "intelligence": 45.0,
         "layer": 1.0,
+        "output_mtokens": 25.0,
         "output_speed": 150.0,
         "release_date": "2026-06-15"
        },
@@ -13614,6 +14125,7 @@
         "eff_speed": 130.5,
         "intelligence": 58.0,
         "layer": 1.0,
+        "output_mtokens": 80.0,
         "output_speed": 120.0,
         "release_date": "2025-11-01"
        },
@@ -13666,6 +14178,7 @@
         "eff_speed": 174.0,
         "intelligence": 42.0,
         "layer": 2.0,
+        "output_mtokens": 35.0,
         "output_speed": 70.0,
         "release_date": "2026-02-01"
        },
@@ -13718,6 +14231,7 @@
         "eff_speed": 217.5,
         "intelligence": 38.0,
         "layer": 1.0,
+        "output_mtokens": 20.0,
         "output_speed": 50.0,
         "release_date": "2026-04-01"
        },
@@ -13770,6 +14284,7 @@
         "eff_speed": 265.8333333,
         "intelligence": 35.0,
         "layer": 1.0,
+        "output_mtokens": 18.0,
         "output_speed": 55.0,
         "release_date": "2026-03-01"
        },
@@ -13822,6 +14337,7 @@
         "eff_speed": 261.0,
         "intelligence": 33.0,
         "layer": 1.0,
+        "output_mtokens": 15.0,
         "output_speed": 45.0,
         "release_date": "2026-03-15"
        },
@@ -13876,6 +14392,7 @@
         "eff_speed": 210.0,
         "intelligence": 62.0,
         "layer": null,
+        "output_mtokens": 10.0,
         "output_speed": 100.0,
         "release_date": "2026-01-15"
        },
@@ -13928,6 +14445,7 @@
         "eff_speed": 105.0,
         "intelligence": 47.0,
         "layer": 1.0,
+        "output_mtokens": 12.0,
         "output_speed": 60.0,
         "release_date": "2026-06-01"
        },
@@ -13982,6 +14500,7 @@
         "eff_speed": 121.8,
         "intelligence": 54.0,
         "layer": null,
+        "output_mtokens": 50.0,
         "output_speed": 70.0,
         "release_date": "2026-04-15"
        },
@@ -14034,6 +14553,7 @@
         "eff_speed": null,
         "intelligence": 56.0,
         "layer": 1.0,
+        "output_mtokens": null,
         "output_speed": 200.0,
         "release_date": "2026-09-20"
        },
@@ -14410,8 +14930,8 @@
       },
       "z_axis": {
        "fixed_range": [
-        28.25,
-        66.75
+        31.4,
+        66.6
        ],
        "scale_type": "linear",
        "title_text": "智能指数（AA Intelligence Index v4.3.2）"
@@ -14526,11 +15046,13 @@
    "effective": {
     "axis_title_text": "有效速度（按冗长度归一的生成速度，不含 TTFT 与工具耗时）",
     "column_name": "eff_speed",
+    "description": "按同指数版本的固定参考输出 token 数归一生成速度，不含首 token 延迟与工具耗时。",
     "label": "有效速度"
    },
    "raw": {
     "axis_title_text": "原始速度",
     "column_name": "output_speed",
+    "description": "原始生成速度，单位 tok/s；不代表端到端任务耗时。",
     "label": "原始速度"
    }
   },
