@@ -699,7 +699,7 @@ def test_excluded_models_list_explains_every_scored_model_that_is_not_displayed(
     assert excluded_intelligence_values == sorted(excluded_intelligence_values, reverse=True)
     excluded_by_name = {excluded_model["name"]: excluded_model for excluded_model in excluded_models}
     assert "Unscored Model" not in excluded_by_name
-    assert {key: value for key, value in excluded_models[0].items() if key not in {"base_model_name", "reasoning_level_label", "reasoning_level_sort_order", "analysis_eligibility"}} == {
+    assert {key: excluded_models[0][key] for key in ("name", "model_uuid", "creator", "intelligence", "release_date", "missing_dimension_names", "drop_reason", "is_absent_from_accepted_embedded_model_catalog_partition")} == {
         "name": "Speedless Genius (Max Effort)",
         "model_uuid": "00000000-0000-4000-9000-000000000017",
         "creator": "Anthropic",

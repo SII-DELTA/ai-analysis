@@ -43,3 +43,9 @@ test("标注布局保持刻度真实锚点，标题优先且不越界", () => {
     assert.ok(label.x >= 2 && label.x <= 388 && label.y >= 2 && label.y <= 298);
   }
 });
+
+test("桌面放大后同样避让密集刻度，不重叠显示全部标签", () => {
+  const labels = Array.from({ length: 6 }, (_, index) => ({ id: String(index), isTitle: false, anchor: { x: 450 + index, y: 200 }, projectedDepth: 0, width: 60, height: 20 }));
+  const layout = solveFrontierAxisAnnotationLayout({ canvasWidth: 1000, canvasHeight: 600, projectedCenter: { x: 500, y: 300 }, axes: [{ projectedStart: { x: 100, y: 200 }, projectedEnd: { x: 900, y: 200 }, labels }] });
+  assert.ok(layout.some(label => label.hidden));
+});

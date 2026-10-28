@@ -18,7 +18,7 @@ def hover_rear_model_then_move_to_overlapping_front_model(page):
       const rearModel=scene.displayed_model_markers.find(model=>model.name==='Qwen4 Max (high)');
       const frontModel=scene.displayed_model_markers.find(model=>model.name==='Gemini 3 Pro');
       scene.displayed_model_markers.forEach(model=>{model.x=1e9;});
-      for (const [model,x,y] of [[rearModel,-0.08,0.4],[frontModel,0.02,-0.4]]) {
+      for (const [model,x,y] of [[rearModel,-0.02,0.4],[frontModel,0.004,-0.4]]) {
         model.x=valueAtNormalizedCoordinate(axes.x_axis,x);
         model.y=valueAtNormalizedCoordinate(axes.y_axis,y);
         model.z=valueAtNormalizedCoordinate(axes.z_axis,0);
@@ -232,4 +232,12 @@ def test_pinned_foreground_target_remains_pickable_above_nearer_normal_marker(fr
     page.mouse.move(0, 0)
     expect(page.locator("#aa-threejs-model-tooltip")).to_be_hidden()
     assert page.evaluate("frontierThreeDimensionalVisualizationState().hoveredModelIndex") is None
+    # 固定对比栏出现后画布高度会变化，重新取实际投影，继续核验前景拾取。
+    page.evaluate("new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))")
+    overlap = page.evaluate("""() => {
+      const d=frontierThreeDimensionalRendererDiagnostics;
+      const point=d.projectedCanvasPositionForModelName('Qwen4 Max (high)');
+      const radius=d.projectedCanvasMarkerRadiiForModelName('Qwen4 Max (high)').logoRadius;
+      return {clientX:point.clientX+radius*.5,clientY:point.clientY};
+    }""")
     assert frontmost_model_name_at_pointer_coordinates(page, overlap) == "Qwen4 Max (high)"

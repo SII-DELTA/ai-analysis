@@ -242,22 +242,28 @@ def _svg_data_url(svg_text: str) -> str:
     return "data:image/svg+xml;charset=utf-8," + quote(svg_text, safe="")
 
 
-def _generated_wordmark_svg(creator_name: str, *, unknown: bool) -> str:
+def _generated_wordmark_svg(creator_name: str) -> str:
     escaped_name = html.escape(creator_name)
+    return (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" '
+        'viewBox="0 0 256 256" role="img">'
+        f'<title>{escaped_name}</title>'
+        '<rect x="4" y="4" width="248" height="248" rx="24" fill="#ffffff" stroke="#334155" stroke-width="8"/>'
+        '<text x="128" y="140" text-anchor="middle" font-family="Arial,sans-serif" '
+        f'font-size="28" textLength="220" lengthAdjust="spacingAndGlyphs" fill="#334155">{escaped_name}</text></svg>'
+    )
+
+
+def _generated_monogram_svg(creator_name: str) -> str:
     words = [word for word in creator_name.replace("-", " ").split() if word]
     monogram = "".join(word[0] for word in words[:3]).upper() or "?"
-    accent = "#6b7280" if unknown else "#334155"
     return (
-        '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="128" '
-        'viewBox="0 0 256 128" role="img">'
-        f'<title>{escaped_name}</title>'
-        '<rect x="4" y="4" width="248" height="120" rx="24" fill="#ffffff" '
-        f'stroke="{accent}" stroke-width="8"/>'
-        f'<text x="128" y="72" text-anchor="middle" font-family="Arial,sans-serif" '
-        f'font-size="48" font-weight="700" fill="{accent}">{html.escape(monogram)}</text>'
-        f'<text x="128" y="105" text-anchor="middle" font-family="Arial,sans-serif" '
-        f'font-size="14" fill="#334155">{escaped_name[:30]}</text>'
-        "</svg>"
+        '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" '
+        'viewBox="0 0 256 256" role="img">'
+        f'<title>{html.escape(creator_name)}</title>'
+        '<rect x="4" y="4" width="248" height="248" rx="24" fill="#ffffff" stroke="#6b7280" stroke-width="8"/>'
+        '<text x="128" y="158" text-anchor="middle" font-family="Arial,sans-serif" '
+        f'font-size="72" font-weight="700" fill="#334155">{html.escape(monogram)}</text></svg>'
     )
 
 
@@ -302,10 +308,7 @@ def organization_identity_metadata_for_creator_name(creator_name: str, *, creato
             if is_known_creator
             else "generated_monogram_fallback"
         )
-        logo_svg = _generated_wordmark_svg(
-            creator_name,
-            unknown=not is_known_creator,
-        )
+        logo_svg = (_generated_wordmark_svg if is_known_creator else _generated_monogram_svg)(creator_name)
 
     return {
         "organization_identity_key": creator_uuid or registered_name.casefold().replace(" ", "-"),

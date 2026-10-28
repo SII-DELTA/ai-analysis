@@ -47,14 +47,14 @@ SPEED_METRIC_DEFINITIONS = {
     "effective": {
         "column_name": "eff_speed",
         "label": "有效速度",
+        "description": "按同指数版本的固定参考输出 token 数归一生成速度，不含首 token 延迟与工具耗时。",
         "axis_title_text": "有效速度（按冗长度归一的生成速度，不含 TTFT 与工具耗时）",
-        "description": "按当前指数版本参考输出 token 量归一的生成速度；不含 TTFT 或工具耗时。",
     },
     "raw": {
         "column_name": "output_speed",
         "label": "原始速度",
+        "description": "原始生成速度，单位 tok/s；不代表端到端任务耗时。",
         "axis_title_text": "原始速度",
-        "description": "原始生成吞吐量，单位为 tok/s。",
     },
 }
 
@@ -62,14 +62,14 @@ COST_METRIC_DEFINITIONS = {
     "effective": {
         "column_name": "cost_to_run",
         "label": "有效运行成本",
+        "description": "运行当前智能指数测试的总成本，单位 USD；包含输出长度的影响。",
         "unit": "USD",
-        "description": "同一智能指数测试的总运行成本，单位为 USD。",
     },
     "blended": {
         "column_name": "blended_price_cache_input_output_7_to_2_to_1",
         "label": "7:2:1 混合单价",
+        "description": "缓存命中输入、普通输入、输出按 7:2:1 加权，单位 USD/M tokens；配合原始速度构成正交分解视角。",
         "unit": "USD/M tokens",
-        "description": "缓存命中输入、普通输入与输出按 7:2:1 合成的每百万 token 单价。",
     },
 }
 
@@ -310,12 +310,13 @@ def _excluded_models_with_drop_reason(variant_df: pd.DataFrame) -> list[dict[str
     relationship_configuration = visualize.build_model_relationship_configuration_resolver_for_models_dataframe(variant_df)
     for _, row in scored_but_not_displayed.iterrows():
         release_date = row.get("release_date")
-        base_name, _, reasoning_level, reasoning_order, _ = relationship_configuration(row)
+        base_name, tier, reasoning_level, reasoning_order, _ = relationship_configuration(row)
         excluded_models.append(
             {
                 "name": str(row["name"]),
                 "model_uuid": visualize._text_or_none(row.get("id")),
                 "base_model_name": base_name,
+                "tier": tier,
                 "reasoning_level_label": reasoning_level,
                 "reasoning_level_sort_order": reasoning_order,
                 "analysis_eligibility": visualize.model_analysis_eligibility(row),

@@ -59,6 +59,7 @@ def test_neighbor_interpolation_is_default_and_exact_frontier_replaces_it(fronti
     expect(explanation).to_contain_text("不是帕累托面")
     _capture_rendered_scene(page, tmp_path / "neighbor-interpolation-reference-desktop.png")
     page.set_viewport_size({"width": 390, "height": 844})
+    page.locator("#aa-view-settings-toggle").click()
     page.locator(".aa-frontier-geometry-toggle-and-explanation").scroll_into_view_if_needed()
     expect(explanation).to_be_visible()
     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
@@ -94,6 +95,8 @@ def test_exact_geometry_selection_survives_metric_switch_and_keyboard_toggle(fro
 def test_geometry_explanation_stays_next_to_its_toggle(frontier_page, viewport_width, tmp_path):
     page = frontier_page
     page.set_viewport_size({"width": viewport_width, "height": 900})
+    if viewport_width <= 640:
+        page.locator("#aa-view-settings-toggle").click()
     control = page.locator(".aa-frontier-geometry-toggle-and-explanation")
     control.scroll_into_view_if_needed()
     toggle_label = control.locator("label")

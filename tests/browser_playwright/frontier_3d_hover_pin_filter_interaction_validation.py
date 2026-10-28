@@ -167,7 +167,7 @@ def verify_historical_intelligence_index_version_points_and_comparable_only_togg
                 page.locator(
                     "#aa-pinned-panel .aa-pinned-variant-card"
                     ".is-historical-intelligence-index-version "
-                    ".aa-historical-intelligence-index-version-reason-note"
+                    ".aa-pinned-model-status"
                 ).count()
                 > 0,
                 "pin 卡为历史口径档位显示原因",
@@ -752,7 +752,12 @@ def main() -> int:
             f"逐条谱系做 frontmost 命中校验，找到能被悬停真正命中的被剪枝前身（尝试 {len(frontmost_hit_check_diagnostics)} 条谱系）",
         )
         assert lineage_pick is not None
-        projected_model_position = lineage_pick["projectedModelPosition"]
+        # W3 固定对比栏会改变画布高度，解除临时固定后重新取当前投影。
+        _wait_for_two_animation_frames(page)
+        projected_model_position = page.evaluate(
+            "name => window.frontierThreeDimensionalRendererDiagnostics.projectedCanvasPositionForModelName(name)",
+            lineage_pick["name"],
+        )
         page.mouse.move(
             projected_model_position["clientX"],
             projected_model_position["clientY"],
@@ -778,6 +783,22 @@ def main() -> int:
             _camera_distance(camera_after_drag, hover_state["cameraPosition"]) < 1e-8,
             "hover 谱系不重置相机",
         )
+        # 前身可能覆盖中心，选择当前仍能拾取到目标模型的实际可见位置。
+        projected_model_position = page.evaluate(
+            """name => {
+              const d=window.frontierThreeDimensionalRendererDiagnostics;
+              const center=d.projectedCanvasPositionForModelName(name);
+              const radius=d.projectedCanvasMarkerRadiiForModelName(name).whiteBackplateRadius*.85;
+              for (const [dx,dy] of [[0,0],[1,0],[-1,0],[0,1],[0,-1]]) {
+                const point={clientX:center.clientX+dx*radius,clientY:center.clientY+dy*radius};
+                const target=d.pointerInteractionAtCanvasClientCoordinates(point.clientX,point.clientY);
+                if(target?.interactionTargetKind==='displayed_model' && FRONTIER_3D_INTERACTION_RELATIONSHIPS.models[target.modelIndex].name===name)return point;
+              }
+              return null;
+            }""",
+            lineage_pick["name"],
+        )
+        assert projected_model_position, "所选谱系模型没有可点击的可见位置"
         page.mouse.click(
             projected_model_position["clientX"],
             projected_model_position["clientY"],
@@ -810,6 +831,7 @@ def main() -> int:
         check(page.locator("#aa-pinned-panel").is_visible(), "pin 详情卡在右栏可见")
         # 前身已在上面按 frontmost 命中校验选定（同谱系里投影最孤立且能被真正命中者）；pin 后再取一次
         # 投影位置（相机未变，应与校验时一致）。
+        _wait_for_two_animation_frames(page)
         most_isolated_pruned_ancestor = {
             **lineage_pick["hoverablePrunedAncestor"],
             "position": page.evaluate(
