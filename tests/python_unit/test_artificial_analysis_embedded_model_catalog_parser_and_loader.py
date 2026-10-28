@@ -2,7 +2,8 @@
 
 合成 fixture 覆盖：正常多模型页、对象跨 RSC 片段、首个带 token 的对象不是本页模型的负样本
 （P0-3）、残缺页、分区选择（版本 family × 缓存 mtime 的 UTC 日期）、跨页 UUID 冲突报错、
-字段缺失告警。末尾几条打 marker 的测试读取本机 `data/raw` 缓存，复核独立复核给出的真实数字。
+字段缺失告警。打 marker 的测试只读本机 `data/raw` 可变缓存，检查分区健康性与摘要一致性；
+固定日期、版本、文件名及精确记录数由合成 fixture 验证。
 """
 from __future__ import annotations
 
@@ -459,6 +460,7 @@ def test_loader_accepts_only_the_partition_agreeing_with_api_and_skips_truncated
     assert current_partition_summary.page_count == 2
     assert current_partition_summary.most_specific_intelligence_index_version == "4.3.2"
     assert current_partition_summary.record_with_output_token_count_count == 60
+    assert current_partition_summary.record_with_output_token_count_in_api_uuid_intersection_count == 60
     stale_partition_summary = partition_summaries_by_key[("4.1", "2026-08-05")]
     assert stale_partition_summary.is_accepted is False
     assert stale_partition_summary.intelligence_agreement_rate_with_api < 0.99
@@ -685,40 +687,64 @@ def local_cached_embedded_model_catalog_load_result(
 
 
 @pytest.mark.requires_local_cached_artificial_analysis_data
-def test_local_cache_accepted_partition_is_version_4_3_2(
+def test_local_cache_accepts_one_healthy_partition_and_load_result_matches_its_summary(
     local_cached_embedded_model_catalog_load_result: fetch_data.ArtificialAnalysisEmbeddedModelCatalogLoadResult,
 ) -> None:
+    accepted_partition_summaries = [
+        partition_summary
+        for partition_summary in local_cached_embedded_model_catalog_load_result.partition_summaries
+        if partition_summary.is_accepted
+    ]
+    assert len(accepted_partition_summaries) == 1
+    accepted_partition_summary = accepted_partition_summaries[0]
+    assert accepted_partition_summary.meets_acceptance_criteria is True
+    assert accepted_partition_summary.rejection_reasons == ()
     assert (
         local_cached_embedded_model_catalog_load_result.accepted_partition_intelligence_index_version
-        == "4.3.2"
+        == accepted_partition_summary.most_specific_intelligence_index_version
     )
-    assert local_cached_embedded_model_catalog_load_result.accepted_partition_captured_at_utc.startswith(
-        "2026-09-23"
+    assert (
+        local_cached_embedded_model_catalog_load_result.accepted_partition_captured_at_utc
+        == accepted_partition_summary.latest_cache_file_modification_time_utc
+    )
+    assert (
+        local_cached_embedded_model_catalog_load_result.accepted_partition_captured_at_utc[:10]
+        == accepted_partition_summary.cache_file_modification_date_utc
+    )
+    assert (
+        len(local_cached_embedded_model_catalog_load_result.records_by_model_id)
+        == accepted_partition_summary.record_count
+    )
+    assert set(accepted_partition_summary.page_file_names).isdisjoint(
+        local_cached_embedded_model_catalog_load_result.invalid_page_file_names
     )
 
 
 @pytest.mark.requires_local_cached_artificial_analysis_data
-def test_local_cache_has_166_current_records_with_output_token_count_among_api_ids(
+def test_local_cache_positive_output_token_records_in_api_uuid_intersection_meet_guardrail_and_match_summary(
     local_cached_embedded_model_catalog_load_result: fetch_data.ArtificialAnalysisEmbeddedModelCatalogLoadResult,
     local_cached_api_model_rows: list[dict],
 ) -> None:
     api_model_ids = {api_model_row["id"] for api_model_row in local_cached_api_model_rows}
-    current_records_with_output_token_count_among_api_ids = [
-        model_id
+    accepted_partition_positive_output_token_record_count_in_api_uuid_intersection = sum(
+        1
         for model_id, catalog_record in local_cached_embedded_model_catalog_load_result.records_by_model_id.items()
         if model_id in api_model_ids
         and catalog_record.canonical_output_token_count is not None
         and catalog_record.canonical_output_token_count > 0
-    ]
-    assert len(current_records_with_output_token_count_among_api_ids) == 166
-
-
-@pytest.mark.requires_local_cached_artificial_analysis_data
-def test_local_cache_has_exactly_one_truncated_page(
-    local_cached_embedded_model_catalog_load_result: fetch_data.ArtificialAnalysisEmbeddedModelCatalogLoadResult,
-) -> None:
-    assert local_cached_embedded_model_catalog_load_result.invalid_page_file_names == (
-        "gpt-5-6-sol-low.html",
+    )
+    assert (
+        accepted_partition_positive_output_token_record_count_in_api_uuid_intersection
+        >= fetch_data.EMBEDDED_MODEL_CATALOG_PARTITION_MINIMUM_RECORD_WITH_OUTPUT_TOKEN_COUNT
+    )
+    accepted_partition_summary = next(
+        partition_summary
+        for partition_summary in local_cached_embedded_model_catalog_load_result.partition_summaries
+        if partition_summary.is_accepted
+    )
+    assert (
+        accepted_partition_positive_output_token_record_count_in_api_uuid_intersection
+        == accepted_partition_summary.record_with_output_token_count_in_api_uuid_intersection_count
     )
 
 
@@ -726,7 +752,7 @@ def test_local_cache_has_exactly_one_truncated_page(
 def test_local_cache_catalog_vs_latest_api_agreement_rates_are_valid_fractions_drift_only_warns(
     local_cached_embedded_model_catalog_load_result: fetch_data.ArtificialAnalysisEmbeddedModelCatalogLoadResult,
 ) -> None:
-    """最新 API 与 9/23 目录相隔多日时自然漂移（2026-10-01 实测成本一致率 79.7%、智能分 97.1%），
+    """最新 API 与被接受的目录分区相隔多日时会自然漂移，
     只告警（R1-01 (a)）；这里只校验一致率是有效比例、且确实做了比较。"""
     assert local_cached_embedded_model_catalog_load_result.catalog_vs_api_cost_compared_model_count > 0
     assert 0.0 <= local_cached_embedded_model_catalog_load_result.catalog_vs_api_cost_agreement_rate <= 1.0
@@ -783,22 +809,6 @@ def test_local_cache_catalog_agrees_with_same_day_api_response_from_history(
     assert same_day_catalog_load_result.catalog_vs_api_cost_compared_model_count > 0
     assert same_day_catalog_load_result.catalog_vs_api_cost_agreement_rate >= 0.99
     assert same_day_catalog_load_result.catalog_vs_api_intelligence_agreement_rate >= 0.99
-
-
-@pytest.mark.requires_local_cached_artificial_analysis_data
-def test_local_cache_claude_35_sonnet_current_model_has_no_output_token_count() -> None:
-    """P0-3 真实负样本：旧实现会错拿同页首个 token（属于别的模型）。"""
-    claude_35_sonnet_page_path = (
-        LOCAL_ARTIFICIAL_ANALYSIS_MODEL_DETAIL_PAGE_CACHE_DIRECTORY_PATH / "claude-35-sonnet.html"
-    )
-    if not claude_35_sonnet_page_path.is_file():
-        pytest.skip("本机没有 claude-35-sonnet.html 缓存页")
-    assert (
-        fetch_data.parse_canonical_output_token_count_from_artificial_analysis_model_detail_page_html(
-            claude_35_sonnet_page_path.read_text(encoding="utf-8", errors="ignore")
-        )
-        is None
-    )
 
 
 # ----------------------------------------------------------------------------- R3-F8：分区接受阈值的边界
