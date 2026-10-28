@@ -59,7 +59,7 @@ def test_linear_speed_projection_keeps_axis_scale_in_comparison_metadata(source_
 def test_artifacts_are_self_contained_escaped_and_input_is_not_overwritten(source_dataset, tmp_path):
     source = copy.deepcopy(source_dataset)
     first_scene = next(iter(source["metric_variants"].values()))["three_dimensional_scene"]
-    first_scene["displayed_model_markers"][0]["name"] = '</script><img src="https://example.invalid/x" onerror="window.injected=1">'
+    source["models"][first_scene["displayed_model_markers"][0]["model_index"]]["name"] = '</script><img src="https://example.invalid/x" onerror="window.injected=1">'
     source_path = tmp_path / "source.json"
     source_path.write_text(json.dumps(source), encoding="utf-8")
     original_bytes = source_path.read_bytes()

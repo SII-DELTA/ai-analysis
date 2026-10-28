@@ -26,10 +26,12 @@ import math
 import os
 import re
 import sys
+import time
 import uuid
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 import numpy as np
@@ -271,6 +273,36 @@ def get_api_key() -> str:
 
 
 # ----------------------------------------------------------------------------- API 取数（带缓存与元数据，规格 1.6）
+def _request_api_language_models_page_with_bounded_retry(url: str, *, page: int, api_key: str):
+    """单页最多三次；超过 Retry-After 等待预算则停止本轮，不提前请求。"""
+    for attempt in range(3):
+        try:
+            response = requests.get(url, params={"page": page}, headers={"x-api-key": api_key}, timeout=120)
+        except (requests.ConnectionError, requests.Timeout):
+            if attempt == 2:
+                raise
+            time.sleep(0.5 * 2 ** attempt)
+            continue
+        if response.status_code not in (429, 500, 502, 503, 504) or attempt == 2:
+            return response
+        delay = 0.5 * 2 ** attempt
+        retry_after = getattr(response, "headers", {}).get("Retry-After")
+        if retry_after:
+            try:
+                delay = max(0.0, float(retry_after))
+            except (ValueError, TypeError):
+                try:
+                    delay = max(0.0, (parsedate_to_datetime(retry_after) - datetime.now(timezone.utc)).total_seconds())
+                except (ValueError, TypeError, OverflowError):
+                    pass
+        if not math.isfinite(delay) or delay > 30:
+            raise requests.HTTPError("API Retry-After 超过本轮 30 秒等待预算，保留失败并停止重试", response=response)
+        close_response = getattr(response, "close", None)
+        if close_response:
+            close_response()
+        time.sleep(delay)
+
+
 def _fetch_paginated_language_models_with_response_top_level_metadata(
     api_key: str,
 ) -> tuple[list[dict], dict]:
@@ -284,11 +316,10 @@ def _fetch_paginated_language_models_with_response_top_level_metadata(
     selected_api_url = API_LANGUAGE_MODELS_PRO_URL
     first_page_response_top_level_metadata = {"tier": None, "intelligence_index_version": None}
     while True:
-        resp = requests.get(
+        resp = _request_api_language_models_page_with_bounded_retry(
             selected_api_url,
-            params={"page": page},
-            headers={"x-api-key": api_key},
-            timeout=120,
+            page=page,
+            api_key=api_key,
         )
         if (
             page == 1
@@ -1902,6 +1933,7 @@ def _assemble_models_dataframe_with_value_provenance(
                 "slug": m.get("slug"),
                 "name": m.get("name"),
                 "creator": (m.get("model_creator") or {}).get("name"),
+                "creator_uuid": (m.get("model_creator") or {}).get("id"),
                 "release_date": m.get("release_date"),
                 "intelligence": ev.get("artificial_analysis_intelligence_index"),
                 "coding_index": ev.get("artificial_analysis_coding_index"),

@@ -12,7 +12,7 @@ from plotly.utils import PlotlyJSONEncoder
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from src.frontier_3d_geometry_comparison_artifact_builder import write_geometry_comparison_artifacts
-from src.frontier_3d_visualization_dataset_builder import build_frontier_3d_visualization_dataset
+from src.frontier_3d_visualization_dataset_builder import build_frontier_3d_visualization_dataset, expand_frontier_3d_visualization_dataset_for_scene_consumers
 from tests.fixtures.build_frontier_3d_synthetic_fixture_models_dataframe import build_frontier_3d_synthetic_fixture_models_dataframe
 
 
@@ -209,7 +209,7 @@ def verify_comparison_demo(html_path, verification_directory):
 
             # 合成的恶意模型名和空分析集，不修改真实快照与共享数据。
             fixture_dataset = build_frontier_3d_visualization_dataset(build_frontier_3d_synthetic_fixture_models_dataframe(), since_months=18, max_layers=3, hard_age_cutoff_months=36, speed_scale="log")
-            fixture_dataset = json.loads(json.dumps(fixture_dataset, cls=PlotlyJSONEncoder))
+            fixture_dataset = expand_frontier_3d_visualization_dataset_for_scene_consumers(json.loads(json.dumps(fixture_dataset, cls=PlotlyJSONEncoder)))
             injection_text = '</script><img src="https://example.invalid/injected" onerror="window.injected=1">'
             for fixture_variant in fixture_dataset["metric_variants"].values():
                 for index, model in enumerate(fixture_variant["three_dimensional_scene"]["displayed_model_markers"]):

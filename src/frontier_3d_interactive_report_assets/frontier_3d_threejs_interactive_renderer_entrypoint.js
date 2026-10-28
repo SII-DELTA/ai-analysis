@@ -4,6 +4,7 @@ import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { axisTickValues } from "./frontier_3d_threejs_axis_tick_value_generator.js";
 import { matchingBaseModelNames as matchFrontierBaseModelNames } from "./frontier_3d_threejs_base_model_search_matcher.js";
 import { solveFrontierAxisAnnotationLayout } from "./frontier_3d_threejs_axis_annotation_layout_solver.js";
+import { expandFrontierModelReferencesForSceneConsumers } from "./frontier_3d_model_reference_expander.js";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import {
@@ -39,7 +40,7 @@ import {
     throw new Error("Missing Frontier 3D visualization dataset");
   }
 
-  const visualizationDataset = JSON.parse(visualizationDatasetElement.textContent);
+  const visualizationDataset = expandFrontierModelReferencesForSceneConsumers(JSON.parse(visualizationDatasetElement.textContent));
   const metricVariantsByKey = visualizationDataset.metric_variants || {};
   const organizationIdentityMetadataByCreatorName =
     visualizationDataset.organization_identity_metadata_by_creator_name || {};
@@ -88,7 +89,6 @@ import {
   };
 
   window.FRONTIER_3D_VISUALIZATION_DATASET = visualizationDataset;
-  window.THREE = THREE;
 
   const threeScene = new THREE.Scene();
   threeScene.background = new THREE.Color(0xffffff);
@@ -96,7 +96,7 @@ import {
   perspectiveCamera.up.set(0, 0, 1);
   let webglRenderer;
   try {
-    webglRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
+    webglRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: false });
   } catch {
     setRuntimeIssue("webgl_unavailable", "无法启动三维图：当前环境不支持 WebGL，或图形资源不足。请启用浏览器图形加速后重新加载。");
     return;
@@ -252,6 +252,13 @@ import {
   plotRegion.appendChild(tooltip);
 
   const axisAnnotations = [];
+  let measuredAxisAnnotationSizes = new WeakMap();
+  let axisAnnotationSizeMeasurementCount = 0;
+  let axisAnnotationMeasurementViewport = "";
+  document.fonts?.ready.then(() => {
+    measuredAxisAnnotationSizes = new WeakMap();
+    requestThreeDimensionalSceneRender();
+  });
 
   function createAxisAnnotationElement(axisName, labelText, isTitle) {
     const element = document.createElement("div");
@@ -265,6 +272,19 @@ import {
   function updateProjectedAxisAnnotations() {
     const canvasWidth = graphContainer.clientWidth;
     const canvasHeight = graphContainer.clientHeight;
+    const measurementViewport = `${canvasWidth}:${canvasHeight}:${window.innerWidth}:${window.innerHeight}`;
+    if (measurementViewport !== axisAnnotationMeasurementViewport) {
+      measuredAxisAnnotationSizes = new WeakMap();
+      axisAnnotationMeasurementViewport = measurementViewport;
+    }
+    const annotationsNeedingMeasurement = axisAnnotations.flatMap((axis) => axis.labels)
+      .filter(({ element }) => !measuredAxisAnnotationSizes.has(element));
+    // 先批量恢复可测量状态，再集中读取尺寸；旋转和缩放沿用缓存。
+    for (const { element } of annotationsNeedingMeasurement) element.hidden = false;
+    for (const { element } of annotationsNeedingMeasurement) {
+      measuredAxisAnnotationSizes.set(element, { width: element.offsetWidth, height: element.offsetHeight });
+      axisAnnotationSizeMeasurementCount += 1;
+    }
     const project = (position) => {
       const projected = position.clone().project(perspectiveCamera);
       return { x: (projected.x + 1) * canvasWidth / 2, y: (1 - projected.y) * canvasHeight / 2, depth: projected.z };
@@ -275,9 +295,8 @@ import {
       labels: labels.map(({ element, position, isTitle }, labelIndex) => {
         const id = `${axisIndex}:${labelIndex}`;
         elementsById.set(id, element);
-        element.hidden = false;
         const anchor = project(position);
-        return { id, isTitle, anchor, projectedDepth: anchor.depth, width: element.offsetWidth, height: element.offsetHeight };
+        return { id, isTitle, anchor, projectedDepth: anchor.depth, ...measuredAxisAnnotationSizes.get(element) };
       }),
     }));
     for (const label of solveFrontierAxisAnnotationLayout({ canvasWidth, canvasHeight, projectedCenter: project(new THREE.Vector3()), axes })) {
@@ -1463,7 +1482,7 @@ import {
   }
 
   function frontierModels() {
-    return displayedModelMarkers.filter((model) => model.panel?.layer === 1);
+    return displayedModelMarkers.filter((model) => model.panel?.layer === 1 && [model.x, model.y, model.z].every(isFiniteContractNumber));
   }
 
   function applyStandoutVisualEncoding() {
@@ -2592,6 +2611,8 @@ import {
     const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
     if (webglRenderer.getPixelRatio() !== pixelRatio) webglRenderer.setPixelRatio(pixelRatio);
     webglRenderer.setSize(width, height, false);
+    // 分数 DPR 时让 viewport 与已向下取整的实际帧缓冲一致。
+    webglRenderer.setViewport(0, 0, webglRenderer.domElement.width / pixelRatio, webglRenderer.domElement.height / pixelRatio);
     for (const line of [transientLineageLineObject, transientReasoningVariantLineObject, transientSameGenerationLineObject]) line?.material.resolution.set(width, height);
     perspectiveCamera.aspect = width / height;
     perspectiveCamera.updateProjectionMatrix();
@@ -2962,6 +2983,14 @@ import {
   window.setFrontierStandoutAxisWeights = setStandoutAxisWeights;
   window.frontierStandoutRanking = frontierStandoutRanking;
   window.frontierThreeDimensionalRendererDiagnostics = {
+    // 验证只暴露用到的构造器，避免导出整个 THREE 命名空间阻止 tree shaking。
+    verificationGeometryConstructors: {
+      Vector2: THREE.Vector2, Vector3: THREE.Vector3, Scene: THREE.Scene, Color: THREE.Color,
+      CanvasTexture: THREE.CanvasTexture, Sprite: THREE.Sprite, SpriteMaterial: THREE.SpriteMaterial,
+      PlaneGeometry: THREE.PlaneGeometry, Mesh: THREE.Mesh,
+      PerspectiveCamera: THREE.PerspectiveCamera, OrthographicCamera: THREE.OrthographicCamera,
+    },
+    get axisAnnotationSizeMeasurementCount() { return axisAnnotationSizeMeasurementCount; },
     get surfaceMaterialForVisibilityVerification() { return frontierSurfaceObject?.material; },
     get surfaceRenderOrder() { return frontierSurfaceObject?.renderOrder; },
     markerVisualEncodingSummary: () => modelVisualObjectsByModelIndex.map((objects, index) => ({

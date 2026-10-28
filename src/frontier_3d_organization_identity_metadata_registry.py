@@ -2,12 +2,22 @@
 from __future__ import annotations
 
 import html
+import json
 from dataclasses import dataclass
 from enum import Enum
 from importlib import resources
 from urllib.parse import quote
+from uuid import UUID
 
 ORGANIZATION_IDENTITY_ASSET_PACKAGE = "src.frontier_3d_organization_identity_assets"
+REGISTERED_ORGANIZATION_UUID_EVIDENCE = json.loads(
+    resources.files(ORGANIZATION_IDENTITY_ASSET_PACKAGE).joinpath("artificial_analysis_registered_organization_uuid_aliases.json").read_text(encoding="utf-8")
+)
+ORGANIZATION_UUID_ALIASES_BY_REGISTERED_CREATOR_NAME = REGISTERED_ORGANIZATION_UUID_EVIDENCE["organization_uuid_aliases_by_registered_creator_name"]
+REGISTERED_CREATOR_NAME_BY_UUID = {
+    creator_uuid: name for name, uuids in ORGANIZATION_UUID_ALIASES_BY_REGISTERED_CREATOR_NAME.items() for creator_uuid in uuids
+}
+REGISTERED_CREATOR_NAME_BY_DISPLAY_NAME_ALIAS = REGISTERED_ORGANIZATION_UUID_EVIDENCE["registered_creator_name_by_display_name_alias"]
 
 
 class CountryRegionCategory(str, Enum):
@@ -262,11 +272,11 @@ def _versioned_logo_svg(logo_slug: str | None) -> str | None:
     return logo_resource.read_text(encoding="utf-8")
 
 
-def organization_identity_metadata_for_creator_name(creator_name: str) -> dict:
+def organization_identity_metadata_for_creator_name(creator_name: str, *, creator_uuid: str | None = None) -> dict:
     """把 AA creator 转成前端可直接使用的稳定身份元数据。"""
-    known_metadata = _ORGANIZATION_IDENTITY_REGISTRATION_BY_CREATOR_NAME.get(
-        creator_name
-    )
+    creator_uuid = str(UUID(creator_uuid)) if creator_uuid else None
+    registered_name = REGISTERED_CREATOR_NAME_BY_UUID.get(creator_uuid) or REGISTERED_CREATOR_NAME_BY_DISPLAY_NAME_ALIAS.get(creator_name, creator_name)
+    known_metadata = _ORGANIZATION_IDENTITY_REGISTRATION_BY_CREATOR_NAME.get(registered_name)
     if known_metadata is None:
         country_region_category = CountryRegionCategory.UNCLASSIFIED
         headquarters_country_code = "ZZ"
@@ -298,8 +308,16 @@ def organization_identity_metadata_for_creator_name(creator_name: str) -> dict:
         )
 
     return {
-        "organization_identity_key": creator_name.casefold().replace(" ", "-"),
+        "organization_identity_key": creator_uuid or registered_name.casefold().replace(" ", "-"),
         "organization_display_name": creator_name,
+        "creator_uuid": creator_uuid,
+        "creator_uuid_aliases": list(ORGANIZATION_UUID_ALIASES_BY_REGISTERED_CREATOR_NAME.get(registered_name, [])),
+        "creator_name_aliases": [name for name, target in REGISTERED_CREATOR_NAME_BY_DISPLAY_NAME_ALIAS.items() if target == registered_name],
+        "registration_status": (
+            "registered_uuid" if creator_uuid in REGISTERED_CREATOR_NAME_BY_UUID else
+            "unregistered_uuid_name_alias_fallback" if creator_uuid and is_known_creator else
+            "registered_name_alias" if is_known_creator else "unregistered"
+        ),
         "headquarters_country_code_iso_3166_1_alpha_2": headquarters_country_code,
         "country_region_category": country_region_category.value,
         "country_region_classification_basis": (
@@ -317,6 +335,8 @@ def organization_identity_metadata_for_creator_name(creator_name: str) -> dict:
 
 def organization_identity_metadata_by_creator_name(
     creator_names,
+    *,
+    creator_uuid_by_creator_name: dict[str, str] | None = None,
 ) -> dict[str, dict]:
     """为本次数据集中出现的 creator 构建排序稳定的身份注册表。"""
     normalized_creator_names = sorted(
@@ -328,6 +348,7 @@ def organization_identity_metadata_by_creator_name(
         key=str.casefold,
     )
     return {
-        creator_name: organization_identity_metadata_for_creator_name(creator_name)
+        creator_name: organization_identity_metadata_for_creator_name(creator_name,
+            creator_uuid=(creator_uuid_by_creator_name or {}).get(creator_name))
         for creator_name in normalized_creator_names
     }

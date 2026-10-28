@@ -463,7 +463,28 @@ scripts/run_all_frontier_3d_verifications.sh
 CI 只运行锁定依赖及合成 fixture；不运行真实数据刷新。能力对等状态见
 [渲染器能力清单](docs/frontier-3d-renderer-capability-parity-checklist.md)。
 
-## 数据契约（`frontier_3d_visualization_dataset/v2`，只增字段）
+## 数据契约（科学数据 v3、浏览器投影 v1）
+
+磁盘 JSON 统一写为紧凑的 `frontier_3d_visualization_dataset/v3`；读取入口继续接受有效的 v2，
+缺少 UUID 的旧记录明确标记为 `legacy_creator_and_name_without_uuid`，不推测真实 UUID。
+HTML 使用独立的 `frontier_3d_browser_projection/v1`。完整科学契约先校验，投影后再单独校验。
+
+- 顶层 `models` 集中保存名称、UUID、目录 release/effort、厂商、公共 `panel` 和值溯源；
+  各口径的显示点、未上图记录和谱系节点通过 `model_index` 引用，并保存坐标、分析资格及指标等差异。
+- 浏览器投影只带四口径显示并集的 logo；重复的分析资格存入
+  `analysis_eligibility_definitions`，引用通过 `analysis_eligibility_index` 指向它。
+  与公共 panel 相同的坐标及与厂商表相同的身份字段通过继承还原。
+- 搜索需要的排除原因、UUID、基模型、推理档位、分析资格和口径 `description` 保留。
+  `trend_residual_standard_deviation_units` 和厂商注册来源等审计字段留在完整科学契约。
+- 默认生成不创建 Plotly 图或保存 Plotly 导出副本；只有 `--export png/svg` 才从场景装配静态图。
+- 需要旧场景形状的 Python 消费方可调用
+  `expand_frontier_3d_visualization_dataset_for_scene_consumers` 获取独立副本。
+  以下字段说明均指展开后的场景视图。
+
+Schema 位于 [src/frontier_3d_contract_schemas](src/frontier_3d_contract_schemas)：科学契约与浏览器投影
+各有版本入口，共享明确的允许字段；使用本地 `referencing.Registry` 注册公共 Schema，校验不联网。
+数值、模型/分析资格引用、三角索引和坐标与公共模型字段的一致性另作语义校验。
+实现、冻结输入体积及方法学候选见 [W4 实现与验证](docs/frontier-3d-wave-4-implementation-and-verification.md)。
 
 - 顶层 `artificial_analysis_data_provenance`，包括：
   - API 抓取时间及其来源、API 版本与 tier；
@@ -499,7 +520,9 @@ docs/artificial-analysis-provided-data-source-analysis/  # AA 数据源、端点
 src/fetch_data.py   # 拉分页 API；离线解析详情页内嵌模型目录；值溯源、混合价、有效速度与数据质量护栏
 src/frontier.py     # 按口径判定是否参与分析（D-1）；显示层/分析层 Pareto、可达前沿、剪枝与四个突出度指标
 src/visualize.py    # 生成前沿几何/谱系数据，并保留 Plotly 静态导出 figure
-src/frontier_3d_visualization_dataset_builder.py     # 写 renderer-neutral v2 场景数据、数据溯源与契约数值校验
+src/frontier_3d_visualization_dataset_builder.py     # 写 v3 纯几何科学契约，读取入口兼容 v2
+src/frontier_3d_versioned_model_reference_contract.py # 公共模型引用、浏览器投影与 Schema/语义校验
+src/frontier_3d_pure_scene_geometry.py               # 不依赖 Plotly 对象的邻接几何与迁移对拍
 src/frontier_3d_self_contained_html_renderer.py      # 把数据契约 + 前端资源内联成单文件 HTML（含产物指纹）
 src/frontier_3d_interactive_report_assets/           # HTML/CSS/three.js renderer 源码与版本化 bundle
 src/frontier_3d_organization_identity_metadata_registry.py  # 54 家厂商地区分类与 Logo 注册表

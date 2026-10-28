@@ -13,7 +13,7 @@ import pandas as pd
 from playwright.sync_api import sync_playwright
 
 from src.frontier_3d_self_contained_html_renderer import write_frontier_3d_self_contained_html_report
-from src.frontier_3d_visualization_dataset_builder import build_frontier_3d_visualization_dataset
+from src.frontier_3d_visualization_dataset_builder import build_frontier_3d_visualization_dataset, expand_frontier_3d_visualization_dataset_for_scene_consumers
 from tests.fixtures.build_frontier_3d_synthetic_fixture_models_dataframe import build_frontier_3d_synthetic_fixture_models_dataframe
 from frontier_3d_playwright_verification_support import (
     create_frontier_3d_test_page_with_runtime_observation,
@@ -77,7 +77,7 @@ def verify_report(page, html_path: Path, screenshot_directory: Path) -> dict:
         return {"file": str(html_path), "grace_months": months, "disabled_control": True}
     assert toggle.is_checked()
     results = []
-    for variant_key, variant in dataset["metric_variants"].items():
+    for variant_key, variant in expand_frontier_3d_visualization_dataset_for_scene_consumers(dataset)["metric_variants"].items():
         cost, speed = variant_key.split("__")
         page.evaluate("([cost, speed]) => window.setFrontierMetricCombination(cost, speed)", [cost, speed])
         page.evaluate("() => window.setShowOnlyCurrentIntelligenceIndexVersionComparableModels(false)")

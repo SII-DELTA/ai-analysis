@@ -271,10 +271,11 @@ def main() -> None:
 
         brand_asset_decode_failures = page.evaluate(
             """async () => {
-              const identities = Object.values(
-                window.FRONTIER_3D_VISUALIZATION_DATASET
-                  .organization_identity_metadata_by_creator_name,
-              );
+              const dataset = window.FRONTIER_3D_VISUALIZATION_DATASET;
+              const displayedCreators = new Set(Object.values(dataset.metric_variants).flatMap(
+                variant => variant.three_dimensional_scene.displayed_model_markers.map(model => model.creator),
+              ));
+              const identities = [...displayedCreators].map(name => dataset.organization_identity_metadata_by_creator_name[name]);
               const results = await Promise.all(
                 identities.map((identity) => new Promise((resolve) => {
                   const brandImage = new Image();

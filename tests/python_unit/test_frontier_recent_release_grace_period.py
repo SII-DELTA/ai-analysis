@@ -5,6 +5,7 @@ import copy
 
 import pandas as pd
 import pytest
+from tests.fixtures.build_expanded_frontier_3d_dataset_for_legacy_scene_assertions import build_expanded_frontier_3d_dataset_for_legacy_scene_assertions
 
 from src import frontier
 from src import frontier_3d_visualization_dataset_builder as dataset_builder
@@ -114,7 +115,7 @@ def test_pruning_rejects_non_integer_or_negative_grace_months(invalid_months) ->
 def build_synthetic_dataset_with_recent_dominated_models(months=6) -> dict:
     models = build_frontier_3d_synthetic_fixture_models_dataframe()
     models.loc[models["name"].str.startswith("Laggard Chain"), "release_date"] = pd.Timestamp("2026-09-01")
-    return dataset_builder.build_frontier_3d_visualization_dataset(
+    return build_expanded_frontier_3d_dataset_for_legacy_scene_assertions(
         models, since_months=18, max_layers=3, hard_age_cutoff_months=36,
         speed_scale="log", pruning_reference_date="2026-09-23",
         recent_release_frontier_distance_grace_period_months=months,
@@ -137,8 +138,12 @@ def test_contract_records_grace_only_markers_counts_reference_date_and_preserves
         assert scene["current_view"]["recent_release_frontier_distance_grace_period_months"] == 6
         assert scene["current_view"]["pruning_reference_date"] == "2026-09-23"
         assert variant["pareto_model_count"] == baseline["metric_variants"][key]["pareto_model_count"]
-        for geometry in ("pareto_frontier_wireframe_line_segments", "pareto_frontier_surface_triangle_mesh", "achievable_frontier_surface_triangle_mesh"):
+        for geometry in ("pareto_frontier_wireframe_line_segments", "pareto_frontier_surface_triangle_mesh"):
             assert scene[geometry] == baseline["metric_variants"][key]["three_dimensional_scene"][geometry]
+        # 精确面延伸到当前轴边界；在相同预算域内，宽限点不能改变可达几何。
+        from src.frontier_3d_exact_achievable_frontier_scene_geometry import build_exact_achievable_frontier_geometry_from_scene
+        comparable_scene = {**scene, "three_dimensional_axis_configuration": baseline["metric_variants"][key]["three_dimensional_scene"]["three_dimensional_axis_configuration"]}
+        assert build_exact_achievable_frontier_geometry_from_scene(comparable_scene)["achievable_frontier_surface_triangle_mesh"] == baseline["metric_variants"][key]["three_dimensional_scene"]["achievable_frontier_surface_triangle_mesh"]
 
 
 @pytest.mark.parametrize("corruption", ["marker_boolean", "grace_count", "baseline_count", "months", "zero_months_with_grace"])

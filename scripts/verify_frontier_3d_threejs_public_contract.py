@@ -22,6 +22,8 @@ from src.frontier_3d_visualization_dataset_builder import (  # noqa: E402
     FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION,
     build_frontier_3d_visualization_dataset,
     validate_frontier_3d_visualization_dataset,
+    expand_frontier_3d_visualization_dataset_for_scene_consumers,
+    validate_frontier_3d_browser_projection,
 )
 from src.frontier_3d_organization_identity_metadata_registry import (  # noqa: E402
     known_organization_creator_names,
@@ -76,7 +78,11 @@ def verify_frontier_3d_visualization_dataset_embedded_in_rendered_html(
     )
     assert len(embedded_dataset_matches) == 1, "HTML 中应恰有一段内嵌数据契约"
     embedded_dataset = json.loads(embedded_dataset_matches[0])
-    validate_frontier_3d_visualization_dataset(embedded_dataset)
+    if embedded_dataset.get("schema_version") == "frontier_3d_browser_projection/v1":
+        validate_frontier_3d_browser_projection(embedded_dataset)
+    else:
+        validate_frontier_3d_visualization_dataset(embedded_dataset)
+    embedded_dataset = expand_frontier_3d_visualization_dataset_for_scene_consumers(embedded_dataset)
     assert "artificial_analysis_data_provenance" in embedded_dataset
     for variant_key, variant in embedded_dataset["metric_variants"].items():
         displayed_model_markers = variant["three_dimensional_scene"]["displayed_model_markers"]
@@ -157,10 +163,11 @@ def main() -> None:
     )
 
     assert FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION == (
-        "frontier_3d_visualization_dataset/v2"
+        "frontier_3d_visualization_dataset/v3"
     )
     validate_frontier_3d_visualization_dataset(dataset)
     assert dataset["interactive_renderer"] == "threejs"
+    dataset = expand_frontier_3d_visualization_dataset_for_scene_consumers(dataset)
 
     identities = dataset["organization_identity_metadata_by_creator_name"]
     assert identities["Alibaba"]["country_region_category"] == "china"

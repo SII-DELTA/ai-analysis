@@ -57,6 +57,7 @@ def renderer_with_dataset_validation_disabled(monkeypatch):
         "validate_frontier_3d_visualization_dataset",
         lambda dataset: None,
     )
+    monkeypatch.setattr(renderer_module, "build_frontier_3d_browser_projection", lambda dataset: dataset)
     return renderer_module
 
 

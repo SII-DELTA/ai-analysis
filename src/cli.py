@@ -107,10 +107,10 @@ CURRENT_INTELLIGENCE_INDEX_VERSION_SOURCE_DISPLAY_TEXT_BY_SOURCE = {
 
 
 def _figure_from_dataset_variant(dataset: dict, variant_key: str) -> go.Figure:
-    variant = dataset["metric_variants"][variant_key]
-    return go.Figure(
-        data=variant["plotly_static_export_trace_data"],
-        layout=variant["plotly_static_export_layout"],
+    from .frontier_3d_visualization_dataset_builder import expand_frontier_3d_visualization_dataset_for_scene_consumers
+    expanded = expand_frontier_3d_visualization_dataset_for_scene_consumers(dataset)
+    return visualize.build_plotly_static_export_figure_from_scene(
+        expanded["metric_variants"][variant_key]["three_dimensional_scene"]
     )
 
 
@@ -548,6 +548,8 @@ def _freshness_summary_lines_for_dataset(
 
 def _top_intelligence_models_missing_from_chart_warning_lines(dataset: dict, variant_key: str) -> list[str]:
     """智能前 20（全部有智能分的模型）中未上图的模型及原因（W1-8 缺维告警）。"""
+    from .frontier_3d_visualization_dataset_builder import expand_frontier_3d_visualization_dataset_for_scene_consumers
+    dataset = expand_frontier_3d_visualization_dataset_for_scene_consumers(dataset)
     variant = dataset["metric_variants"][variant_key]
     displayed_model_intelligence_and_name = [
         (float(marker["z"]), str(marker["name"]), None)
@@ -783,7 +785,6 @@ def main(command_line_arguments: list[str] | None = None) -> None:
         print(f"可视化数据契约: {dataset_output_path}")
 
     initial_variant_key = dataset["initial_variant_key"]
-    initial_figure = _figure_from_dataset_variant(dataset, initial_variant_key)
     written_html_report_path = write_frontier_3d_self_contained_html_report(dataset, output_html_path,
         report_deployment_environment=args.report_deployment_environment)
     print(f"\n✅ 交互式 HTML: {written_html_report_path}")
@@ -795,6 +796,7 @@ def main(command_line_arguments: list[str] | None = None) -> None:
     )
 
     if args.export:
+        initial_figure = _figure_from_dataset_variant(dataset, initial_variant_key)
         static_export_output_path = Path(args.out).with_suffix("." + args.export)
         static_export_written_path = visualize.export_static(initial_figure, static_export_output_path)
         if static_export_written_path is None:

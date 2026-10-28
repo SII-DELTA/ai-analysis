@@ -50,6 +50,9 @@ def _project_axis_coordinate_to_common_view(value, axis_configuration):
 def build_geometry_comparison_dataset(source_dataset, source_dataset_sha256):
     """同一输入决定几何与统计；不改源契约，也不重算 Delaunay 邻接。"""
     validate_frontier_3d_visualization_dataset(source_dataset)
+    from .frontier_3d_visualization_dataset_builder import expand_frontier_3d_visualization_dataset_for_scene_consumers
+    source_schema_version = source_dataset["schema_version"]
+    source_dataset = expand_frontier_3d_visualization_dataset_for_scene_consumers(source_dataset)
     comparison_variants = {}
     displayed_creators = set()
     for variant_key, variant in source_dataset["metric_variants"].items():
@@ -111,7 +114,7 @@ def build_geometry_comparison_dataset(source_dataset, source_dataset_sha256):
         }
     return {
         "schema_version": "frontier_3d_geometry_comparison/v1",
-        "source_dataset_schema_version": source_dataset["schema_version"],
+        "source_dataset_schema_version": source_schema_version,
         "source_dataset_sha256": source_dataset_sha256,
         "data_date": source_dataset.get("data_date"),
         "initial_variant_key": source_dataset["initial_variant_key"],

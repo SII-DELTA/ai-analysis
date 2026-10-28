@@ -75,7 +75,7 @@ def test_rendering_legacy_v2_replaces_sampled_surface_without_mutating_source(
 ):
     from plotly.utils import PlotlyJSONEncoder
     from src.frontier_3d_self_contained_html_renderer import render_frontier_3d_self_contained_html_report
-    from src.frontier_3d_visualization_dataset_builder import build_frontier_3d_visualization_dataset
+    from tests.fixtures.build_expanded_frontier_3d_dataset_for_legacy_scene_assertions import build_expanded_frontier_3d_dataset_for_legacy_scene_assertions as build_frontier_3d_visualization_dataset
     from tests.fixtures.build_frontier_3d_synthetic_fixture_models_dataframe import build_frontier_3d_synthetic_fixture_models_dataframe
     dataset = json.loads(json.dumps(build_frontier_3d_visualization_dataset(
         build_frontier_3d_synthetic_fixture_models_dataframe(), since_months=18,

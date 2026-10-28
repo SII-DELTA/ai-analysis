@@ -33,9 +33,15 @@ from tests.fixtures.build_synthetic_artificial_analysis_model_detail_page_html i
 
 # 合成数据的固定剪枝参考日期（剪枝不再使用运行当天的日期）
 FIXED_PRUNING_REFERENCE_DATE_FOR_SYNTHETIC_STANDOUT_CHECK = "2026-01-01"
-# 版本化回退快照（v4.1，7/1 采集）的行数：有成本 296 行，有原始输出 token 数 377 行
-EXPECTED_VERSIONED_FALLBACK_SNAPSHOT_COST_TO_RUN_MODEL_COUNT = 296
-EXPECTED_VERSIONED_FALLBACK_SNAPSHOT_CANONICAL_OUTPUT_TOKEN_COUNT_MODEL_COUNT = 377
+# 固定基线：下列入库 v4.1 快照采集于 2026-08-04，含成本 129 条、原始输出 token 166 条。
+EXPECTED_VERSIONED_FALLBACK_SNAPSHOT_PATH = (
+    REPOSITORY_ROOT
+    / "data"
+    / "reference"
+    / "artificial_analysis_intelligence_index_v4_1_single_batch_cost_and_output_token_fallback_snapshot_captured_2026_08_04.csv"
+)
+EXPECTED_VERSIONED_FALLBACK_SNAPSHOT_COST_TO_RUN_MODEL_COUNT = 129
+EXPECTED_VERSIONED_FALLBACK_SNAPSHOT_CANONICAL_OUTPUT_TOKEN_COUNT_MODEL_COUNT = 166
 
 
 def _grid_hypervolume(points: np.ndarray, n: int = 200) -> float:
@@ -302,11 +308,8 @@ def _verify_frontier_mesh_is_not_encoded_as_plotly_bdata() -> None:
     surface_mesh = default_variant["three_dimensional_scene"]["pareto_frontier_surface_triangle_mesh"]
     assert len(surface_mesh["triangle_vertex_index_a"]) > 0, "默认口径实心面三角形数应 > 0"
     assert all(isinstance(value, float) for value in surface_mesh["x_coordinates"])
-    mesh_traces = [
-        trace
-        for trace in default_variant["plotly_static_export_trace_data"]
-        if trace.get("type") == "mesh3d" and trace.get("name", "").startswith("前沿流形")
-    ]
+    from src.cli import _figure_from_dataset_variant
+    mesh_traces = [trace for trace in _figure_from_dataset_variant(dataset, "effective__effective").to_plotly_json()["data"] if trace.get("type") == "mesh3d"]
     assert mesh_traces and not isinstance(mesh_traces[0]["x"], dict), "实心面 trace 仍被编码成 bdata"
     print("✅ 实心面不再被 Plotly 编码成 bdata（P0-4）验证通过")
 
@@ -325,7 +328,11 @@ def _verify_dataset_validation_positive_and_negative_examples() -> None:
             "x_coordinates": [], "y_coordinates": [], "z_coordinates": [],
             "triangle_vertex_index_a": [], "triangle_vertex_index_b": [], "triangle_vertex_index_c": [],
         },
-        "three_dimensional_axis_configuration": {"x_axis": {}, "y_axis": {}, "z_axis": {}},
+        "three_dimensional_axis_configuration": {
+            "x_axis": {"title_text": "成本", "scale_type": "log", "fixed_range": [0.0, 1.0]},
+            "y_axis": {"title_text": "速度", "scale_type": "log", "fixed_range": [0.0, 1.0]},
+            "z_axis": {"title_text": "智能", "scale_type": "linear", "fixed_range": [0.0, 1.0]},
+        },
         "current_view": {},
     }
     zero_model_variant = {
@@ -335,7 +342,7 @@ def _verify_dataset_validation_positive_and_negative_examples() -> None:
         "plotly_static_export_layout": {},
     }
     zero_model_dataset = {
-        "schema_version": dataset_builder.FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION,
+        "schema_version": dataset_builder.LEGACY_FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION,
         "interactive_renderer": "threejs",
         "initial_variant_key": "effective__effective",
         "organization_identity_metadata_by_creator_name": {},
@@ -440,7 +447,7 @@ def main() -> None:
     assert cli.DEFAULT_OUTPUT_HTML_PATH.name == "frontier_3d.html"
     assert (
         dataset_builder.FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION
-        == "frontier_3d_visualization_dataset/v2"
+        == "frontier_3d_visualization_dataset/v3"
     )
     assert (
         dataset_builder.DEFAULT_FRONTIER_3D_VISUALIZATION_DATASET_FILENAME
@@ -478,21 +485,47 @@ def main() -> None:
     )
 
     # 默认只读入库的版本化快照（v4.1），不读上次产物 data/processed/models.csv
-    assert fetch_data.VERSIONED_COST_AND_OUTPUT_TOKEN_FALLBACK_SNAPSHOT.exists()
+    default_versioned_fallback_snapshot_path = (
+        fetch_data.ARTIFICIAL_ANALYSIS_INTELLIGENCE_INDEX_V4_1_COST_TO_RUN_AND_CANONICAL_OUTPUT_TOKEN_COUNT_FALLBACK_SNAPSHOT_PATH
+    )
+    assert (
+        default_versioned_fallback_snapshot_path == EXPECTED_VERSIONED_FALLBACK_SNAPSHOT_PATH
+    ), (
+        f"默认版本化回退快照不匹配：期望 {EXPECTED_VERSIONED_FALLBACK_SNAPSHOT_PATH}，"
+        f"实际 {default_versioned_fallback_snapshot_path}"
+    )
+    assert default_versioned_fallback_snapshot_path.is_file(), (
+        f"默认版本化回退快照文件不存在：{default_versioned_fallback_snapshot_path}"
+    )
     fallback_values = fetch_data.load_cost_and_output_token_fallbacks()
-    assert (
-        len(fallback_values.cost_to_run_fallback_value_by_model_id)
-        == EXPECTED_VERSIONED_FALLBACK_SNAPSHOT_COST_TO_RUN_MODEL_COUNT
-    )
-    assert (
-        len(fallback_values.canonical_output_token_count_fallback_value_by_model_id)
-        == EXPECTED_VERSIONED_FALLBACK_SNAPSHOT_CANONICAL_OUTPUT_TOKEN_COUNT_MODEL_COUNT
-    )
-    assert all(
-        fallback_value.value_source == fetch_data.COST_TO_RUN_VALUE_SOURCE_VERSIONED_NON_CURRENT_FALLBACK_SNAPSHOT
-        and fallback_value.intelligence_index_version == "4.1"
-        for fallback_value in fallback_values.cost_to_run_fallback_value_by_model_id.values()
-    )
+    for metric_label, fallback_value_by_model_id, expected_model_count, expected_value_source in (
+        (
+            "成本",
+            fallback_values.cost_to_run_fallback_value_by_model_id,
+            EXPECTED_VERSIONED_FALLBACK_SNAPSHOT_COST_TO_RUN_MODEL_COUNT,
+            fetch_data.COST_TO_RUN_VALUE_SOURCE_VERSIONED_NON_CURRENT_FALLBACK_SNAPSHOT,
+        ),
+        (
+            "原始输出 token",
+            fallback_values.canonical_output_token_count_fallback_value_by_model_id,
+            EXPECTED_VERSIONED_FALLBACK_SNAPSHOT_CANONICAL_OUTPUT_TOKEN_COUNT_MODEL_COUNT,
+            fetch_data.OUTPUT_TOKEN_COUNT_VALUE_SOURCE_VERSIONED_NON_CURRENT_FALLBACK_SNAPSHOT,
+        ),
+    ):
+        assert len(fallback_value_by_model_id) == expected_model_count, (
+            f"{metric_label}回退记录数：期望 {expected_model_count}，实际 {len(fallback_value_by_model_id)}"
+        )
+        for model_id, fallback_value in fallback_value_by_model_id.items():
+            for metadata_field_name, expected_metadata_value in (
+                ("value_source", expected_value_source),
+                ("intelligence_index_version", "4.1"),
+                ("fetched_at_utc", "2026-08-04"),
+            ):
+                actual_metadata_value = getattr(fallback_value, metadata_field_name)
+                assert actual_metadata_value == expected_metadata_value, (
+                    f"{metric_label}回退值 {model_id} 的 {metadata_field_name}："
+                    f"期望 {expected_metadata_value!r}，实际 {actual_metadata_value!r}"
+                )
 
     requested_urls = []
     original_get = fetch_data.requests.get

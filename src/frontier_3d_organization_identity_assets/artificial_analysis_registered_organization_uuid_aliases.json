@@ -1,0 +1,170 @@
+{
+  "source_api_response_fetched_at_utc": "2026-10-02T14:56:40Z",
+  "organization_uuid_aliases_by_registered_creator_name": {
+    "AI21 Labs": [
+      "6216c686-bc60-4dbb-9f25-83e9dba803d1"
+    ],
+    "Alibaba": [
+      "d874d370-74d3-4fa0-ba00-5272f92f946b"
+    ],
+    "Allen Institute for AI": [
+      "ab6c5270-d7b9-4c09-92fe-62662618c631"
+    ],
+    "Amazon": [
+      "bb5a4e55-7969-4ab4-8702-3b9fd6547dc2"
+    ],
+    "Anthropic": [
+      "f0aa413f-e8ae-4fcd-9c48-0e049f4f3128"
+    ],
+    "Arcee AI": [
+      "7f460cea-a532-4021-b9ca-50ac183ecd4a"
+    ],
+    "Baidu": [
+      "bfb6e769-2456-4027-a6da-e9e05b627a21"
+    ],
+    "ByteDance Seed": [
+      "2354746c-4775-4a06-b64d-0ba4137785b8"
+    ],
+    "China Mobile": [
+      "7e7b7290-eacc-420e-a35f-7c8eb4e5205d"
+    ],
+    "Cohere": [
+      "671d3708-c407-4b8f-b350-f728e4689d26"
+    ],
+    "Databricks": [
+      "650e5ce8-a549-4207-bbd4-9c4815bc2d49"
+    ],
+    "Deep Cogito": [
+      "e92cc1e2-153b-4f0a-ac19-c376aaa7c878"
+    ],
+    "DeepSeek": [
+      "58b835bf-4c87-4f87-a846-df4b692c6e7d"
+    ],
+    "Google": [
+      "faddc6d9-2c14-445f-9b28-56726f59c793"
+    ],
+    "IBM": [
+      "512ef1e4-e02e-4532-a5f2-d11a40962498"
+    ],
+    "Inception": [
+      "e8fe48d4-d420-48a5-87db-fcd5f5b14d5c"
+    ],
+    "InclusionAI": [
+      "4df238a9-d4fd-4cf2-ab1e-d12956c41f9b"
+    ],
+    "Kimi": [
+      "0a177021-87dd-4250-9a37-f01df196bfe0"
+    ],
+    "Korea Telecom": [
+      "d5913d27-143c-48be-96b0-8d534047cb5c"
+    ],
+    "KwaiKAT": [
+      "2703c169-86d9-406b-8be1-ae5be8177f3c"
+    ],
+    "LG AI Research": [
+      "45157c16-fcbb-4110-b20f-7bca754b6554"
+    ],
+    "Liquid AI": [
+      "5b1886c4-43ba-4007-b840-9d21a2b7d42c"
+    ],
+    "LongCat": [
+      "45d124a1-e1be-402d-97be-7adf239b9988"
+    ],
+    "MBZUAI Institute of Foundation Models": [
+      "8b8b84fb-4b24-45be-b9e2-74ed50d00ff7"
+    ],
+    "Meta": [
+      "e1694725-0192-4e54-b1b8-c97e816c6cbe"
+    ],
+    "Microsoft": [
+      "ef5ce458-9986-4652-915a-e31fac5506b0"
+    ],
+    "MiniMax": [
+      "a31a9071-6144-4dbb-92dc-2e02d653ecea"
+    ],
+    "Mistral": [
+      "b5c0639a-cc9c-443b-a07e-bae6b7088933"
+    ],
+    "Motif Technologies": [
+      "366bf3fc-4436-4baf-8d8f-acb7ec04d342"
+    ],
+    "Multiverse Computing": [
+      "7d59f244-cf07-4d56-8f28-e1f1379f31c8"
+    ],
+    "NVIDIA": [
+      "0c303112-430d-4367-a484-51defaa2e166"
+    ],
+    "Nanbeige": [
+      "c1c9377c-4745-4762-94b7-88c045ccda28"
+    ],
+    "Naver": [
+      "6da63157-6fed-41df-8761-62c519ebd6ab"
+    ],
+    "Nex AGI": [
+      "b2c5c58a-a26f-46f2-80ea-3bd23dfbd3ca"
+    ],
+    "Nous Research": [
+      "0a2f41cc-2cbc-4949-be54-9fef1319d4a9"
+    ],
+    "OpenAI": [
+      "e67e56e3-15cd-43db-b679-da4660a69f41"
+    ],
+    "OpenBMB": [
+      "7399e4ac-f64d-4be6-b649-2fc20756839f"
+    ],
+    "OpenChat": [
+      "14b780e1-14fb-4aae-af03-ae2d99699bb1"
+    ],
+    "Perplexity": [
+      "941fc0f0-1d4e-405a-95b2-2d49494e0e6c"
+    ],
+    "Prime Intellect": [
+      "386c82f9-9669-4467-b13e-fed5bede9002"
+    ],
+    "Reka AI": [
+      "4571a280-f096-486f-b220-dffc3e522b0f"
+    ],
+    "Sarvam": [
+      "20273002-dc38-4ebc-8377-8f432aec9e7e"
+    ],
+    "ServiceNow": [
+      "7cc4f2b0-7e34-4459-82fd-667e93ca7f17"
+    ],
+    "Snowflake": [
+      "15568026-a4e1-4088-9709-566d3fb3aee1"
+    ],
+    "SpaceXAI": [
+      "a1e3ddcf-d3e4-44a5-9e8f-029a69850875"
+    ],
+    "StepFun": [
+      "ce2e2e8b-7a22-4020-98ec-8ef71000dd42"
+    ],
+    "Swiss AI Initiative": [
+      "fd857f01-736c-46f7-92f0-09490f4bbc8b"
+    ],
+    "TII UAE": [
+      "d676bc61-3394-4046-ac6a-85eea9aedaba"
+    ],
+    "Tencent": [
+      "a4e5bd55-a6cd-4dcf-8d4a-1d9643cd3826"
+    ],
+    "Thinking Machines": [
+      "8f3f9fdd-e42f-4814-a35e-5da1925b539b"
+    ],
+    "Trillion Labs": [
+      "75f52ad3-a524-4b44-a734-cf1f388b0b03"
+    ],
+    "Upstage": [
+      "64ff7f06-c6fb-42ea-ba24-9cd103ab2d61"
+    ],
+    "Xiaomi": [
+      "5147c8b4-61d5-4070-9324-8adf8aa144c2"
+    ],
+    "Z AI": [
+      "67437eb6-7dc1-4e93-befd-22c8b8ec2065"
+    ]
+  },
+  "registered_creator_name_by_display_name_alias": {
+    "Institute of Foundation Models": "MBZUAI Institute of Foundation Models"
+  }
+}

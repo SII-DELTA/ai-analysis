@@ -20,9 +20,13 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.colors import qualitative
-from scipy.spatial import Delaunay
 
 from . import frontier
+from .frontier_3d_pure_scene_geometry import (
+    build_delaunay_neighbor_reference_geometry,
+    build_legacy_achievable_step_geometry_for_v2_comparison,
+    plotly_coordinate_keywords_from_scene_geometry,
+)
 
 PALETTE = qualitative.Dark24 + qualitative.Light24
 
@@ -151,7 +155,7 @@ def _explicit_lineage_family_key(creator: str, base_model_name: str) -> str | No
     return None
 
 
-def _parse_base_model_name(name: str) -> str:
+def _parse_base_model_name(name: str, *, warn_unrecognized_suffix: bool = True) -> str:
     """反复剥离模型名末尾的纯 reasoning 档位括号组，得到基模型名。
 
     当且仅当某末尾括号内**所有逗号分段**都是 reasoning 关键词时才剥离，
@@ -167,7 +171,8 @@ def _parse_base_model_name(name: str) -> str:
         if _is_pure_reasoning_suffix(segments):
             s = s[: m.start()].strip()
         else:
-            _warn_about_unrecognized_model_name_suffix(name, m.group(1))
+            if warn_unrecognized_suffix:
+                _warn_about_unrecognized_model_name_suffix(name, m.group(1))
             break
     return s
 
@@ -235,6 +240,70 @@ def _resolve_lineage(name: str) -> tuple[str, str]:
     return base, _classify_tier(base)
 
 
+def model_analysis_eligibility(r) -> dict:
+    # D-1（规格 5.3）：没有 eligibility 列（旧调用方）时按「参与分析」输出
+    if frontier.ANALYSIS_ELIGIBLE_COLUMN_NAME not in r.index:
+        return {
+            "is_analysis_eligible_for_current_metric_variant": True,
+            "ineligibility_reason_codes": [],
+            "ineligibility_reason_text": None,
+        }
+    raw_ineligibility_reason_codes = r.get(frontier.ANALYSIS_INELIGIBILITY_REASON_CODES_COLUMN_NAME)
+    ineligibility_reason_codes = (
+        list(raw_ineligibility_reason_codes)
+        if isinstance(raw_ineligibility_reason_codes, (list, tuple))
+        else []
+    )
+    return {
+        "is_analysis_eligible_for_current_metric_variant": bool(
+            r[frontier.ANALYSIS_ELIGIBLE_COLUMN_NAME]
+        ),
+        "ineligibility_reason_codes": ineligibility_reason_codes,
+        "ineligibility_reason_text": frontier.format_analysis_ineligibility_reason_text(
+            ineligibility_reason_codes,
+            _text_or_none(r.get("cost_to_run_value_intelligence_index_version")),
+            _text_or_none(r.get("output_token_count_value_intelligence_index_version")),
+        ),
+    }
+
+
+def build_model_relationship_configuration_resolver_for_models_dataframe(df_full):
+    release_base_names: dict[tuple[str, str], set[str]] = {}
+    for _, row in df_full.iterrows():
+        release_slug = _text_or_none(row.get("artificial_analysis_release_slug"))
+        if release_slug:
+            creator = _text_or_none(row.get("creator")) or "?"
+            release_identity = (_text_or_none(row.get("creator_uuid")) or creator, release_slug)
+            release_base_names.setdefault(release_identity, set()).add(_parse_base_model_name(str(row["name"]), warn_unrecognized_suffix=False))
+    release_labels = {identity: min(names, key=lambda name: (len(name), name)) for identity, names in release_base_names.items()}
+
+    def relationship_configuration(row):
+        name = str(row["name"])
+        creator = _text_or_none(row.get("creator")) or "?"
+        release_slug = _text_or_none(row.get("artificial_analysis_release_slug"))
+        if not release_slug:
+            base, tier = _resolve_lineage(name)
+            level, sort_order = _reasoning_level_label_and_sort_order(name)
+            return base, tier, level, sort_order, _explicit_lineage_family_key(creator, base)
+        identity = (_text_or_none(row.get("creator_uuid")) or creator, release_slug)
+        base = release_labels[identity]
+        family = _explicit_lineage_family_key(creator, base)
+        if list(release_labels.values()).count(base) > 1:
+            base = f"{base} [{creator} / {release_slug}]"
+        effort_slug = _text_or_none(row.get("artificial_analysis_reasoning_effort_slug"))
+        if _boolean_or_none(row.get("artificial_analysis_is_reasoning_model")) is False:
+            level = "non-reasoning"
+        elif effort_slug:
+            level = effort_slug.casefold().replace("_", " ").replace("-effort", " effort")
+            if level == "max":
+                level = "max effort"
+        else:
+            level = "reasoning（档位未知）"
+        return base, _classify_tier(base), level, REASONING_LEVEL_SORT_ORDER_BY_NORMALIZED_LABEL.get(level, 1000), family
+
+    return relationship_configuration
+
+
 def _build_lineage_payload(
     df_full: pd.DataFrame,
     cost_metric_column_name: str,
@@ -259,52 +328,28 @@ def _build_lineage_payload(
         # 突出度/归一坐标由 add_standout_metrics 写入；缺列或 NaN → None(→ JS null)。
         return _finite_float_or_none(r[name]) if name in r.index else None
 
-    def _analysis_eligibility(r) -> dict:
-        # D-1（规格 5.3）：没有 eligibility 列（旧调用方）时按「参与分析」输出
-        if frontier.ANALYSIS_ELIGIBLE_COLUMN_NAME not in r.index:
-            return {
-                "is_analysis_eligible_for_current_metric_variant": True,
-                "ineligibility_reason_codes": [],
-                "ineligibility_reason_text": None,
-            }
-        raw_ineligibility_reason_codes = r.get(frontier.ANALYSIS_INELIGIBILITY_REASON_CODES_COLUMN_NAME)
-        ineligibility_reason_codes = (
-            list(raw_ineligibility_reason_codes)
-            if isinstance(raw_ineligibility_reason_codes, (list, tuple))
-            else []
-        )
-        return {
-            "is_analysis_eligible_for_current_metric_variant": bool(
-                r[frontier.ANALYSIS_ELIGIBLE_COLUMN_NAME]
-            ),
-            "ineligibility_reason_codes": ineligibility_reason_codes,
-            "ineligibility_reason_text": frontier.format_analysis_ineligibility_reason_text(
-                ineligibility_reason_codes,
-                _text_or_none(r.get("cost_to_run_value_intelligence_index_version")),
-                _text_or_none(r.get("output_token_count_value_intelligence_index_version")),
-            ),
-        }
-
     def _value_provenance(r) -> dict:
         return {
             column_name: _text_or_none(r.get(column_name))
             for column_name in DISPLAYED_MODEL_MARKER_VALUE_PROVENANCE_COLUMN_NAMES
         }
 
+    relationship_configuration = build_model_relationship_configuration_resolver_for_models_dataframe(df_full)
+
     kept = df_full[df_full["kept"]].reset_index(drop=True)
     models: list[dict] = []
     for _, r in kept.iterrows():
         name = str(r["name"])
-        base, tier = _resolve_lineage(name)
-        reasoning_level_label, reasoning_level_sort_order = (
-            _reasoning_level_label_and_sort_order(name)
-        )
+        base, tier, reasoning_level_label, reasoning_level_sort_order, lineage_family_key = relationship_configuration(r)
         creator = str(r["creator"]) if pd.notna(r["creator"]) else "?"
-        lineage_family_key = _explicit_lineage_family_key(creator, base)
         rd = r["release_date"]
         models.append({
             "name": name,
             "model_uuid": _text_or_none(r.get("id")),
+            "creator_uuid": _text_or_none(r.get("creator_uuid")),
+            "artificial_analysis_release_slug": _text_or_none(r.get("artificial_analysis_release_slug")),
+            "artificial_analysis_reasoning_effort_slug": _text_or_none(r.get("artificial_analysis_reasoning_effort_slug")),
+            "artificial_analysis_is_reasoning_model": _boolean_or_none(r.get("artificial_analysis_is_reasoning_model")),
             "base_model_name": base,
             "reasoning_level_label": reasoning_level_label,
             "reasoning_level_sort_order": reasoning_level_sort_order,
@@ -322,6 +367,7 @@ def _build_lineage_payload(
             "panel": {
                 "release_date": rd.strftime("%Y-%m-%d") if pd.notna(rd) else "?",
                 "intelligence": _finite_float_or_none(r["intelligence"]),
+                "output_mtokens": _finite_float_or_none(r.get("output_mtokens")),
                 "output_speed": _finite_float_or_none(r["output_speed"]),
                 "eff_speed": _finite_float_or_none(r["eff_speed"]),
                 "cost_to_run": _finite_float_or_none(r["cost_to_run"]),
@@ -330,7 +376,7 @@ def _build_lineage_payload(
                 ),
                 "layer": _finite_float_or_none(r["layer"]),
             },
-            "analysis_eligibility": _analysis_eligibility(r),
+            "analysis_eligibility": model_analysis_eligibility(r),
             "value_provenance": _value_provenance(r),
             "artificial_analysis_intelligence_index_is_estimated": _boolean_or_none(
                 r.get("artificial_analysis_intelligence_index_is_estimated")
@@ -379,13 +425,11 @@ def _build_lineage_payload(
     per_key_generations: dict[str, dict[str, dict]] = {}
     for _, r in complete.iterrows():
         name = str(r["name"])
-        base, _ = _resolve_lineage(name)
+        base, _, level, level_sort_order, family = relationship_configuration(r)
         creator = str(r["creator"]) if pd.notna(r["creator"]) else "?"
-        family = _explicit_lineage_family_key(creator, base)
         rd = r["release_date"]
         if family is None or pd.isna(rd):
             continue
-        level, level_sort_order = _reasoning_level_label_and_sort_order(name)
         key = f"{family}||{level}"
         model_uuid = _text_or_none(r.get("id"))
         node = {
@@ -396,7 +440,7 @@ def _build_lineage_payload(
             "x": float(r[cost_metric_column_name]), "y": float(r[speed_metric_column_name]),
             "z": float(r["intelligence"]), "intelligence": float(r["intelligence"]),
             "kept": model_uuid in kept_model_uuids if model_uuid else name in kept_names,
-            "analysis_eligibility": _analysis_eligibility(r),
+            "analysis_eligibility": model_analysis_eligibility(r),
         }
         generations = per_key_generations.setdefault(key, {})
         previous = generations.get(base)
@@ -540,179 +584,116 @@ def _customdata(df: pd.DataFrame) -> np.ndarray:
     return np.array(cols, dtype=object).T
 
 
-def _frontier_mesh(
-    pareto: pd.DataFrame,
-    speed_log: bool,
-    cost_metric_column_name: str,
-    speed_metric_column_name: str,
-):
-    if len(pareto) < 4:
+def _frontier_mesh(pareto, speed_log, cost_metric_column_name, speed_metric_column_name):
+    mesh, _ = build_delaunay_neighbor_reference_geometry(pareto, speed_log, cost_metric_column_name, speed_metric_column_name)
+    if not mesh["triangle_vertex_index_a"]:
         return None
-    cost = pareto[cost_metric_column_name].to_numpy(float)
-    speed = pareto[speed_metric_column_name].to_numpy(float)
-    intel = pareto["intelligence"].to_numpy(float)
-    # 2D 投影做三角剖分（与可视轴一致：x=log成本, y=log/线性速度），各轴归一化避免畸形三角
-    px = np.log10(cost)
-    py = np.log10(speed) if speed_log else speed
+    return go.Mesh3d(**plotly_coordinate_keywords_from_scene_geometry(mesh),
+        intensity=mesh["z_coordinates"], colorscale="Viridis", opacity=0.45,
+        showscale=False, flatshading=True, name="前沿流形 (Pareto 编织)", hoverinfo="skip", showlegend=True)
 
-    def norm(v):
-        rng = v.max() - v.min()
-        return (v - v.min()) / rng if rng else v * 0.0
 
-    pts = np.column_stack([norm(px), norm(py)])
-    try:
-        tri = Delaunay(pts)
-    except Exception:
+def _frontier_wireframe(pareto, speed_log, cost_metric_column_name, speed_metric_column_name):
+    mesh, wire = build_delaunay_neighbor_reference_geometry(pareto, speed_log, cost_metric_column_name, speed_metric_column_name)
+    if not mesh["triangle_vertex_index_a"]:
         return None
-    i, j, k = tri.simplices[:, 0], tri.simplices[:, 1], tri.simplices[:, 2]
-    # P0-4 根修：Plotly 6 会把 numpy 数组序列化成 {"dtype","bdata"}，契约再 list() 就只剩键名；
-    # 一律传 Python 列表（.tolist() 同时把 numpy 标量转成原生 float/int）。
-    return go.Mesh3d(
-        x=cost.tolist(), y=speed.tolist(), z=intel.tolist(),
-        i=i.tolist(), j=j.tolist(), k=k.tolist(),
-        intensity=intel.tolist(), colorscale="Viridis", opacity=0.45,
-        showscale=False, flatshading=True, name="前沿流形 (Pareto 编织)",
-        hoverinfo="skip", showlegend=True,
-    )
-
-
-def _frontier_wireframe(
-    pareto: pd.DataFrame,
-    speed_log: bool,
-    cost_metric_column_name: str,
-    speed_metric_column_name: str,
-):
-    """与 _frontier_mesh 同样的 Delaunay 三角化，但只画三角形的边（Scatter3d 线）。
-
-    线只占极细像素，几乎不参与 3D 拾取缓冲 —— 故其下方/后方的散点仍可正常悬浮，
-    规避了 Mesh3d/Surface 半透明面吞掉下方节点 hover（label + 三维定位线）的 Plotly 痼疾。
-    """
-    if len(pareto) < 4:
-        return None
-    cost = pareto[cost_metric_column_name].to_numpy(float)
-    speed = pareto[speed_metric_column_name].to_numpy(float)
-    intel = pareto["intelligence"].to_numpy(float)
-    px = np.log10(cost)
-    py = np.log10(speed) if speed_log else speed
-
-    def norm(v):
-        rng = v.max() - v.min()
-        return (v - v.min()) / rng if rng else v * 0.0
-
-    try:
-        tri = Delaunay(np.column_stack([norm(px), norm(py)]))
-    except Exception:
-        return None
-    edges = set()
-    for s in tri.simplices:
-        for a, b in ((s[0], s[1]), (s[1], s[2]), (s[2], s[0])):
-            edges.add((min(int(a), int(b)), max(int(a), int(b))))
-    xs, ys, zs = [], [], []
-    for a, b in sorted(edges):
-        xs += [float(cost[a]), float(cost[b]), None]
-        ys += [float(speed[a]), float(speed[b]), None]
-        zs += [float(intel[a]), float(intel[b]), None]
-    return go.Scatter3d(
-        x=xs, y=ys, z=zs, mode="lines",
+    return go.Scatter3d(**plotly_coordinate_keywords_from_scene_geometry(wire), mode="lines",
         line=dict(color="rgba(50,80,150,0.6)", width=3),
-        name="前沿流形 (线框·不挡悬浮)", hoverinfo="skip", showlegend=True,
+        name="前沿流形 (线框·不挡悬浮)", hoverinfo="skip", showlegend=True)
+
+
+def _achievable_frontier_step_mesh(pareto, cost_metric_column_name, speed_metric_column_name):
+    mesh = build_legacy_achievable_step_geometry_for_v2_comparison(pareto, cost_metric_column_name, speed_metric_column_name)
+    return go.Mesh3d(**plotly_coordinate_keywords_from_scene_geometry(mesh),
+        color="rgba(49,130,189,0.62)", opacity=0.32, flatshading=True,
+        name="可达前沿曲面", showlegend=True, visible="legendonly", hoverinfo="skip")
+
+
+def build_frontier_3d_scene_and_interaction_payload(
+    df: pd.DataFrame,
+    speed_scale: str = "log",
+    data_date: str | None = None,
+    cost_metric_column_name: str = "cost_to_run",
+    cost_metric_label: str = "有效运行成本",
+    cost_metric_unit: str = "USD",
+    speed_metric_column_name: str = "eff_speed",
+    speed_metric_label: str = "有效速度",
+    *,
+    speed_metric_axis_title_text: str | None = None,
+    current_intelligence_index_version: str | None = None,
+    reference_output_million_tokens_by_intelligence_index_version_family: dict | None = None,
+) -> tuple[dict, dict]:
+    """复用 v2 的身份、口径说明和轴范围，直接输出纯几何场景。"""
+    kept = df[df["kept"]].copy()
+    pareto = kept[kept["is_pareto"]]
+    speed_log = speed_scale == "log"
+    payload = _build_lineage_payload(df, cost_metric_column_name, cost_metric_label,
+        cost_metric_unit, speed_metric_column_name, speed_metric_label)
+    x_range, y_range, z_range = _fixed_axis_ranges(kept, payload,
+        cost_metric_column_name, speed_metric_column_name, speed_log)
+    is_eff = speed_metric_column_name == "eff_speed"
+    reference_output_million_tokens_text = "、".join(
+        f"v{version_family}：{reference_output_million_tokens:g}M"
+        for version_family, reference_output_million_tokens in sorted(
+            (reference_output_million_tokens_by_intelligence_index_version_family or {}).items()
+        )
     )
-
-
-def _achievable_frontier_step_mesh(
-    pareto: pd.DataFrame,
-    cost_metric_column_name: str,
-    speed_metric_column_name: str,
-) -> go.Mesh3d:
-    """用当前可见 Pareto 节点构造 rectilinear step mesh。
-
-    每个水平 plateau 使用不共享顶点的两个三角形，避免 Plotly 在相邻 cell
-    间插值形成斜坡。网格锚点取 Pareto 节点自身的成本/速度边界，每个 Pareto
-    点都会作为某个 plateau 的顶点出现，且该顶点 z 等于该点 intelligence。
-    """
-    if pareto.empty:
-        return go.Mesh3d(
-            x=[], y=[], z=[], i=[], j=[], k=[],
-            name="可达前沿曲面", visible="legendonly", showlegend=True,
-            hoverinfo="skip",
-        )
-
-    points = pareto[
-        [cost_metric_column_name, speed_metric_column_name, "intelligence"]
-    ].dropna().copy()
-    points = points[
-        (points[cost_metric_column_name] > 0)
-        & (points[speed_metric_column_name] > 0)
-    ]
-    if points.empty:
-        return go.Mesh3d(
-            x=[], y=[], z=[], i=[], j=[], k=[],
-            name="可达前沿曲面", visible="legendonly", showlegend=True,
-            hoverinfo="skip",
-        )
-
-    costs = np.sort(points[cost_metric_column_name].astype(float).unique())
-    speeds = np.sort(points[speed_metric_column_name].astype(float).unique())
-    if len(costs) == 1:
-        cost_upper = costs[0] * 1.08 if costs[0] > 0 else costs[0] + 1.0
-    else:
-        cost_upper = costs[-1] * (costs[-1] / costs[-2]) ** 0.25
-    if len(speeds) == 1:
-        speed_lower = speeds[0] / 1.08 if speeds[0] > 0 else speeds[0] - 1.0
-    else:
-        speed_lower = max(
-            speeds[0] / (speeds[1] / speeds[0]) ** 0.25,
-            np.nextafter(0.0, 1.0),
-        )
-    x_edges = np.r_[costs, cost_upper]
-    y_edges = np.r_[speed_lower, speeds]
-
-    point_cost = points[cost_metric_column_name].to_numpy(float)
-    point_speed = points[speed_metric_column_name].to_numpy(float)
-    point_intel = points["intelligence"].to_numpy(float)
-
-    xs: list[float] = []
-    ys: list[float] = []
-    zs: list[float] = []
-    ii: list[int] = []
-    jj: list[int] = []
-    kk: list[int] = []
-
-    def best_intelligence_at(cost_budget: float, speed_floor: float) -> float | None:
-        feasible = (point_cost <= cost_budget) & (point_speed >= speed_floor)
-        if not feasible.any():
-            return None
-        return float(point_intel[feasible].max())
-
-    for x_index in range(len(x_edges) - 1):
-        for y_index in range(len(y_edges) - 1):
-            z_value = best_intelligence_at(x_edges[x_index], y_edges[y_index + 1])
-            if z_value is None:
-                continue
-            vertex_offset = len(xs)
-            xs.extend(
-                float(x_edge)
-                for x_edge in (x_edges[x_index], x_edges[x_index + 1], x_edges[x_index + 1], x_edges[x_index])
-            )
-            ys.extend(
-                float(y_edge)
-                for y_edge in (y_edges[y_index], y_edges[y_index], y_edges[y_index + 1], y_edges[y_index + 1])
-            )
-            zs.extend([z_value, z_value, z_value, z_value])
-            ii.extend([vertex_offset, vertex_offset])
-            jj.extend([vertex_offset + 1, vertex_offset + 2])
-            kk.extend([vertex_offset + 2, vertex_offset + 3])
-
-    return go.Mesh3d(
-        x=xs, y=ys, z=zs, i=ii, j=jj, k=kk,
-        color="rgba(49,130,189,0.62)",
-        opacity=0.32,
-        flatshading=True,
-        name="可达前沿曲面",
-        showlegend=True,
-        visible="legendonly",
-        hoverinfo="skip",
+    speed_note = (
+        "有效速度 = 原始速度 ÷（跑完智能指数的输出 token 数 ÷ 该版本参考 token 量"
+        + (f"，{reference_output_million_tokens_text}" if reference_output_million_tokens_text else "")
+        + "），惩罚冗长推理模型；不含 TTFT 与工具耗时，跨指数版本不可比"
+        if is_eff
+        else "原始 median tok/s"
     )
+    speed_axis_title_text = speed_axis_title_text_with_unit_and_scale(
+        speed_metric_axis_title_text or speed_metric_label, speed_log
+    )
+    intelligence_axis_title_text = intelligence_axis_title_text_with_intelligence_index_version(
+        current_intelligence_index_version
+    )
+    if frontier.ANALYSIS_ELIGIBLE_COLUMN_NAME in kept.columns:
+        analysis_eligible_kept_model_count = int(
+            kept[frontier.ANALYSIS_ELIGIBLE_COLUMN_NAME].astype(bool).sum()
+        )
+    else:
+        analysis_eligible_kept_model_count = int(len(kept))
+    cost_note = (
+        "跑完 Intelligence Index 的实际总花费"
+        if cost_metric_column_name == "cost_to_run"
+        else "AA 7:2:1 cache-hit/input/output 混合单价"
+    )
+    payload["current_view"] = {
+        "data_date": data_date or "?",
+        "cost_metric_label": cost_metric_label,
+        "cost_metric_unit": cost_metric_unit,
+        "cost_metric_note": cost_note,
+        "speed_metric_label": speed_metric_label,
+        "speed_metric_note": speed_note,
+        "speed_axis_title_text": speed_axis_title_text,
+        "kept_model_count": int(len(kept)),
+        "pareto_model_count": int(len(pareto)),
+        "analysis_eligible_model_count": analysis_eligible_kept_model_count,
+        "historical_version_value_model_count": int(len(kept)) - analysis_eligible_kept_model_count,
+    }
+    mesh, wire = build_delaunay_neighbor_reference_geometry(pareto, speed_log,
+        cost_metric_column_name, speed_metric_column_name)
+    scene = {
+        "displayed_model_markers": payload["models"],
+        "pareto_frontier_wireframe_line_segments": wire,
+        "pareto_frontier_surface_triangle_mesh": mesh,
+        "achievable_frontier_surface_triangle_mesh": build_legacy_achievable_step_geometry_for_v2_comparison(
+            pareto, cost_metric_column_name, speed_metric_column_name),
+        "three_dimensional_axis_configuration": {
+            "x_axis": {"title_text": f"{cost_metric_label} {cost_metric_unit}（对数）", "scale_type": "log", "fixed_range": x_range},
+            "y_axis": {"title_text": speed_axis_title_text, "scale_type": "log" if speed_log else "linear", "fixed_range": y_range},
+            "z_axis": {"title_text": intelligence_axis_title_text, "scale_type": "linear", "fixed_range": z_range},
+        },
+        "initial_camera_configuration": {
+            "eye": {"x": -1.7, "y": 1.7, "z": 1.1}, "center": {"x": 0.0, "y": 0.0, "z": 0.0}, "up": {"x": 0.0, "y": 0.0, "z": 1.0},
+        },
+        "current_view": payload["current_view"],
+    }
+    return scene, payload
 
 
 def build_figure(
@@ -966,6 +947,50 @@ def build_figure(
 
 
 GRAPH_DIV_ID = "frontier3d"
+
+
+def build_plotly_static_export_figure_from_scene(scene: dict) -> go.Figure:
+    """仅静态导出时把已计算的场景装配成 Plotly 图，避免再算剪枝或指标。"""
+    models = scene["displayed_model_markers"]
+    colors = _creator_colors(model["creator"] for model in models)
+    figure = go.Figure()
+    for creator_name in sorted(colors):
+        creator_models = [model for model in models if model["creator"] == creator_name]
+        figure.add_trace(go.Scatter3d(
+            x=[model["x"] for model in creator_models],
+            y=[model["y"] for model in creator_models],
+            z=[model["z"] for model in creator_models],
+            mode="markers", name=creator_name,
+            marker=dict(color=colors[creator_name], size=[7.5 if model["panel"].get("layer") == 1 else 4.0 for model in creator_models]),
+            text=[model["name"] for model in creator_models],
+        ))
+    pareto = [model for model in models if model["panel"].get("layer") == 1]
+    figure.add_trace(go.Scatter3d(
+        x=[model["x"] for model in pareto], y=[model["y"] for model in pareto], z=[model["z"] for model in pareto],
+        mode="markers", name=f"Pareto 最优 ({len(pareto)})",
+        marker=dict(size=12, symbol="circle-open", color="black", line=dict(color="black", width=2)),
+    ))
+    figure.add_trace(go.Scatter3d(
+        **plotly_coordinate_keywords_from_scene_geometry(scene["pareto_frontier_wireframe_line_segments"]),
+        mode="lines", line=dict(color="rgba(50,80,150,0.6)", width=3), name="Delaunay 邻接参照（非帕累托面）",
+    ))
+    for field, name in (("pareto_frontier_surface_triangle_mesh", "邻接参照面"), ("achievable_frontier_surface_triangle_mesh", "精确可达前沿")):
+        figure.add_trace(go.Mesh3d(
+            **plotly_coordinate_keywords_from_scene_geometry(scene[field]),
+            color="rgba(49,130,189,0.62)", opacity=0.32, flatshading=True,
+            name=name, visible="legendonly", hoverinfo="skip",
+        ))
+    axes = {}
+    for source_name, target_name in (("x_axis", "xaxis"), ("y_axis", "yaxis"), ("z_axis", "zaxis")):
+        axis = scene["three_dimensional_axis_configuration"][source_name]
+        axes[target_name] = dict(title=dict(text=axis["title_text"]), type=axis["scale_type"], range=axis["fixed_range"], autorange=False)
+    current_view = scene.get("current_view", {})
+    figure.update_layout(
+        title=dict(text=f"AI 模型三维前沿：智能 × {current_view.get('speed_metric_label', '速度')} × {current_view.get('cost_metric_label', '成本')}", x=0.5),
+        scene={**axes, "camera": scene.get("initial_camera_configuration", {})},
+        font=dict(size=13), margin=dict(l=0, r=150, t=56, b=0),
+    )
+    return figure
 
 
 def export_static(fig: go.Figure, out: Path):

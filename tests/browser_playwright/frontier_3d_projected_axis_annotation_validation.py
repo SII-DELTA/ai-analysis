@@ -57,7 +57,7 @@ def verify_projected_axis_annotations(page, variant_key):
               }
               seenValues.add(value);
               const coordinate = -1 + 2 * (scaledValue - minimum) / (maximum - minimum);
-              const position = new window.THREE.Vector3(
+              const position = new window.frontierThreeDimensionalRendererDiagnostics.verificationGeometryConstructors.Vector3(
                 axisName === 'x' ? coordinate : -1,
                 axisName === 'y' ? coordinate : axisName === 'x' ? 1 : -1,
                 axisName === 'z' ? coordinate : -1,
@@ -112,7 +112,7 @@ def verify_constrained_axis_annotations(page, variant_key, require_all_titles):
       const canvas = document.querySelector('canvas').getBoundingClientRect();
       const project = position => {
         const projected = position.project(camera);
-        return new window.THREE.Vector2((projected.x + 1) * canvas.width / 2,
+        return new window.frontierThreeDimensionalRendererDiagnostics.verificationGeometryConstructors.Vector2((projected.x + 1) * canvas.width / 2,
           (1 - projected.y) * canvas.height / 2);
       };
       const visibleRectangles = [];
@@ -122,8 +122,8 @@ def verify_constrained_axis_annotations(page, variant_key, require_all_titles):
         const axisName = label.dataset.axisName;
         const isTitle = label.classList.contains('aa-threejs-axis-label');
         const configuration = axes[`${axisName}_axis`];
-        const start = project(new window.THREE.Vector3(-1, axisName === 'x' ? 1 : -1, -1));
-        const end = project(new window.THREE.Vector3(axisName === 'x' ? 1 : -1,
+        const start = project(new window.frontierThreeDimensionalRendererDiagnostics.verificationGeometryConstructors.Vector3(-1, axisName === 'x' ? 1 : -1, -1));
+        const end = project(new window.frontierThreeDimensionalRendererDiagnostics.verificationGeometryConstructors.Vector3(axisName === 'x' ? 1 : -1,
           axisName === 'z' ? -1 : 1, axisName === 'z' ? 1 : -1));
         const direction = end.clone().sub(start);
         let anchor;
@@ -136,7 +136,7 @@ def verify_constrained_axis_annotations(page, variant_key, require_all_titles):
           const scaledValue = configuration.scale_type === 'log' ? Math.log10(value) : value;
           const [minimum, maximum] = configuration.fixed_range;
           const coordinate = -1 + 2 * (scaledValue - minimum) / (maximum - minimum);
-          anchor = project(new window.THREE.Vector3(axisName === 'x' ? coordinate : -1,
+          anchor = project(new window.frontierThreeDimensionalRendererDiagnostics.verificationGeometryConstructors.Vector3(axisName === 'x' ? coordinate : -1,
             axisName === 'y' ? coordinate : axisName === 'x' ? 1 : -1,
             axisName === 'z' ? coordinate : -1));
           if (anchor.x < 0 || anchor.x > canvas.width || anchor.y < 0 || anchor.y > canvas.height) {
@@ -150,7 +150,7 @@ def verify_constrained_axis_annotations(page, variant_key, require_all_titles):
         if (bounds.left < canvas.left || bounds.right > canvas.right || bounds.top < canvas.top || bounds.bottom > canvas.bottom) {
           failures.push(`${axisName}: 可见标注被裁切`);
         }
-        const center = new window.THREE.Vector2(bounds.x + bounds.width / 2 - canvas.x,
+        const center = new window.frontierThreeDimensionalRendererDiagnostics.verificationGeometryConstructors.Vector2(bounds.x + bounds.width / 2 - canvas.x,
           bounds.y + bounds.height / 2 - canvas.y);
         if (isTitle) {
           visibleTitles += 1;
@@ -165,7 +165,7 @@ def verify_constrained_axis_annotations(page, variant_key, require_all_titles):
         }
         const matrix = new DOMMatrix(getComputedStyle(label).transform);
         visibleRectangles.push({text: label.textContent, center,
-          directions: [new window.THREE.Vector2(matrix.a, matrix.b), new window.THREE.Vector2(matrix.c, matrix.d)],
+          directions: [new window.frontierThreeDimensionalRendererDiagnostics.verificationGeometryConstructors.Vector2(matrix.a, matrix.b), new window.frontierThreeDimensionalRendererDiagnostics.verificationGeometryConstructors.Vector2(matrix.c, matrix.d)],
           halfSizes: [label.offsetWidth / 2, label.offsetHeight / 2]});
       }
       // 旋转标题的外接框可以重叠，文本矩形本身不能相交。
