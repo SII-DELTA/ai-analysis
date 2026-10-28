@@ -235,6 +235,33 @@ def _resolve_lineage(name: str) -> tuple[str, str]:
     return base, _classify_tier(base)
 
 
+def model_analysis_eligibility(r) -> dict:
+    # D-1（规格 5.3）：没有 eligibility 列（旧调用方）时按「参与分析」输出
+    if frontier.ANALYSIS_ELIGIBLE_COLUMN_NAME not in r.index:
+        return {
+            "is_analysis_eligible_for_current_metric_variant": True,
+            "ineligibility_reason_codes": [],
+            "ineligibility_reason_text": None,
+        }
+    raw_ineligibility_reason_codes = r.get(frontier.ANALYSIS_INELIGIBILITY_REASON_CODES_COLUMN_NAME)
+    ineligibility_reason_codes = (
+        list(raw_ineligibility_reason_codes)
+        if isinstance(raw_ineligibility_reason_codes, (list, tuple))
+        else []
+    )
+    return {
+        "is_analysis_eligible_for_current_metric_variant": bool(
+            r[frontier.ANALYSIS_ELIGIBLE_COLUMN_NAME]
+        ),
+        "ineligibility_reason_codes": ineligibility_reason_codes,
+        "ineligibility_reason_text": frontier.format_analysis_ineligibility_reason_text(
+            ineligibility_reason_codes,
+            _text_or_none(r.get("cost_to_run_value_intelligence_index_version")),
+            _text_or_none(r.get("output_token_count_value_intelligence_index_version")),
+        ),
+    }
+
+
 def _build_lineage_payload(
     df_full: pd.DataFrame,
     cost_metric_column_name: str,
@@ -258,32 +285,6 @@ def _build_lineage_payload(
     def _field_or_none(r, name):
         # 突出度/归一坐标由 add_standout_metrics 写入；缺列或 NaN → None(→ JS null)。
         return _finite_float_or_none(r[name]) if name in r.index else None
-
-    def _analysis_eligibility(r) -> dict:
-        # D-1（规格 5.3）：没有 eligibility 列（旧调用方）时按「参与分析」输出
-        if frontier.ANALYSIS_ELIGIBLE_COLUMN_NAME not in r.index:
-            return {
-                "is_analysis_eligible_for_current_metric_variant": True,
-                "ineligibility_reason_codes": [],
-                "ineligibility_reason_text": None,
-            }
-        raw_ineligibility_reason_codes = r.get(frontier.ANALYSIS_INELIGIBILITY_REASON_CODES_COLUMN_NAME)
-        ineligibility_reason_codes = (
-            list(raw_ineligibility_reason_codes)
-            if isinstance(raw_ineligibility_reason_codes, (list, tuple))
-            else []
-        )
-        return {
-            "is_analysis_eligible_for_current_metric_variant": bool(
-                r[frontier.ANALYSIS_ELIGIBLE_COLUMN_NAME]
-            ),
-            "ineligibility_reason_codes": ineligibility_reason_codes,
-            "ineligibility_reason_text": frontier.format_analysis_ineligibility_reason_text(
-                ineligibility_reason_codes,
-                _text_or_none(r.get("cost_to_run_value_intelligence_index_version")),
-                _text_or_none(r.get("output_token_count_value_intelligence_index_version")),
-            ),
-        }
 
     def _value_provenance(r) -> dict:
         return {
@@ -329,8 +330,9 @@ def _build_lineage_payload(
                     r["blended_price_cache_input_output_7_to_2_to_1"]
                 ),
                 "layer": _finite_float_or_none(r["layer"]),
+                "output_mtokens": _field_or_none(r, "output_mtokens"),
             },
-            "analysis_eligibility": _analysis_eligibility(r),
+            "analysis_eligibility": model_analysis_eligibility(r),
             "value_provenance": _value_provenance(r),
             "artificial_analysis_intelligence_index_is_estimated": _boolean_or_none(
                 r.get("artificial_analysis_intelligence_index_is_estimated")
@@ -396,7 +398,7 @@ def _build_lineage_payload(
             "x": float(r[cost_metric_column_name]), "y": float(r[speed_metric_column_name]),
             "z": float(r["intelligence"]), "intelligence": float(r["intelligence"]),
             "kept": model_uuid in kept_model_uuids if model_uuid else name in kept_names,
-            "analysis_eligibility": _analysis_eligibility(r),
+            "analysis_eligibility": model_analysis_eligibility(r),
         }
         generations = per_key_generations.setdefault(key, {})
         previous = generations.get(base)
@@ -436,19 +438,13 @@ def _fixed_axis_ranges(
     speed_metric_column_name: str,
     speed_log: bool,
 ) -> tuple[list, list, list]:
-    """计算固定坐标轴范围 (x_cost, y_speed, z_intelligence)。
-
-    范围 = (kept 散点 ∪ payload 全部谱系节点) 的并集 + 留白。谱系节点取自全量三维齐全
-    数据（含被剪枝的历代前身），其成本/速度可能超出 kept 散点范围；把范围固定到二者并集，
-    使 hover 画谱系时坐标轴不再 autorange 扩张 → 消除「谱系扩范围→点位移→hover/unhover
-    抖动」。对数轴的 range 须以 log10 为单位。
-    """
-    costs = [float(v) for v in kept[cost_metric_column_name] if pd.notna(v)]
-    speeds = [float(v) for v in kept[speed_metric_column_name] if pd.notna(v)]
-    intels = [float(v) for v in kept["intelligence"] if pd.notna(v)]
-    for nodes in payload["lineages"].values():
-        for n in nodes:
-            costs.append(n["x"]); speeds.append(n["y"]); intels.append(n["z"])
+    """固定轴域只使用生成时完整、有限的显示模型；谱系前身由渲染层夹紧。"""
+    dimensions = [cost_metric_column_name, speed_metric_column_name, "intelligence"]
+    coordinates = kept[dimensions].to_numpy(dtype=float)
+    valid = np.isfinite(coordinates).all(axis=1) & (coordinates[:, 0] > 0)
+    if speed_log:
+        valid &= coordinates[:, 1] > 0
+    costs, speeds, intels = coordinates[valid].T.tolist()
 
     def log_range(vals, pad=0.04, fallback_log10_range_for_empty_scene=None):
         # RVF-002：空场景（零 kept 且零谱系节点）没有值可取 min/max，用兜底范围让坐标轴仍可画
@@ -869,11 +865,7 @@ def build_figure(
     payload["frontier_wireframe_trace_index"] = fa
     payload["frontier_mesh_trace_index"] = fb
     payload["achievable_surface_trace_index"] = fc
-    # 固定坐标轴范围 = (kept 散点 ∪ 全部谱系节点) 并集 + 留白，并关闭 autorange。
-    # 谱系线基于「全量三维齐全数据」，含被剪枝的历代前身，其成本/速度可能落在 kept
-    # 散点范围之外。若用 autorange，则 hover 画出谱系 → 范围扩张 → 所有点位移 → hover
-    # 点移出光标 → unhover → 范围回缩 → …… 抖动（尤以谱系跨度大的 Qwen 等明显）。
-    # 把范围预先固定到「所有可能绘制的几何」之并集后，画/撤谱系不再改变范围，消除抖动。
+    # 开关、筛选与 hover 均复用完整显示集合的轴域，不扩张历史前身范围。
     x_range, y_range, z_range = _fixed_axis_ranges(
         kept,
         payload,

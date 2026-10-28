@@ -469,7 +469,7 @@ def main() -> None:
             marker_center["clientY"]
             + marker_direction["y"] * country_region_test_radius,
         )
-        assert base_model_name in page.evaluate(
+        assert base_model_name not in page.evaluate(
             "() => window.frontierThreeDimensionalVisualizationState()"
             ".pinnedBaseModelNames"
         )

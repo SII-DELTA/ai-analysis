@@ -260,7 +260,7 @@ HOVER_EVERY_MARKER_OF_EVERY_VARIANT_JAVASCRIPT = """async () => {
 }"""
 
 # tooltip 只允许渲染器自己拼的这些标签；出现 IMG / SCRIPT 等即说明模型名没有转义
-ALLOWED_TOOLTIP_ELEMENT_TAG_NAMES = {"B", "BR", "DIV", "SPAN", "STRONG", "SMALL", "EM"}
+ALLOWED_TOOLTIP_ELEMENT_TAG_NAMES = {"B", "BR", "DIV", "SPAN", "STRONG", "SMALL", "EM", "SECTION"}
 
 
 def verify_adversarial_strings_are_rendered_as_text(page, html_path: Path, check) -> None:

@@ -10,7 +10,7 @@
 以下资产于 2026-07-18 从厂商官方站点、官方组织头像或注明 Public Domain 的
 Wikimedia Commons 文件取得。原始 SVG 保留矢量内容；位图不改绘并嵌入正方形 SVG 容器，
 使用 `preserveAspectRatio="xMidYMid meet"` 显示完整标志。Nanbeige 的官方头像仅从 WebP
-机械转码为 PNG，以兼容 WebGL 纹理上传。两类资产都由 `TextureLoader` 自包含加载。
+机械转码为 PNG，以兼容 WebGL 纹理上传。两类资产都先用 `new Image()` 解码内联 `data:` URL，绘制到方形 canvas，再用 `CanvasTexture` 上传为纹理。
 
 | 仓库资产 | 原始品牌资产 |
 |---|---|
@@ -33,5 +33,6 @@ Wikimedia Commons 文件取得。原始 SVG 保留矢量内容；位图不改绘
 
 这些文件只在报告生成时转成自包含 `data:` URL；运行中的 HTML 不请求 CDN。
 品牌名称和标志仍分别归其权利人所有，仅用于标识图中对应厂商。未来出现尚未注册品牌资产的
-creator 时，`frontier_3d_organization_identity_metadata_registry.py` 会生成带完整厂商名的本地
-wordmark fallback，避免伪造品牌图形或用随机颜色冒充品牌身份。
+creator 时，`frontier_3d_organization_identity_metadata_registry.py` 会使用本地 monogram fallback；已注册但缺少本地图标时使用完整名称 wordmark fallback。两类生成器均使用方形容器，优先复用本地品牌图标。
+
+Lobe Icons 的完整 MIT 许可和版权声明随仓库保存在 [LOBE_ICONS_MIT_LICENSE.txt](LOBE_ICONS_MIT_LICENSE.txt)，并随生成的单文件 HTML 一起内嵌。2026-10-28 核对了[上游许可](https://github.com/lobehub/lobe-icons/blob/master/LICENSE)。此软件许可不授予任何品牌商标权。
