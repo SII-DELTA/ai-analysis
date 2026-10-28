@@ -404,6 +404,7 @@ def test_horizontal_overflow_fade_tracks_remaining_content(frontier_page):
     page.locator("#aa-pinned-comparison-panel > summary").click()
     for width in (750, 390):
         page.set_viewport_size({"width": width, "height": 900})
+        page.wait_for_function("document.getAnimations().every(animation => !animation.pending && animation.playState !== 'running')")
         for selector in (header, table):
             page.evaluate("selector => { document.querySelector(selector).scrollLeft = 0; }", selector)
             page.wait_for_function("""selector => {
