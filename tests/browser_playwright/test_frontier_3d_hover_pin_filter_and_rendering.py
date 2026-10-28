@@ -144,7 +144,7 @@ def test_transparent_surfaces_preserve_visible_logo_pixels(frontier_page):
     page = frontier_page
     # 相机正对 z=0 曲面；洋红 logo 位于其后，白底 logo 与其他标记被移开。
     observation = page.evaluate("""async () => {
-      const d=frontierThreeDimensionalRendererDiagnostics, THREE=window.THREE;
+      const d=frontierThreeDimensionalRendererDiagnostics, THREE=window.frontierThreeDimensionalRendererDiagnostics.verificationGeometryConstructors;
       const canvas=document.createElement('canvas'); canvas.width=canvas.height=32;
       canvas.getContext('2d').fillStyle='#ff00ff'; canvas.getContext('2d').fillRect(0,0,32,32);
       const texture=new THREE.CanvasTexture(canvas);
@@ -208,7 +208,7 @@ def test_pin_uuid_survives_missing_variant_and_model_rename(frontier_page):
 
 def test_relationship_line_width_changes_actual_rendered_pixel_width(frontier_page):
     widths = frontier_page.evaluate("""() => {
-      const d=frontierThreeDimensionalRendererDiagnostics, THREE=window.THREE, renderer=d.renderer;
+      const d=frontierThreeDimensionalRendererDiagnostics, THREE=window.frontierThreeDimensionalRendererDiagnostics.verificationGeometryConstructors, renderer=d.renderer;
       const camera=new THREE.OrthographicCamera(-1,1,1,-1,0.01,10);camera.position.z=3;
       const scene=new THREE.Scene();scene.background=new THREE.Color('white');
       const gl=renderer.getContext(); const widths=[];

@@ -4,7 +4,6 @@ from __future__ import annotations
 import hashlib
 import html
 import json
-import copy
 import re
 import subprocess
 from datetime import datetime, timezone
@@ -16,9 +15,7 @@ from plotly.utils import PlotlyJSONEncoder
 
 from .frontier_3d_visualization_dataset_builder import (
     validate_frontier_3d_visualization_dataset,
-)
-from .frontier_3d_exact_achievable_frontier_scene_geometry import (
-    build_exact_achievable_frontier_geometry_from_scene,
+    build_frontier_3d_browser_projection,
 )
 
 ASSET_PACKAGE = "src.frontier_3d_interactive_report_assets"
@@ -60,7 +57,7 @@ def _read_asset_text(asset_name: str) -> str:
 
 def _json_for_script_tag(value: dict[str, Any]) -> str:
     """序列化为可以原样嵌入 `<script type="application/json">` 的 JSON 文本。"""
-    serialized_json_text = json.dumps(value, ensure_ascii=False, cls=PlotlyJSONEncoder)
+    serialized_json_text = json.dumps(value, ensure_ascii=False, separators=(",", ":"), cls=PlotlyJSONEncoder)
     return HTML_SIGNIFICANT_CHARACTER_PATTERN.sub(
         lambda match: HTML_SIGNIFICANT_CHARACTER_JSON_ESCAPES[match.group(0)],
         serialized_json_text,
@@ -140,12 +137,7 @@ def render_frontier_3d_self_contained_html_report(
 ) -> str:
     """渲染单文件 HTML；指纹参数缺省时现场计算（测试可注入固定值）。"""
     validate_frontier_3d_visualization_dataset(dataset)
-    # 旧 v2 的可达网格是采样结果。页面按同一输入重建精确预算阶梯，不改调用方快照。
-    dataset = copy.deepcopy(dataset)
-    for variant in dataset.get("metric_variants", {}).values():
-        scene = variant.get("three_dimensional_scene")
-        if scene is not None:
-            scene.update(build_exact_achievable_frontier_geometry_from_scene(scene))
+    dataset = build_frontier_3d_browser_projection(dataset)
     template = _read_asset_text(REPORT_DOCUMENT_TEMPLATE_ASSET_NAME)
     css = _read_asset_text(REPORT_CSS_ASSET_NAME)
     threejs_interactive_renderer_javascript = _read_asset_text(

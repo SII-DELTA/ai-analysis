@@ -308,11 +308,8 @@ def _verify_frontier_mesh_is_not_encoded_as_plotly_bdata() -> None:
     surface_mesh = default_variant["three_dimensional_scene"]["pareto_frontier_surface_triangle_mesh"]
     assert len(surface_mesh["triangle_vertex_index_a"]) > 0, "默认口径实心面三角形数应 > 0"
     assert all(isinstance(value, float) for value in surface_mesh["x_coordinates"])
-    mesh_traces = [
-        trace
-        for trace in default_variant["plotly_static_export_trace_data"]
-        if trace.get("type") == "mesh3d" and trace.get("name", "").startswith("前沿流形")
-    ]
+    from src.cli import _figure_from_dataset_variant
+    mesh_traces = [trace for trace in _figure_from_dataset_variant(dataset, "effective__effective").to_plotly_json()["data"] if trace.get("type") == "mesh3d"]
     assert mesh_traces and not isinstance(mesh_traces[0]["x"], dict), "实心面 trace 仍被编码成 bdata"
     print("✅ 实心面不再被 Plotly 编码成 bdata（P0-4）验证通过")
 
@@ -345,7 +342,7 @@ def _verify_dataset_validation_positive_and_negative_examples() -> None:
         "plotly_static_export_layout": {},
     }
     zero_model_dataset = {
-        "schema_version": dataset_builder.FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION,
+        "schema_version": dataset_builder.LEGACY_FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION,
         "interactive_renderer": "threejs",
         "initial_variant_key": "effective__effective",
         "organization_identity_metadata_by_creator_name": {},
@@ -450,7 +447,7 @@ def main() -> None:
     assert cli.DEFAULT_OUTPUT_HTML_PATH.name == "frontier_3d.html"
     assert (
         dataset_builder.FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION
-        == "frontier_3d_visualization_dataset/v2"
+        == "frontier_3d_visualization_dataset/v3"
     )
     assert (
         dataset_builder.DEFAULT_FRONTIER_3D_VISUALIZATION_DATASET_FILENAME

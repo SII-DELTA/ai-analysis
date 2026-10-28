@@ -12,10 +12,11 @@ import math
 import numpy as np
 import pandas as pd
 import pytest
+from tests.fixtures.build_expanded_frontier_3d_dataset_for_legacy_scene_assertions import build_expanded_frontier_3d_dataset_for_legacy_scene_assertions
 from plotly.utils import PlotlyJSONEncoder
 
 from src import frontier_3d_visualization_dataset_builder as dataset_builder
-from src import visualize
+from src import visualize, cli
 from src.frontier_3d_self_contained_html_renderer import render_frontier_3d_self_contained_html_report
 from tests.fixtures.build_frontier_3d_synthetic_fixture_models_dataframe import (
     FRONTIER_3D_SYNTHETIC_FIXTURE_PRUNING_REFERENCE_DATE,
@@ -59,7 +60,7 @@ def _build_synthetic_fixture_dataset(speed_scale: str = "log", **extra_keyword_a
         "pruning_reference_date": FRONTIER_3D_SYNTHETIC_FIXTURE_PRUNING_REFERENCE_DATE,
     }
     keyword_arguments.update(extra_keyword_arguments)
-    return dataset_builder.build_frontier_3d_visualization_dataset(
+    return build_expanded_frontier_3d_dataset_for_legacy_scene_assertions(
         build_frontier_3d_synthetic_fixture_models_dataframe(), **keyword_arguments
     )
 
@@ -115,7 +116,7 @@ def _zero_model_legal_dataset() -> dict:
         "plotly_static_export_layout": {},
     }
     return {
-        "schema_version": dataset_builder.FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION,
+        "schema_version": dataset_builder.LEGACY_FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION,
         "interactive_renderer": "threejs",
         "initial_variant_key": "effective__effective",
         "organization_identity_metadata_by_creator_name": {},
@@ -549,7 +550,7 @@ def test_dataset_provenance_always_carries_catalog_partition_rejection_warning_t
     )
     models_dataframe = build_frontier_3d_synthetic_fixture_models_dataframe()
     partition_rejection_warning_text = "内嵌目录分区被拒（版本 family 4.3 ≠ API 版本 family 4.4），有效速度口径暂无当期可比点"
-    dataset = dataset_builder.build_frontier_3d_visualization_dataset(
+    dataset = build_expanded_frontier_3d_dataset_for_legacy_scene_assertions(
         models_dataframe,
         since_months=18,
         max_layers=3,
@@ -569,7 +570,7 @@ def test_dataset_provenance_always_carries_catalog_partition_rejection_warning_t
 
 
 def test_pruning_reference_date_and_data_date_default_to_api_fetched_at_date() -> None:
-    dataset = dataset_builder.build_frontier_3d_visualization_dataset(
+    dataset = build_expanded_frontier_3d_dataset_for_legacy_scene_assertions(
         build_frontier_3d_synthetic_fixture_models_dataframe(),
         since_months=18,
         max_layers=3,
@@ -584,7 +585,7 @@ def test_builder_without_any_reference_date_source_raises_instead_of_using_wall_
     models_dataframe = build_frontier_3d_synthetic_fixture_models_dataframe()
     models_dataframe.attrs.clear()
     with pytest.raises(ValueError, match="剪枝参考日期"):
-        dataset_builder.build_frontier_3d_visualization_dataset(
+        build_expanded_frontier_3d_dataset_for_legacy_scene_assertions(
             models_dataframe,
             since_months=18,
             max_layers=3,
@@ -698,8 +699,9 @@ def test_excluded_models_list_explains_every_scored_model_that_is_not_displayed(
     assert excluded_intelligence_values == sorted(excluded_intelligence_values, reverse=True)
     excluded_by_name = {excluded_model["name"]: excluded_model for excluded_model in excluded_models}
     assert "Unscored Model" not in excluded_by_name
-    assert {key: excluded_models[0][key] for key in ("name", "creator", "intelligence", "release_date", "missing_dimension_names", "drop_reason", "is_absent_from_accepted_embedded_model_catalog_partition")} == {
+    assert {key: excluded_models[0][key] for key in ("name", "model_uuid", "creator", "intelligence", "release_date", "missing_dimension_names", "drop_reason", "is_absent_from_accepted_embedded_model_catalog_partition")} == {
         "name": "Speedless Genius (Max Effort)",
+        "model_uuid": "00000000-0000-4000-9000-000000000017",
         "creator": "Anthropic",
         "intelligence": 70.0,
         "release_date": "2026-09-01",
@@ -755,7 +757,7 @@ def test_non_positive_placeholder_prices_are_treated_as_missing_cost_dimension(c
     models_dataframe.loc[zero_priced_row_mask, "blended_price_cache_hit_price_source"] = (
         "computed_with_input_price_as_cache_hit_price"
     )
-    dataset = dataset_builder.build_frontier_3d_visualization_dataset(
+    dataset = build_expanded_frontier_3d_dataset_for_legacy_scene_assertions(
         models_dataframe,
         since_months=18,
         max_layers=3,
@@ -871,7 +873,7 @@ def _build_dataset_with_every_effective_speed_missing(**extra_keyword_arguments)
         "pruning_reference_date": FRONTIER_3D_SYNTHETIC_FIXTURE_PRUNING_REFERENCE_DATE,
     }
     keyword_arguments.update(extra_keyword_arguments)
-    return dataset_builder.build_frontier_3d_visualization_dataset(
+    return build_expanded_frontier_3d_dataset_for_legacy_scene_assertions(
         _synthetic_fixture_models_dataframe_with_every_effective_speed_missing(), **keyword_arguments
     )
 
@@ -929,7 +931,7 @@ def test_builder_keeps_raw_speed_variants_and_outputs_legal_empty_scene_when_eve
         json.dumps(empty_scene, allow_nan=False)
         json.dumps(excluded_models, allow_nan=False)
         json.dumps(
-            effective_speed_variant["plotly_static_export_layout"], allow_nan=False, cls=PlotlyJSONEncoder
+            cli._figure_from_dataset_variant(dataset, effective_speed_variant_key).to_plotly_json()["layout"], allow_nan=False, cls=PlotlyJSONEncoder
         )
 
 
@@ -954,7 +956,7 @@ def test_builder_still_raises_when_every_metric_variant_has_no_kept_model() -> N
     models_dataframe["blended_price_cache_input_output_7_to_2_to_1"] = math.nan
     models_dataframe["blended_price_cache_hit_price_source"] = None
     with pytest.raises(ValueError, match="请放宽参数"):
-        dataset_builder.build_frontier_3d_visualization_dataset(
+        build_expanded_frontier_3d_dataset_for_legacy_scene_assertions(
             models_dataframe,
             since_months=18,
             max_layers=3,

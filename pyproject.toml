@@ -6,11 +6,12 @@ requires-python = ">=3.11"
 dependencies = [
     "numpy>=1.26,<3",
     "pandas>=2.0,<3",
-    # Plotly 6 起数值数组序列化为 {"dtype","bdata"}；契约构建依赖该行为的已知边界
+    # 保留旧 v2 数组解码与按需静态导出的 Plotly 6 兼容边界
     "plotly>=6.0,<7",
     "requests>=2.31,<3",
     "scipy>=1.11,<2",
     "python-dotenv>=1.0,<2",
+    "jsonschema>=4.23,<5",
 ]
 
 [project.optional-dependencies]

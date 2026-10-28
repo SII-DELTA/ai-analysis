@@ -8,5 +8,6 @@ plotly>=6.0
 requests>=2.31
 scipy>=1.11
 python-dotenv>=1.0
+jsonschema>=4.23
 # 静态导出（--export png/svg）才需要；交互式 HTML 不依赖它
 kaleido>=1.0

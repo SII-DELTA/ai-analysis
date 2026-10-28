@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 
 import pytest
+from tests.fixtures.build_expanded_frontier_3d_dataset_for_legacy_scene_assertions import build_expanded_frontier_3d_dataset_for_legacy_scene_assertions
 
 from src import cli, fetch_data, visualize
 from src import frontier_3d_visualization_dataset_builder as dataset_builder
@@ -182,7 +183,7 @@ def test_reading_existing_dataset_warns_that_pruning_and_metric_arguments_are_ig
 ) -> None:
     existing_dataset_path = tmp_path / "existing_frontier_3d_visualization_dataset.json"
     dataset_builder.write_frontier_3d_visualization_dataset(
-        dataset_builder.build_frontier_3d_visualization_dataset(
+        build_expanded_frontier_3d_dataset_for_legacy_scene_assertions(
             build_frontier_3d_synthetic_fixture_models_dataframe(),
             since_months=18,
             max_layers=3,
@@ -249,7 +250,7 @@ def test_reading_existing_dataset_without_pruning_arguments_prints_no_ignored_ar
 ) -> None:
     existing_dataset_path = tmp_path / "existing_frontier_3d_visualization_dataset.json"
     dataset_builder.write_frontier_3d_visualization_dataset(
-        dataset_builder.build_frontier_3d_visualization_dataset(
+        build_expanded_frontier_3d_dataset_for_legacy_scene_assertions(
             build_frontier_3d_synthetic_fixture_models_dataframe(),
             since_months=18,
             max_layers=3,
@@ -420,7 +421,7 @@ def test_reading_existing_dataset_also_names_ignored_data_fetch_switches(
     """R1-09：读已有契约时 --refresh 等取数开关同样被忽略，必须提示，免得误以为刷新过。"""
     existing_dataset_path = tmp_path / "existing_frontier_3d_visualization_dataset.json"
     dataset_builder.write_frontier_3d_visualization_dataset(
-        dataset_builder.build_frontier_3d_visualization_dataset(
+        build_expanded_frontier_3d_dataset_for_legacy_scene_assertions(
             build_frontier_3d_synthetic_fixture_models_dataframe(),
             since_months=18,
             max_layers=3,

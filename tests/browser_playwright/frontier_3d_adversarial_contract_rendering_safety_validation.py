@@ -39,9 +39,6 @@ from src.frontier_3d_self_contained_html_renderer import (  # noqa: E402
     _json_for_script_tag,
     render_frontier_3d_self_contained_html_report,
 )
-from src.frontier_3d_visualization_dataset_builder import (  # noqa: E402
-    build_frontier_3d_visualization_dataset,
-)
 from tests.fixtures.build_frontier_3d_synthetic_fixture_models_dataframe import (  # noqa: E402
     build_frontier_3d_synthetic_fixture_models_dataframe,
 )
@@ -93,7 +90,8 @@ ADVERSARIAL_EMBEDDED_MODEL_CATALOG_PARTITION_REJECTION_WARNING_TEXT = (
 
 
 def _synthetic_fixture_dataset(models_dataframe) -> dict:
-    return build_frontier_3d_visualization_dataset(
+    from tests.fixtures.build_expanded_frontier_3d_dataset_for_legacy_scene_assertions import build_expanded_frontier_3d_dataset_for_legacy_scene_assertions
+    return build_expanded_frontier_3d_dataset_for_legacy_scene_assertions(
         models_dataframe,
         since_months=18,
         max_layers=3,

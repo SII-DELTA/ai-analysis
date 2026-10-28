@@ -52,7 +52,7 @@ function solveAxisAnnotationLayoutWithOrderedTitles({ canvasWidth, canvasHeight,
         const labelDirection = label.isTitle ? unitAxis : { x: 1, y: 0 };
         const rectangle = { directions: [labelDirection, perpendicular(labelDirection)], halfSizes: [label.width / 2, label.height / 2] };
         const preferredFraction = dot(subtract(label.anchor, projectedStart), axisDirection) / (length * length);
-        for (const offset of label.isTitle ? [48, 24, -48, -24, 0, 40, -40, 32, -32, 16, -16, 8, -8] : [16, -16, 8, -8, 0]) {
+        for (const offset of label.isTitle ? [48, 24, -48, -24, 0, 40, -40, 32, -32, 16, -16, 8, -8, 36, -36, 12, -12] : [16, -16, 8, -8, 0]) {
           let minimumFraction = label.isTitle ? 0 : preferredFraction;
           let maximumFraction = label.isTitle ? 1 : preferredFraction;
           for (const [coordinate, canvasSize, halfSize] of [["x", canvasWidth, halfWidth], ["y", canvasHeight, halfHeight]]) {

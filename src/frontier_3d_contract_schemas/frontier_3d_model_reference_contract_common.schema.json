@@ -1,0 +1,1376 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:frontier-3d:model-reference-contract:common",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "interactive_renderer": {
+      "const": "threejs"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "data_date": {
+      "type": "string"
+    },
+    "graph_div_id": {
+      "type": "string"
+    },
+    "initial_variant_key": {
+      "enum": [
+        "effective__effective",
+        "effective__raw",
+        "blended__effective",
+        "blended__raw"
+      ]
+    },
+    "speed_scale": {
+      "enum": [
+        "log",
+        "linear"
+      ]
+    },
+    "artificial_analysis_data_provenance": {
+      "$ref": "#/$defs/provenance"
+    },
+    "cost_metric_definitions": {
+      "type": "object",
+      "properties": {
+        "effective": {
+          "$ref": "#/$defs/metricDefinition"
+        },
+        "blended": {
+          "$ref": "#/$defs/metricDefinition"
+        }
+      },
+      "required": [
+        "effective",
+        "blended"
+      ],
+      "additionalProperties": false
+    },
+    "speed_metric_definitions": {
+      "type": "object",
+      "properties": {
+        "effective": {
+          "$ref": "#/$defs/metricDefinition"
+        },
+        "raw": {
+          "$ref": "#/$defs/metricDefinition"
+        }
+      },
+      "required": [
+        "effective",
+        "raw"
+      ],
+      "additionalProperties": false
+    },
+    "organization_identity_metadata_by_creator_name": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/identity"
+      }
+    },
+    "models": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/model"
+      }
+    },
+    "metric_variants": {
+      "type": "object",
+      "properties": {
+        "effective__effective": {
+          "$ref": "#/$defs/variant"
+        },
+        "effective__raw": {
+          "$ref": "#/$defs/variant"
+        },
+        "blended__effective": {
+          "$ref": "#/$defs/variant"
+        },
+        "blended__raw": {
+          "$ref": "#/$defs/variant"
+        }
+      },
+      "required": [
+        "effective__effective",
+        "effective__raw",
+        "blended__effective",
+        "blended__raw"
+      ],
+      "additionalProperties": false
+    },
+    "analysis_eligibility_definitions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/eligibility"
+      }
+    },
+    "excluded_model_explanation_definitions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/excludedModelExplanation"
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "interactive_renderer",
+    "initial_variant_key",
+    "cost_metric_definitions",
+    "speed_metric_definitions",
+    "organization_identity_metadata_by_creator_name",
+    "models",
+    "metric_variants"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "mesh": {
+      "type": "object",
+      "properties": {
+        "x_coordinates": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "y_coordinates": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "z_coordinates": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "triangle_vertex_index_a": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "triangle_vertex_index_b": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "triangle_vertex_index_c": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "required": [
+        "x_coordinates",
+        "y_coordinates",
+        "z_coordinates",
+        "triangle_vertex_index_a",
+        "triangle_vertex_index_b",
+        "triangle_vertex_index_c"
+      ],
+      "additionalProperties": false
+    },
+    "line": {
+      "type": "object",
+      "properties": {
+        "x_coordinates": {
+          "type": "array",
+          "items": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "y_coordinates": {
+          "type": "array",
+          "items": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "z_coordinates": {
+          "type": "array",
+          "items": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        }
+      },
+      "required": [
+        "x_coordinates",
+        "y_coordinates",
+        "z_coordinates"
+      ],
+      "additionalProperties": false
+    },
+    "eligibility": {
+      "type": "object",
+      "properties": {
+        "is_analysis_eligible_for_current_metric_variant": {
+          "type": "boolean"
+        },
+        "ineligibility_reason_codes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ineligibility_reason_text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "standoutMetrics": {
+      "type": "object",
+      "properties": {
+        "trend_residual": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "trend_residual_standard_deviation_units": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "intelligence_uplift": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "weighted_exclusive_hypervolume": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "frontier_distance": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "model": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "creator": {
+          "type": "string"
+        },
+        "model_uuid": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "base_model_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reasoning_level_label": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tier": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "lineage_family_key": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "lineage_key": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "organization_identity_key": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "country_region_category": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "artificial_analysis_release_slug": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "artificial_analysis_reasoning_effort_slug": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "creator_uuid": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reasoning_level_sort_order": {
+          "type": "integer"
+        },
+        "artificial_analysis_is_reasoning_model": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "artificial_analysis_intelligence_index_is_estimated": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "identity_resolution": {
+          "enum": [
+            "model_uuid",
+            "legacy_creator_and_name_without_uuid"
+          ]
+        },
+        "panel": {
+          "type": "object",
+          "properties": {
+            "release_date": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "intelligence": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "output_speed": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "eff_speed": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "cost_to_run": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "blended_price_cache_input_output_7_to_2_to_1": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "output_mtokens": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "value_provenance": {
+          "type": "object",
+          "properties": {
+            "cost_to_run_value_source": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "cost_to_run_value_intelligence_index_version": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "cost_to_run_value_fetched_at_utc": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "output_token_count_value_source": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "output_token_count_value_intelligence_index_version": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "output_token_count_value_fetched_at_utc": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "blended_price_cache_hit_price_source": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "name",
+        "creator",
+        "model_uuid"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "model_uuid": {
+                "type": "null"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "identity_resolution"
+            ]
+          }
+        }
+      ]
+    },
+    "markerReference": {
+      "type": "object",
+      "properties": {
+        "model_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "z": {
+          "type": "number"
+        },
+        "panel": {
+          "type": "object",
+          "properties": {
+            "layer": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "analysis_eligibility": {
+          "$ref": "#/$defs/eligibility"
+        },
+        "standout_metrics": {
+          "$ref": "#/$defs/standoutMetrics"
+        },
+        "normalized_improvement_coordinates": {
+          "type": "object",
+          "properties": {
+            "cost_efficiency": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "speed": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "intelligence": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "displayed_only_because_of_recent_release_grace_period": {
+          "type": "boolean"
+        },
+        "analysis_eligibility_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "base_model_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reasoning_level_label": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reasoning_level_sort_order": {
+          "type": "integer"
+        },
+        "tier": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "model_index",
+        "panel"
+      ],
+      "additionalProperties": false,
+      "not": {
+        "required": [
+          "analysis_eligibility",
+          "analysis_eligibility_index"
+        ]
+      }
+    },
+    "excludedReference": {
+      "type": "object",
+      "properties": {
+        "model_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missing_dimension_names": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "drop_reason": {
+          "type": "string"
+        },
+        "is_absent_from_accepted_embedded_model_catalog_partition": {
+          "type": "boolean"
+        },
+        "analysis_eligibility_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "base_model_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reasoning_level_label": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reasoning_level_sort_order": {
+          "type": "integer"
+        },
+        "analysis_eligibility": {
+          "$ref": "#/$defs/eligibility"
+        },
+        "tier": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "excluded_model_explanation_index": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "model_index"
+      ],
+      "additionalProperties": false,
+      "not": {
+        "required": [
+          "analysis_eligibility",
+          "analysis_eligibility_index"
+        ]
+      },
+      "oneOf": [
+        {
+          "required": [
+            "excluded_model_explanation_index"
+          ],
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "missing_dimension_names"
+                ]
+              },
+              {
+                "required": [
+                  "drop_reason"
+                ]
+              },
+              {
+                "required": [
+                  "is_absent_from_accepted_embedded_model_catalog_partition"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "required": [
+            "missing_dimension_names",
+            "drop_reason"
+          ],
+          "not": {
+            "required": [
+              "excluded_model_explanation_index"
+            ]
+          }
+        }
+      ]
+    },
+    "lineageReference": {
+      "type": "object",
+      "properties": {
+        "model_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "label": {
+          "type": "string"
+        },
+        "release_date": {
+          "type": "string"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "z": {
+          "type": "number"
+        },
+        "intelligence": {
+          "type": "number"
+        },
+        "kept": {
+          "type": "boolean"
+        },
+        "analysis_eligibility": {
+          "$ref": "#/$defs/eligibility"
+        },
+        "analysis_eligibility_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "base_model_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reasoning_level_label": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reasoning_level_sort_order": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "model_index",
+        "x",
+        "y",
+        "z"
+      ],
+      "additionalProperties": false,
+      "not": {
+        "required": [
+          "analysis_eligibility",
+          "analysis_eligibility_index"
+        ]
+      }
+    },
+    "axis": {
+      "type": "object",
+      "properties": {
+        "title_text": {
+          "type": "string"
+        },
+        "scale_type": {
+          "enum": [
+            "linear",
+            "log"
+          ]
+        },
+        "fixed_range": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        }
+      },
+      "required": [
+        "title_text",
+        "scale_type",
+        "fixed_range"
+      ],
+      "additionalProperties": false
+    },
+    "view": {
+      "type": "object",
+      "properties": {
+        "data_date": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "cost_metric_label": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "cost_metric_unit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "cost_metric_note": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "speed_metric_label": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "speed_metric_note": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "speed_axis_title_text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "pruning_reference_date": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "kept_model_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pareto_model_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "analysis_eligible_model_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "historical_version_value_model_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "recent_release_frontier_distance_grace_period_months": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "recent_release_grace_period_only_model_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "kept_model_count_without_recent_release_grace_period": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "scene": {
+      "type": "object",
+      "properties": {
+        "displayed_model_markers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/markerReference"
+          }
+        },
+        "pareto_frontier_wireframe_line_segments": {
+          "$ref": "#/$defs/line"
+        },
+        "pareto_frontier_surface_triangle_mesh": {
+          "$ref": "#/$defs/mesh"
+        },
+        "achievable_frontier_surface_triangle_mesh": {
+          "$ref": "#/$defs/mesh"
+        },
+        "achievable_frontier_geometry_kind": {
+          "const": "exact_budget_steps"
+        },
+        "exact_achievable_frontier_boundary_line_segments": {
+          "$ref": "#/$defs/line"
+        },
+        "three_dimensional_axis_configuration": {
+          "type": "object",
+          "properties": {
+            "x_axis": {
+              "$ref": "#/$defs/axis"
+            },
+            "y_axis": {
+              "$ref": "#/$defs/axis"
+            },
+            "z_axis": {
+              "$ref": "#/$defs/axis"
+            }
+          },
+          "required": [
+            "x_axis",
+            "y_axis",
+            "z_axis"
+          ],
+          "additionalProperties": false
+        },
+        "initial_camera_configuration": {
+          "type": "object",
+          "properties": {
+            "eye": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "number"
+                },
+                "y": {
+                  "type": "number"
+                },
+                "z": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "x",
+                "y",
+                "z"
+              ],
+              "additionalProperties": false
+            },
+            "center": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "number"
+                },
+                "y": {
+                  "type": "number"
+                },
+                "z": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "x",
+                "y",
+                "z"
+              ],
+              "additionalProperties": false
+            },
+            "up": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "number"
+                },
+                "y": {
+                  "type": "number"
+                },
+                "z": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "x",
+                "y",
+                "z"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "eye",
+            "center"
+          ],
+          "additionalProperties": false
+        },
+        "current_view": {
+          "$ref": "#/$defs/view"
+        }
+      },
+      "required": [
+        "displayed_model_markers",
+        "pareto_frontier_wireframe_line_segments",
+        "pareto_frontier_surface_triangle_mesh",
+        "achievable_frontier_surface_triangle_mesh",
+        "three_dimensional_axis_configuration",
+        "initial_camera_configuration"
+      ],
+      "additionalProperties": false
+    },
+    "relationships": {
+      "type": "object",
+      "properties": {
+        "base_groups": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "reasoning_variant_group_model_indices_by_base_model_name": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "lineages": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/lineageReference"
+            }
+          }
+        },
+        "cost_axis_field": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "cost_axis_label": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "cost_axis_unit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "speed_axis_field": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "speed_axis_label": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "variant": {
+      "type": "object",
+      "properties": {
+        "three_dimensional_scene": {
+          "$ref": "#/$defs/scene"
+        },
+        "interaction_relationships": {
+          "$ref": "#/$defs/relationships"
+        },
+        "excluded_models_with_drop_reason": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/excludedReference"
+          }
+        },
+        "kept_model_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pareto_model_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "analysis_eligible_model_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "historical_version_value_model_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "recent_release_grace_period_only_model_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "kept_model_count_without_recent_release_grace_period": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "three_dimensional_scene",
+        "interaction_relationships",
+        "excluded_models_with_drop_reason"
+      ],
+      "additionalProperties": false
+    },
+    "identity": {
+      "type": "object",
+      "properties": {
+        "organization_identity_key": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "creator_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "headquarters_country_code_iso_3166_1_alpha_2": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "country_region_category": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "logo_asset_slug": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "logo_asset_source": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "logo_visualization_data_url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "creator_uuid": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "registration_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "creator_uuid_aliases": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "creator_name_aliases": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "organization_display_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "country_region_classification_basis": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "logo_asset_kind": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "artificial_analysis_api_intelligence_index_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "artificial_analysis_api_response_fetched_at_utc": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "artificial_analysis_api_response_fetched_at_utc_source": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "artificial_analysis_api_source_url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "artificial_analysis_api_tier": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "artificial_analysis_attribution_url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "current_intelligence_index_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "current_intelligence_index_version_source": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "embedded_model_catalog_captured_at_utc": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "embedded_model_catalog_intelligence_index_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "embedded_model_catalog_partition_rejection_warning_text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "pruning_reference_date": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "artificial_analysis_website_page_fetch_paused": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "recent_release_frontier_distance_grace_period_months": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reference_output_million_tokens_for_effective_speed_normalization_by_intelligence_index_version_family": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {
+                "type": "number"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "artificial_analysis_embedded_model_catalog_refresh_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "artificial_analysis_embedded_model_catalog_refresh_warning_text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "artificial_analysis_website_page_fetch_policy": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "metricDefinition": {
+      "type": "object",
+      "properties": {
+        "column_name": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "axis_title_text": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "column_name",
+        "label"
+      ],
+      "additionalProperties": false
+    },
+    "excludedModelExplanation": {
+      "type": "object",
+      "properties": {
+        "missing_dimension_names": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "drop_reason": {
+          "type": "string"
+        },
+        "is_absent_from_accepted_embedded_model_catalog_partition": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "missing_dimension_names",
+        "drop_reason"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

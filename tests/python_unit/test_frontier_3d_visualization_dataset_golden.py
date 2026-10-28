@@ -47,7 +47,7 @@ DATASET_TOP_LEVEL_KEYS_EXCLUDED_FROM_GOLDEN_PROJECTION = frozenset({"generated_a
 METRIC_VARIANT_KEYS_EXCLUDED_FROM_GOLDEN_PROJECTION = frozenset(
     {"plotly_static_export_trace_data", "plotly_static_export_layout"}
 )
-ORGANIZATION_IDENTITY_KEYS_EXCLUDED_FROM_GOLDEN_PROJECTION = frozenset({"logo_visualization_data_url"})
+ORGANIZATION_IDENTITY_KEYS_EXCLUDED_FROM_GOLDEN_PROJECTION = frozenset({"logo_visualization_data_url", "creator_uuid", "creator_uuid_aliases", "creator_name_aliases", "registration_status"})
 RECENT_RELEASE_GRACE_PERIOD_ADDITIVE_KEYS_EXCLUDED_FROM_LEGACY_GOLDEN = frozenset({
     "recent_release_frontier_distance_grace_period_months",
     "displayed_only_because_of_recent_release_grace_period",
@@ -115,6 +115,9 @@ def project_frontier_3d_visualization_dataset_for_golden_comparison(
     projected_dataset = _without_recent_release_grace_period_additions(projected_dataset)
     for variant in projected_dataset["metric_variants"].values():
         variant["three_dimensional_scene"]["current_view"].pop("pruning_reference_date", None)
+        for marker in variant["three_dimensional_scene"]["displayed_model_markers"]:
+            for field in ("creator_uuid", "artificial_analysis_release_slug", "artificial_analysis_reasoning_effort_slug", "artificial_analysis_is_reasoning_model"):
+                marker.pop(field, None)
     # 经一次严格 JSON 往返：确认可序列化（无 NaN、无 numpy 标量），并统一 tuple → list
     return _round_floats_to_significant_digits(
         json.loads(json.dumps(projected_dataset, ensure_ascii=False, allow_nan=False))
@@ -124,7 +127,7 @@ def project_frontier_3d_visualization_dataset_for_golden_comparison(
 def _golden_projection_of_synthetic_fixture_dataset_for_every_speed_scale() -> dict:
     return {
         speed_scale: project_frontier_3d_visualization_dataset_for_golden_comparison(
-            dataset_builder.build_frontier_3d_visualization_dataset(
+            dataset_builder._build_expanded_frontier_3d_visualization_dataset(
                 build_frontier_3d_synthetic_fixture_models_dataframe(),
                 since_months=18,
                 max_layers=3,

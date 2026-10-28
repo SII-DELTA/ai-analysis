@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "浏览器投影 v1",
+  "allOf": [
+    {
+      "$ref": "urn:frontier-3d:model-reference-contract:common"
+    },
+    {
+      "properties": {
+        "schema_version": {
+          "const": "frontier_3d_browser_projection/v1"
+        }
+      }
+    },
+    {
+      "properties": {
+        "metric_variants": {
+          "additionalProperties": {
+            "properties": {
+              "three_dimensional_scene": {
+                "properties": {
+                  "displayed_model_markers": {
+                    "items": {
+                      "properties": {
+                        "standout_metrics": {
+                          "not": {
+                            "required": [
+                              "trend_residual_standard_deviation_units"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

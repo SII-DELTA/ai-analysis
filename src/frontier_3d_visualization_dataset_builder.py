@@ -1,21 +1,15 @@
-"""构建 Frontier 3D HTML 的稳定可视化数据契约。
-
-schema_version 保持 `frontier_3d_visualization_dataset/v2`，只增字段（规格 5.1–5.3）：
-顶层 `artificial_analysis_data_provenance`；每个口径的 analysis eligibility 计数与
-`excluded_models_with_drop_reason`；每个显示点的 `analysis_eligibility`、`value_provenance`、
-`artificial_analysis_intelligence_index_is_estimated`。契约里的数值一律是有限数或 null。
-"""
+"""构建 v3 纯几何科学契约，读取入口兼容 v2；所有数值为有限数或 null。"""
 from __future__ import annotations
 
 import base64
 import math
+import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
-from plotly.utils import PlotlyJSONEncoder
 import json
 from uuid import UUID
 
@@ -24,10 +18,15 @@ from .fetch_data import MODELS_DATAFRAME_ATTRS_KEY_ARTIFICIAL_ANALYSIS_DATA_PROV
 from .frontier_3d_organization_identity_metadata_registry import (
     organization_identity_metadata_by_creator_name,
 )
-
-FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION = (
-    "frontier_3d_visualization_dataset/v2"
+from .frontier_3d_versioned_model_reference_contract import (
+    adapt_frontier_3d_visualization_dataset_to_v3,
+    expand_frontier_3d_visualization_dataset_for_scene_consumers as expand_frontier_3d_visualization_dataset_for_scene_consumers,
+    build_frontier_3d_browser_projection as build_frontier_3d_browser_projection,
+    validate_frontier_3d_browser_projection as validate_frontier_3d_browser_projection,
 )
+
+LEGACY_FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION = "frontier_3d_visualization_dataset/v2"
+FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION = "frontier_3d_visualization_dataset/v3"
 DEFAULT_SPEED_METRIC_NAME = "effective"
 DEFAULT_COST_METRIC_NAME = "effective"
 DEFAULT_FRONTIER_3D_VISUALIZATION_DATASET_FILENAME = (
@@ -300,11 +299,7 @@ def _is_true_boolean_value(raw_value: object) -> bool:
 
 
 def _excluded_models_with_drop_reason(variant_df: pd.DataFrame) -> list[dict[str, Any]]:
-    """有智能分但未上图（kept=False）的模型，按智能分降序（同分按名称），规格 5.2。
-
-    EXPERIMENT_NODE: 四个口径各存一份全量名单（9/23 数据约 530–590 条/口径，合计约 0.5MB 紧凑 JSON）；
-    W4 G1 瘦身时可改为顶层模型表 + 每口径只存下标与原因
-    """
+    """有智能分但未上图的模型；此计算视图在 v3 输出时转为公共表引用。"""
     scored_but_not_displayed = variant_df[
         variant_df["intelligence"].notna() & ~variant_df["kept"].astype(bool)
     ]
@@ -312,18 +307,18 @@ def _excluded_models_with_drop_reason(variant_df: pd.DataFrame) -> list[dict[str
         _name_sort_key=scored_but_not_displayed["name"].astype(str)
     ).sort_values(["intelligence", "_name_sort_key"], ascending=[False, True], kind="mergesort")
     excluded_models = []
+    relationship_configuration = visualize.build_model_relationship_configuration_resolver_for_models_dataframe(variant_df)
     for _, row in scored_but_not_displayed.iterrows():
         release_date = row.get("release_date")
-        base_model_name, tier = visualize._resolve_lineage(str(row["name"]))
-        reasoning_level_label, reasoning_level_sort_order = visualize._reasoning_level_label_and_sort_order(str(row["name"]))
+        base_name, tier, reasoning_level, reasoning_order, _ = relationship_configuration(row)
         excluded_models.append(
             {
                 "name": str(row["name"]),
                 "model_uuid": visualize._text_or_none(row.get("id")),
-                "base_model_name": base_model_name,
+                "base_model_name": base_name,
                 "tier": tier,
-                "reasoning_level_label": reasoning_level_label,
-                "reasoning_level_sort_order": reasoning_level_sort_order,
+                "reasoning_level_label": reasoning_level,
+                "reasoning_level_sort_order": reasoning_order,
                 "analysis_eligibility": visualize.model_analysis_eligibility(row),
                 "creator": _creator_name_or_placeholder(row.get("creator")),
                 "intelligence": float(row["intelligence"]),
@@ -342,7 +337,7 @@ def _excluded_models_with_drop_reason(variant_df: pd.DataFrame) -> list[dict[str
     return excluded_models
 
 
-def build_frontier_3d_visualization_dataset(
+def _build_expanded_frontier_3d_visualization_dataset(
     df: pd.DataFrame,
     *,
     since_months: int,
@@ -408,7 +403,16 @@ def build_frontier_3d_visualization_dataset(
     df = _models_dataframe_with_invalid_axis_coordinates_treated_as_missing(df)
     df["creator"] = df["creator"].map(_creator_name_or_placeholder)
     metric_variants: dict[str, dict[str, Any]] = {}
-    organization_identity_metadata = organization_identity_metadata_by_creator_name(df["creator"])
+    creator_uuid_by_creator_name: dict[str, str] = {}
+    if "creator_uuid" in df.columns:
+        for creator_name, rows in df.groupby("creator"):
+            creator_uuid_values = (visualize._text_or_none(value) for value in rows["creator_uuid"])
+            creator_uuids = {value for value in creator_uuid_values if value is not None}
+            if len(creator_uuids) > 1:
+                raise ValueError(f"同一厂商显示名对应多个 UUID，不能合并：{creator_name}")
+            if creator_uuids:
+                creator_uuid_by_creator_name[creator_name] = creator_uuids.pop()
+    organization_identity_metadata = organization_identity_metadata_by_creator_name(df["creator"], creator_uuid_by_creator_name=creator_uuid_by_creator_name)
 
     for cost_metric_name, cost_metric_definition in COST_METRIC_DEFINITIONS.items():
         for speed_metric_name, speed_metric_definition in SPEED_METRIC_DEFINITIONS.items():
@@ -433,7 +437,7 @@ def build_frontier_3d_visualization_dataset(
                 speed_metric_column_name=speed_metric_column_name,
                 speed_log=(speed_scale == "log"),
             )
-            figure, interaction_payload = visualize.build_figure(
+            three_dimensional_scene, interaction_payload = visualize.build_frontier_3d_scene_and_interaction_payload(
                 variant_df,
                 speed_scale=speed_scale,
                 data_date=data_date,
@@ -452,7 +456,6 @@ def build_frontier_3d_visualization_dataset(
                     )
                 ),
             )
-            figure_json = figure.to_plotly_json()
             recent_release_grace_period_only_model_count = int(
                 variant_df[frontier.DISPLAYED_ONLY_BECAUSE_OF_RECENT_RELEASE_GRACE_PERIOD_COLUMN_NAME].sum()
             )
@@ -469,21 +472,15 @@ def build_frontier_3d_visualization_dataset(
                 pruning_reference_date=pruning_reference_date_text,
                 **recent_release_grace_period_counts,
             )
-            three_dimensional_scene = (
-                _three_dimensional_scene_from_plotly_figure_and_interaction_payload(
-                    figure_json["data"],
-                    figure_json["layout"],
-                    interaction_payload,
-                    organization_identity_metadata,
-                )
-            )
+            for marker in three_dimensional_scene["displayed_model_markers"]:
+                identity = organization_identity_metadata[marker["creator"]]
+                marker["organization_identity_key"] = identity["organization_identity_key"]
+                marker["country_region_category"] = identity["country_region_category"]
             metric_variants[variant_key] = {
                 "three_dimensional_scene": three_dimensional_scene,
                 "interaction_relationships": _interaction_relationships(
                     interaction_payload
                 ),
-                "plotly_static_export_trace_data": figure_json["data"],
-                "plotly_static_export_layout": figure_json["layout"],
                 "kept_model_count": len(interaction_payload["models"]),
                 **recent_release_grace_period_counts,
                 # 分析层 Pareto（非 eligible 点 layer 为 null，不计入）
@@ -511,12 +508,17 @@ def build_frontier_3d_visualization_dataset(
     if all(metric_variant["kept_model_count"] == 0 for metric_variant in metric_variants.values()):
         raise ValueError("所有口径剪枝后都没有保留模型，请放宽参数或检查成本/速度数据")
 
+    displayed_creators = {marker["creator"] for variant in metric_variants.values() for marker in variant["three_dimensional_scene"]["displayed_model_markers"]}
+    unregistered_displayed_creators = sorted(name for name in displayed_creators if organization_identity_metadata[name]["registration_status"].startswith("unregistered"))
+    if unregistered_displayed_creators:
+        print("[warn] 四口径显示并集中存在未注册厂商：" + "、".join(unregistered_displayed_creators), file=sys.stderr)
+
     initial_variant_key = f"{initial_cost_metric_name}__{initial_speed_metric_name}"
     if initial_variant_key not in metric_variants:
         raise ValueError(f"未知初始指标组合: {initial_variant_key}")
 
     return {
-        "schema_version": FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION,
+        "schema_version": LEGACY_FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION,
         "interactive_renderer": "threejs",
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "data_date": data_date,
@@ -727,6 +729,7 @@ def _validate_lineage_coordinates(interaction_relationships: object, variant_key
                     raise ValueError(f"{node_field_path}.{coordinate_key} 不是有限数: {lineage_node.get(coordinate_key)!r}")
 
 
+
 def _validate_recent_release_grace_period_metadata(dataset: dict[str, Any]) -> None:
     """兼容无宽限字段的旧 v2；新契约的标记、设置与统计必须彼此一致。"""
     provenance = dataset.get("artificial_analysis_data_provenance") or {}
@@ -777,7 +780,11 @@ def validate_frontier_3d_visualization_dataset(dataset: dict[str, Any]) -> None:
     零模型、零 Pareto 的空网格是合法场景；
     缺键的空 scene 不合法。
     """
-    if dataset.get("schema_version") != FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION:
+    if dataset.get("schema_version") == FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION:
+        from .frontier_3d_versioned_model_reference_contract import validate_versioned_frontier_3d_model_reference_contract
+        validate_versioned_frontier_3d_model_reference_contract(dataset, browser_projection=False)
+        return
+    if dataset.get("schema_version") != LEGACY_FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION:
         raise ValueError("Frontier 3D visualization dataset schema_version 不匹配")
     if dataset.get("interactive_renderer") != "threejs":
         raise ValueError("Frontier 3D visualization dataset interactive_renderer 不匹配")
@@ -802,8 +809,6 @@ def validate_frontier_3d_visualization_dataset(dataset: dict[str, Any]) -> None:
         for required_key in (
             "three_dimensional_scene",
             "interaction_relationships",
-            "plotly_static_export_trace_data",
-            "plotly_static_export_layout",
         ):
             if required_key not in variant:
                 raise ValueError(f"{variant_key} 缺少 {required_key}")
@@ -835,10 +840,11 @@ def write_frontier_3d_visualization_dataset(
 ) -> Path:
     from .frontier_3d_worktree_storage_paths import refuse_shared_worktree_directory_write
     refuse_shared_worktree_directory_write(output_path)
+    dataset = adapt_frontier_3d_visualization_dataset_to_v3(dataset)
     validate_frontier_3d_visualization_dataset(dataset)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
-        json.dumps(dataset, ensure_ascii=False, indent=2, cls=PlotlyJSONEncoder),
+        json.dumps(dataset, ensure_ascii=False, separators=(",", ":"), allow_nan=False),
         encoding="utf-8",
     )
     return output_path
@@ -847,6 +853,8 @@ def write_frontier_3d_visualization_dataset(
 def read_frontier_3d_visualization_dataset(input_path: Path) -> dict[str, Any]:
     dataset = json.loads(input_path.read_text(encoding="utf-8"))
     validate_frontier_3d_visualization_dataset(dataset)
+    dataset = adapt_frontier_3d_visualization_dataset_to_v3(dataset)
+    validate_frontier_3d_visualization_dataset(dataset)
     return dataset
 
 
@@ -854,3 +862,10 @@ def default_frontier_3d_visualization_dataset_path_for_html(
     output_html_path: Path,
 ) -> Path:
     return output_html_path.with_name(DEFAULT_FRONTIER_3D_VISUALIZATION_DATASET_FILENAME)
+
+
+def build_frontier_3d_visualization_dataset(df: pd.DataFrame, **parameters) -> dict[str, Any]:
+    """默认输出 v3；计算与科学数值保持既有口径，不创建 Plotly 图。"""
+    return adapt_frontier_3d_visualization_dataset_to_v3(
+        _build_expanded_frontier_3d_visualization_dataset(df, **parameters)
+    )
