@@ -14,6 +14,7 @@ Artificial Analysis（AA）官网的模型对比图基本都是二维，唯独�
 
 ## 扩展分析
 
+- [历史 Pareto 前沿与突出度贡献者](docs/frontier-3d-historical-progress-implementation.md)（固定版本发布回溯、真实档案回放、覆盖矩阵及离线报告生成命令）
 - [OpenAnalysis.ai：开发 agent、插件与 skill 生态初步调查](docs/openanalysis-agent-harness-plugin-skill-ecosystem-investigation/)（含 token 效率、交互体验、公开评测与首批基线候选）
 - [AI 智能增长趋势与经济影响分析](docs/artificial-analysis-intelligence-growth-and-economic-impact-analysis/)
 - [Artificial Analysis 数据源调查](docs/artificial-analysis-provided-data-source-analysis/)（含 2026-09 的指数重定标、内嵌模型目录与 time per task 调查）

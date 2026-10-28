@@ -1,6 +1,7 @@
 import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
+import { initializeHistoricalProgressController } from "./frontier_3d_historical_progress_controller.js";
 import { axisTickValues } from "./frontier_3d_threejs_axis_tick_value_generator.js";
 import { matchingModelGroups } from "./frontier_3d_threejs_base_model_search_matcher.js";
 import { compareModelReasoningLevels, percentageDifferenceFromBaseline, committedStandoutAxisWeight, formatSignificantNumber, layoutPinnedModelNameAnnotations } from "./frontier_3d_threejs_model_comparison_view_calculations.js";
@@ -42,8 +43,8 @@ import {
     throw new Error("Missing Frontier 3D visualization dataset");
   }
 
-  const visualizationDataset = expandFrontierModelReferencesForSceneConsumers(JSON.parse(visualizationDatasetElement.textContent));
-  const metricVariantsByKey = visualizationDataset.metric_variants || {};
+  let visualizationDataset = expandFrontierModelReferencesForSceneConsumers(JSON.parse(visualizationDatasetElement.textContent));
+  let metricVariantsByKey = visualizationDataset.metric_variants || {};
   const organizationIdentityMetadataByCreatorName =
     visualizationDataset.organization_identity_metadata_by_creator_name || {};
   let activeMetricVariantKey = visualizationDataset.initial_variant_key;
@@ -65,7 +66,7 @@ import {
   const reportHeader = document.getElementById("frontier-3d-report-header");
 
   // 契约顶层数据来源（W1-8 起提供）；旧契约缺该字段时页头降级为「抓取时间未知」等文案，不报错。
-  const artificialAnalysisDataProvenance =
+  let artificialAnalysisDataProvenance =
     visualizationDataset.artificial_analysis_data_provenance || {};
   const recentReleaseFrontierDistanceGracePeriodMonths = Number.isInteger(
     artificialAnalysisDataProvenance.recent_release_frontier_distance_grace_period_months,
@@ -1753,6 +1754,7 @@ import {
     }
     renderStandoutWeightControlsVisibility();
     applyStandoutVisualEncoding();
+    window.dispatchEvent(new Event("frontier-3d-view-updated"));
     return Promise.resolve(true);
   }
 
@@ -1770,6 +1772,7 @@ import {
       });
     }
     applyStandoutVisualEncoding();
+    window.dispatchEvent(new Event("frontier-3d-view-updated"));
   }
 
   function loadActiveMetricVariant(nextMetricVariantKey, preserveCamera) {
@@ -1832,6 +1835,7 @@ import {
     renderSearchResults();
     applyStandoutVisualEncoding();
     requestThreeDimensionalSceneRender();
+    window.dispatchEvent(new Event("frontier-3d-view-updated"));
     return true;
   }
 
@@ -2345,7 +2349,7 @@ import {
     const currentIndex = displayedModelMarkers.findIndex(candidate => stableModelIdentity(candidate) === stableModelIdentity(model));
     if (currentIndex < 0) {
       const excluded = (activeMetricVariant.excluded_models_with_drop_reason || []).find(candidate => candidate.model_uuid ? candidate.model_uuid === model.model_uuid : candidate.name === model.name);
-      return `当前口径未上图：${excluded?.drop_reason || "缺少可显示坐标或已被剪枝"}`;
+      return `当前口径未上图：${excluded?.drop_reason || model.historical_frame_absence_reason || "缺少可显示坐标或已被剪枝"}`;
     }
     return [...modelMarkerHiddenReasonTexts(currentIndex), ...(!modelIsAnalysisEligibleForActiveMetricVariant(displayedModelMarkers[currentIndex]) ? [historicalIntelligenceIndexVersionReasonText(displayedModelMarkers[currentIndex])] : [])].join("；") || "当期可比";
   }
@@ -3486,4 +3490,26 @@ import {
     displayedModelMarkerPositionsAndVisibility,
     displayedPrunedLineageAncestorMarkerPositions,
   };
+  initializeHistoricalProgressController((nextDataset, absenceReasonForModelUuid) => {
+    // 固定身份跨时间保留；旧帧数值必须清除，防止缺席模型借用未来观测。
+    const retainedPinnedIdentities = [...pinnedModelIdentities].map(identity => {
+      const model = allModelRecordsByIdentity.get(identity);
+      return model ? [identity, Object.fromEntries(["model_uuid", "name", "creator", "base_model_name", "reasoning_level_label", "reasoning_level_sort_order"].map(field => [field, model[field]]))] : null;
+    }).filter(Boolean);
+    visualizationDataset = expandFrontierModelReferencesForSceneConsumers(nextDataset);
+    metricVariantsByKey = visualizationDataset.metric_variants;
+    artificialAnalysisDataProvenance = visualizationDataset.artificial_analysis_data_provenance || {};
+    const historicalApiFetchDescription = artificialAnalysisApiFetchDescription();
+    const historicalApiFetchDate = document.getElementById("aa-report-header-artificial-analysis-api-fetch-date");
+    historicalApiFetchDate.textContent = historicalApiFetchDescription.headerText;
+    historicalApiFetchDate.title = historicalApiFetchDescription.detailText;
+    document.getElementById("aa-report-header-intelligence-index-version").textContent = `智能指数 ${currentIntelligenceIndexVersionTextWithInferenceNote()}`;
+    window.FRONTIER_3D_VISUALIZATION_DATASET = visualizationDataset;
+    allModelRecordsByIdentity.clear();
+    retainedPinnedIdentities.forEach(([identity, model]) => allModelRecordsByIdentity.set(identity, { ...model, panel: {}, historical_frame_absence_reason: absenceReasonForModelUuid(model.model_uuid) }));
+    Object.values(metricVariantsByKey).forEach(variant => {
+      (variant.three_dimensional_scene?.displayed_model_markers || []).forEach(model => allModelRecordsByIdentity.set(stableModelIdentity(model), model));
+    });
+    loadActiveMetricVariant(activeMetricVariantKey, true);
+  });
 })();
