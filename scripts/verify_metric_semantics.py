@@ -331,7 +331,11 @@ def _verify_dataset_validation_positive_and_negative_examples() -> None:
             "x_coordinates": [], "y_coordinates": [], "z_coordinates": [],
             "triangle_vertex_index_a": [], "triangle_vertex_index_b": [], "triangle_vertex_index_c": [],
         },
-        "three_dimensional_axis_configuration": {"x_axis": {}, "y_axis": {}, "z_axis": {}},
+        "three_dimensional_axis_configuration": {
+            "x_axis": {"title_text": "成本", "scale_type": "log", "fixed_range": [0.0, 1.0]},
+            "y_axis": {"title_text": "速度", "scale_type": "log", "fixed_range": [0.0, 1.0]},
+            "z_axis": {"title_text": "智能", "scale_type": "linear", "fixed_range": [0.0, 1.0]},
+        },
         "current_view": {},
     }
     zero_model_variant = {
