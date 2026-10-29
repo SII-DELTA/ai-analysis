@@ -7,9 +7,9 @@ from dataclasses import dataclass, field
 from playwright.sync_api import Browser, Page, Playwright
 
 
-def wait_for_frontier_layout_transitions_and_render(page: Page) -> None:
+def wait_for_frontier_layout_transitions_and_render(page: Page, timeout_ms: int = 10000) -> None:
     """等侧栏 CSS transition 真正结束，再等待 ResizeObserver 后的绘制。"""
-    page.wait_for_function("document.getAnimations().every(animation => !animation.pending && animation.playState !== 'running')", timeout=10000)
+    page.wait_for_function("document.getAnimations().every(animation => !animation.pending && animation.playState !== 'running')", timeout=timeout_ms)
     page.evaluate("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))")
 
 
