@@ -46,4 +46,6 @@ python -m pytest tests/browser_playwright --browser chromium
 FRONTIER_3D_INTERACTION_VERIFICATION_ARTIFACT_DIRECTORY=<持久证据目录> python scripts/verify_interactions_headless.py <冻结报告.html>
 ```
 
+当前生成器默认输出 v4 六口径。v2/v3 兼容场景复用既有 `build_expanded_frontier_3d_dataset_for_legacy_scene_assertions` 四口径夹具入口，再由适配器生成所需版本；遮挡恢复等场景继续使用当前默认生成器，避免升级默认契约后丢失旧版本的兼容验证。
+
 macOS 测试 Firefox 使用现有 `prepare_frontier_3d_isolated_firefox_verification_launcher.py` 为任务独立副本配置应用身份，通过 `FRONTIER_3D_FIREFOX_EXECUTABLE_PATH` 指定启动器，不改共享浏览器缓存。

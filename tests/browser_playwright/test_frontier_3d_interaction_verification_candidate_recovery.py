@@ -10,11 +10,13 @@ from playwright.sync_api import Error as PlaywrightError, TimeoutError as Playwr
 
 from src.frontier_3d_self_contained_html_renderer import write_frontier_3d_self_contained_html_report
 from src.frontier_3d_visualization_dataset_builder import (
-    build_frontier_3d_visualization_dataset,
     expand_frontier_3d_visualization_dataset_for_scene_consumers,
     validate_frontier_3d_visualization_dataset,
 )
 from src.frontier_3d_versioned_model_reference_contract import adapt_frontier_3d_visualization_dataset_to_v3
+from tests.fixtures.build_expanded_frontier_3d_dataset_for_legacy_scene_assertions import (
+    build_expanded_frontier_3d_dataset_for_legacy_scene_assertions,
+)
 from tests.fixtures.build_frontier_3d_synthetic_fixture_models_dataframe import build_frontier_3d_synthetic_fixture_models_dataframe
 
 from tests.browser_playwright import frontier_3d_hover_pin_filter_interaction_validation as validation
@@ -205,7 +207,10 @@ def build_frontier_report_with_requested_interaction_capabilities(report_path, s
         models["output_token_count_value_intelligence_index_version"] = "4.4"
     elif scenario == "raw_initial_metric":
         parameters["initial_speed_metric_name"] = "raw"
-    dataset = build_frontier_3d_visualization_dataset(models, **parameters)
+    # 兼容测试固定旧四口径契约，不随当前默认生成器升级到 v4 六口径。
+    dataset = adapt_frontier_3d_visualization_dataset_to_v3(
+        build_expanded_frontier_3d_dataset_for_legacy_scene_assertions(models, **parameters)
+    )
     if scenario == "all_empty" or contract_version == "v2":
         dataset = expand_frontier_3d_visualization_dataset_for_scene_consumers(dataset)
     if scenario == "all_empty":
