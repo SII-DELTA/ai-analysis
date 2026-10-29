@@ -309,6 +309,11 @@ export function mountFrontierModelExplorationControls({
     step();
   }
   function sharedViewChanged() { refresh(); scheduleHashWrite(); }
+  function replaceScientificDataset(nextDataset) {
+    pausePlayback();
+    dataset = nextDataset;
+    refresh();
+  }
   function applyHash() {
     const {state,reason} = decodeFrontierViewStateHash(window.location.hash);
     if (reason) announce(reason);
@@ -364,5 +369,5 @@ export function mountFrontierModelExplorationControls({
   applyingHash = false;
   applyHash();
   refresh();
-  return { getState, getFilters:()=>({...explorationFilters}), setExplorationFilters, sharedViewChanged, refresh, announce, pausePlayback };
+  return { getState, getFilters:()=>({...explorationFilters}), setExplorationFilters, sharedViewChanged, replaceScientificDataset, refresh, announce, pausePlayback };
 }
