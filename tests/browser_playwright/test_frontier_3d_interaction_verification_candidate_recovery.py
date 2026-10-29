@@ -3,8 +3,10 @@ import copy
 from contextlib import nullcontext
 import json
 import math
+from types import SimpleNamespace
 
 import pytest
+from playwright.sync_api import Error as PlaywrightError, TimeoutError as PlaywrightTimeoutError
 
 from src.frontier_3d_self_contained_html_renderer import write_frontier_3d_self_contained_html_report
 from src.frontier_3d_visualization_dataset_builder import (
@@ -201,6 +203,8 @@ def build_frontier_report_with_requested_interaction_capabilities(report_path, s
     elif scenario in ("empty_default_metric", "all_empty"):
         models["eff_speed"] = math.nan
         models["output_token_count_value_intelligence_index_version"] = "4.4"
+    elif scenario == "raw_initial_metric":
+        parameters["initial_speed_metric_name"] = "raw"
     dataset = build_frontier_3d_visualization_dataset(models, **parameters)
     if scenario == "all_empty" or contract_version == "v2":
         dataset = expand_frontier_3d_visualization_dataset_for_scene_consumers(dataset)
@@ -220,6 +224,9 @@ def build_frontier_report_with_requested_interaction_capabilities(report_path, s
             for nodes in variant["interaction_relationships"]["lineages"].values():
                 for node in nodes:
                     node.pop("model_uuid", None)
+                    if scenario == "legacy_inferred_lineage":
+                        node.pop("lineage_family_key", None)
+                        node.pop("reasoning_level_label", None)
             for model in variant["excluded_models_with_drop_reason"]:
                 model.pop("model_uuid", None)
     assert dataset["schema_version"].endswith(f"/{contract_version}")
@@ -228,7 +235,7 @@ def build_frontier_report_with_requested_interaction_capabilities(report_path, s
 
 
 @pytest.mark.parametrize("contract_version", ["v2", "v3"])
-@pytest.mark.parametrize("scenario", ["normal", "no_lineage", "all_nodes_kept", "empty_default_metric", "all_empty"])
+@pytest.mark.parametrize("scenario", ["normal", "no_lineage", "all_nodes_kept", "empty_default_metric", "all_empty", "raw_initial_metric"])
 def test_contract_capabilities_define_applicability_and_preserve_other_checks(
     frontier_page, tmp_path, scenario, contract_version,
 ):
@@ -260,10 +267,125 @@ def test_contract_capabilities_define_applicability_and_preserve_other_checks(
         if scenario == "empty_default_metric":
             hovered = next(event for event in events if event["event"] == "real_model_hover")
             assert hovered["metric_variant"] == "effective__raw"
+            filters = next(event for event in events if event["event"] == "search_and_organization_filters_verified")
+            assert filters["metric_variant"] == "effective__raw"
+
+
+def test_legacy_inferred_lineages_still_verify_real_model_hover_and_pin(frontier_page, tmp_path):
+    page = frontier_page
+    report_path = tmp_path / "legacy-v2-degraded-inferred-lineages.html"
+    build_frontier_report_with_requested_interaction_capabilities(report_path, "legacy_inferred_lineage", "v2")
+    page.goto(report_path.as_uri())
+    page.wait_for_function("typeof frontierThreeDimensionalVisualizationState==='function'")
+    events = []
+    validation.verify_model_lineage_interactions(page, require_success, record_event=lambda **event: events.append(event))
+    assert page.evaluate("frontierThreeDimensionalVisualizationState().availableLineageCount") == 0
+    assert {event["capability"] for event in events if event["event"] == "capability_not_applicable"} == {
+        "lineage", "pruned_ancestor",
+    }
+    assert {event["event"] for event in events} >= {"real_model_hover", "real_model_pin"}
+
+
+@pytest.mark.parametrize("disabled_control", ["search", "organization_filter"])
+def test_empty_default_metric_cannot_hide_disabled_search_or_organization_filter(
+    frontier_page, tmp_path, disabled_control,
+):
+    page = frontier_page
+    report_path = tmp_path / "empty-default-with-disabled-nonempty-metric-control.html"
+    build_frontier_report_with_requested_interaction_capabilities(report_path, "empty_default_metric", "v3")
+    page.set_default_timeout(700)
+    page.add_init_script("""window.addEventListener('load',()=>{
+      const disabledControl=DISABLED_CONTROL;
+      const selector=disabledControl==='search'?'#aa-search-input':'.aa-organization-filter-row input';
+      const disableControls=()=>document.querySelectorAll(selector).forEach(input=>input.disabled=true);
+      disableControls();
+      new MutationObserver(disableControls).observe(document.querySelector('#aa-organization-filter-panel'),{
+        childList:true,subtree:true,
+      });
+    });""".replace("DISABLED_CONTROL", json.dumps(disabled_control)))
+    from tests.browser_playwright.frontier_3d_playwright_verification_support import BrowserRuntimeObservation
+    with pytest.raises(PlaywrightTimeoutError):
+        validation._verify_report_interactions(page, BrowserRuntimeObservation(), require_success, lambda **event: None, report_path)
+    assert page.evaluate("frontierThreeDimensionalVisualizationState().activeMetricVariantKey") == "effective__effective"
+
+
+def test_all_kept_lineage_must_persist_after_real_click_and_pointer_departure(frontier_page, tmp_path):
+    page = frontier_page
+    report_path = tmp_path / "all-kept-with-pin-only-lineage-fault.html"
+    build_frontier_report_with_requested_interaction_capabilities(report_path, "all_nodes_kept", "v3")
+    page.add_init_script("""window.addEventListener('load',()=>{
+      const actual=window.frontierThreeDimensionalVisualizationState;
+      window.frontierThreeDimensionalVisualizationState=()=>{
+        const state=actual();
+        if(state.hoveredModelIndex===null && state.pinnedBaseModelNames.length)
+          state.displayedLineageSegmentEndpointCount=0;
+        return state;
+      };
+    });""")
+    page.goto(report_path.as_uri())
+    page.wait_for_function("typeof frontierThreeDimensionalVisualizationState==='function'")
+    events = []
+    with pytest.raises(AssertionError, match="移开鼠标后 pin 常显谱系"):
+        validation.verify_model_lineage_interactions(page, require_success, record_event=lambda **event: events.append(event))
+    assert any(event["event"] == "real_model_pin" for event in events)
+    assert not any(event["event"] == "interaction_verification_completed" for event in events)
 
 
 def read_persisted_interaction_verification_events(directory):
     return [json.loads(line) for line in (directory / "interaction-verification-events.jsonl").read_text().splitlines() if line]
+
+
+@pytest.mark.parametrize("record_failed_assertion,error_kind,expected_exit_code,expected_context_count", [
+    (False, "context_interruption", 0, 2),
+    (True, "context_interruption", 1, 1),
+    (False, "assertion", 1, 1),
+    (True, "assertion", 1, 1),
+    (False, "assertion_masked_by_cleanup", 1, 1),
+    (False, "timeout", 1, 1),
+    (False, "unrelated_error", 1, 1),
+])
+@pytest.mark.parametrize("browser_still_connected", [False, True])
+def test_closed_context_replay_preserves_confirmed_failure_gate_without_browser(
+    tmp_path, synthetic_frontier_report_path, monkeypatch,
+    record_failed_assertion, error_kind, expected_exit_code, expected_context_count, browser_still_connected,
+):
+    monkeypatch.setenv("FRONTIER_3D_INTERACTION_VERIFICATION_ARTIFACT_DIRECTORY", str(tmp_path))
+    monkeypatch.setattr(validation, "HTML_PATH", synthetic_frontier_report_path)
+    monkeypatch.setattr(validation, "sync_playwright", lambda: nullcontext(object()))
+    browser = SimpleNamespace(version="isolated-control-flow-probe", is_connected=lambda: browser_still_connected,
+                              close=lambda: None)
+    page = SimpleNamespace(is_closed=lambda: True)
+    monkeypatch.setattr(validation, "launch_requested_frontier_3d_test_browser", lambda playwright: browser)
+    monkeypatch.setattr(validation, "create_frontier_3d_test_page_with_runtime_observation", lambda browser: (page, None))
+    attempts = []
+
+    def interrupted_verification(page, observation, check, record_event, html_path):
+        attempts.append(page)
+        if len(attempts) > 1:
+            return
+        if record_failed_assertion:
+            check(False, "已确认的交互断言失败")
+        if error_kind == "assertion":
+            raise AssertionError("已确认的交互异常")
+        if error_kind == "assertion_masked_by_cleanup":
+            try:
+                raise AssertionError("清理前已确认的交互异常")
+            except AssertionError:
+                raise PlaywrightError("清理时上下文关闭")
+        if error_kind == "timeout":
+            raise PlaywrightTimeoutError("交互断言超时")
+        if error_kind == "unrelated_error":
+            raise RuntimeError("与上下文中断无关的验证错误")
+        raise PlaywrightError("浏览器上下文中断")
+
+    monkeypatch.setattr(validation, "_verify_report_interactions", interrupted_verification)
+    assert validation.main() == expected_exit_code
+    assert len(attempts) == expected_context_count
+    events = read_persisted_interaction_verification_events(tmp_path)
+    assert events[-1]["event"] == ("run_completed" if expected_exit_code == 0 else "run_failed")
+    assert len([event for event in events if event["event"] == "fresh_browser_context_replay"]) == expected_context_count - 1
+    if record_failed_assertion:
+        assert events[-1]["failures"] == ["已确认的交互断言失败"]
 
 
 def test_interrupted_run_replays_in_fresh_context_without_erasing_failure(

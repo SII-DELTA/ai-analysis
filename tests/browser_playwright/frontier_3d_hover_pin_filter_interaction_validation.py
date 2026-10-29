@@ -13,7 +13,7 @@ import traceback
 import uuid
 from pathlib import Path
 
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError, sync_playwright
+from playwright.sync_api import Error as PlaywrightError, TimeoutError as PlaywrightTimeoutError, sync_playwright
 
 from tests.browser_playwright.frontier_3d_playwright_verification_support import (
     create_frontier_3d_test_page_with_runtime_observation,
@@ -264,9 +264,13 @@ def verify_model_lineage_interactions(page, check, *, record_event=None):
       const variant=FRONTIER_3D_VISUALIZATION_DATASET.metric_variants[key];
       const models=variant.three_dimensional_scene.displayed_model_markers;
       const relationships=variant.interaction_relationships;
-      const lineages=relationships.lineages||{};
+      // 沿用渲染器的旧 v2 降级及有限坐标规则，能力仍由契约而非运行时成功与否决定。
+      const lineages=Object.fromEntries(Object.entries(relationships.lineages||{}).map(([key,nodes])=>[
+        key,(Array.isArray(nodes)?nodes:[]).filter(node=>node?.lineage_family_key
+          && node?.reasoning_level_label && [node.x,node.y,node.z].every(Number.isFinite)),
+      ]).filter(([,nodes])=>nodes.length>=2));
       return {key,markerCount:models.length,
-        lineageCount:Object.values(lineages).filter(nodes=>nodes.length>=2).length,
+        lineageCount:Object.keys(lineages).length,
         prunedAncestorCount:Object.values(lineages).flat().filter(node=>!node.kept).length,
         candidates:models.map(model=>({kind:'displayed_model',name:model.name,
           modelUuid:model.model_uuid??null,
@@ -360,8 +364,22 @@ def verify_model_lineage_interactions(page, check, *, record_event=None):
                     require(pinned_state["pinnedModelMarkerCount"] == candidate["variants"], "真实鼠标 pin 高亮覆盖全部 reasoning 档位")
                     require(_camera_pose_is_preserved(page, baseline), "真实鼠标 pin 不改变相机姿态")
                     require(page.locator("#aa-pinned-panel").is_visible(), "pin 详情卡在右栏可见")
+                    page.mouse.move(0, 0)
+                    page.evaluate("clearFrontierHoverState()")
+                    wait_for_layout_within_recovery_budget()
+                    pin_without_hover_state = page.evaluate("frontierThreeDimensionalVisualizationState()")
+                    record_event(event="real_model_pin_without_hover", target=candidate,
+                                 state=pin_without_hover_state, **context)
+                    require(pin_without_hover_state["hoveredModelIndex"] is None
+                            and pin_without_hover_state["hoveredLineageKey"] is None
+                            and pin_without_hover_state["hoveredPrunedLineageAncestorName"] is None,
+                            "移开鼠标后已清除模型与前身 hover")
+                    require(candidate["base"] in pin_without_hover_state["pinnedBaseModelNames"],
+                            "移开鼠标后保留真实点击 pin")
+                    require(_camera_pose_is_preserved(page, baseline), "清除 hover 不改变相机姿态")
                     if needs_lineage:
-                        require(pinned_state["displayedLineageSegmentEndpointCount"] > 0, "pin 常显谱系")
+                        require(pin_without_hover_state["displayedLineageSegmentEndpointCount"] > 0,
+                                "移开鼠标后 pin 常显谱系")
                     if ancestor:
                         send_real_pointer_event_and_verify_target_state(ancestor, "real_ancestor_hover", """target => {
                           const state=frontierThreeDimensionalVisualizationState();
@@ -828,8 +846,9 @@ def _verify_report_interactions(page, browser_runtime_observation, check, record
     )
     check(initial_state["interactiveRenderer"] == "threejs", "交互渲染器 = three.js")
     check(initial_state["displayedModelMarkerCount"] == page.evaluate(
-        "FRONTIER_3D_VISUALIZATION_DATASET.metric_variants.effective__effective"
-        ".three_dimensional_scene.displayed_model_markers.length"
+        "key => FRONTIER_3D_VISUALIZATION_DATASET.metric_variants[key]"
+        ".three_dimensional_scene.displayed_model_markers.length",
+        initial_state["activeMetricVariantKey"],
     ), "初始显示模型数与契约一致（允许合法空口径）")
     check(
         initial_state["organizationLogoMarkerCount"]
@@ -959,13 +978,7 @@ def _verify_report_interactions(page, browser_runtime_observation, check, record
             _camera_distance(camera_before_metric_switch, state["cameraPosition"]) < 1e-8,
             f"{active_metric_variant_key} 切换后保留相机",
         )
-    page.evaluate(
-        "() => window.setFrontierMetricCombination('effective', 'effective')"
-    )
-    page.wait_for_function(
-        "() => window.frontierThreeDimensionalVisualizationState()"
-        ".activeMetricVariantKey === 'effective__effective'"
-    )
+    _activate_metric_variant(page, initial_state["activeMetricVariantKey"])
 
     print("\n[4] 真实拖拽旋转后，hover / pin / 切指标不重置相机")
     canvas = page.locator("canvas[data-frontier-threejs-canvas]")
@@ -988,36 +1001,48 @@ def _verify_report_interactions(page, browser_runtime_observation, check, record
     verify_model_lineage_interactions(page, check, record_event=record_event)
 
     print("\n[5] 搜索、厂商过滤、前沿外观")
-    if initial_state["displayedModelMarkerCount"]:
-        search_token = page.evaluate("FRONTIER_3D_INTERACTION_RELATIONSHIPS.models[0].base_model_name").split()[0]
-        page.locator("#aa-search-input").fill(search_token)
-        page.evaluate("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))")
-        check(page.locator("#aa-search-results .aa-result-row").count() > 0, "搜索返回基模型")
-        page.locator("#aa-organization-filter-panel").evaluate("element => element.open = true")
-        first_organization_checkbox = page.locator(
-            ".aa-organization-filter-row input[type=checkbox]"
-        ).first
-        first_organization_checkbox.uncheck()
-        filtered_state = page.evaluate(
-            "() => window.frontierThreeDimensionalVisualizationState()"
-        )
-        check(
-            filtered_state["visibleOrganizationCount"]
-            == filtered_state["organizationCount"] - 1,
-            "厂商 checkbox 隐藏一个厂商",
-        )
-        first_organization_checkbox.check()
-        check(
-            page.evaluate(
+    original_search_and_filter_metric_variant_key = page.evaluate("frontierThreeDimensionalVisualizationState().activeMetricVariantKey")
+    nonempty_search_and_filter_metric_variant_key = page.evaluate("""keys => keys.find(key =>
+      FRONTIER_3D_VISUALIZATION_DATASET.metric_variants[key]
+        .three_dimensional_scene.displayed_model_markers.length > 0) ?? null
+    """, [original_search_and_filter_metric_variant_key, *[
+        key for key in METRIC_VARIANT_KEYS if key != original_search_and_filter_metric_variant_key
+    ]])
+    try:
+        if nonempty_search_and_filter_metric_variant_key is not None:
+            _activate_metric_variant(page, nonempty_search_and_filter_metric_variant_key)
+            search_token = page.evaluate("FRONTIER_3D_INTERACTION_RELATIONSHIPS.models[0].base_model_name").split()[0]
+            page.locator("#aa-search-input").fill(search_token)
+            page.evaluate("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))")
+            check(page.locator("#aa-search-results .aa-result-row").count() > 0, "搜索返回基模型")
+            page.locator("#aa-organization-filter-panel").evaluate("element => element.open = true")
+            first_organization_checkbox = page.locator(
+                ".aa-organization-filter-row input[type=checkbox]"
+            ).first
+            first_organization_checkbox.uncheck()
+            filtered_state = page.evaluate(
                 "() => window.frontierThreeDimensionalVisualizationState()"
-                ".visibleOrganizationCount === "
-                "window.frontierThreeDimensionalVisualizationState().organizationCount"
-            ),
-            "厂商 checkbox 可恢复",
-        )
-
-    else:
-        print("  · 默认口径无模型，已按契约确认零计数；搜索和厂商拾取不适用")
+            )
+            check(
+                filtered_state["visibleOrganizationCount"]
+                == filtered_state["organizationCount"] - 1,
+                "厂商 checkbox 隐藏一个厂商",
+            )
+            first_organization_checkbox.check()
+            check(
+                page.evaluate(
+                    "() => window.frontierThreeDimensionalVisualizationState()"
+                    ".visibleOrganizationCount === "
+                    "window.frontierThreeDimensionalVisualizationState().organizationCount"
+                ),
+                "厂商 checkbox 可恢复",
+            )
+            page.locator("#aa-search-input").fill("")
+            record_event(event="search_and_organization_filters_verified", metric_variant=nonempty_search_and_filter_metric_variant_key)
+        else:
+            print("  · 四个口径的契约均无模型，搜索和厂商过滤不适用")
+    finally:
+        _activate_metric_variant(page, original_search_and_filter_metric_variant_key)
 
     page.evaluate(
         "() => window.setParetoFrontierVisualizationStyle('solid')"
@@ -1173,9 +1198,17 @@ def main() -> int:
                 evidence.record(event="browser_context_failed", context_attempt=context_attempt,
                                 reason=str(error), traceback=traceback.format_exc())
                 disconnected = browser is not None and (not browser.is_connected() or (page is not None and page.is_closed()))
-                if context_attempt == 0 and disconnected:
+                verification_exception_chain = []
+                chained_verification_error = error
+                while chained_verification_error is not None and chained_verification_error not in verification_exception_chain:
+                    verification_exception_chain.append(chained_verification_error)
+                    chained_verification_error = chained_verification_error.__cause__ or chained_verification_error.__context__
+                is_recoverable_browser_context_interruption = isinstance(error, PlaywrightError) and not any(
+                    isinstance(chained_verification_error, (AssertionError, PlaywrightTimeoutError))
+                    for chained_verification_error in verification_exception_chain
+                )
+                if context_attempt == 0 and disconnected and is_recoverable_browser_context_interruption and not failures:
                     evidence.record(event="fresh_browser_context_replay", previous_failures=failures)
-                    failures.clear()
                     continue
                 traceback.print_exc()
                 evidence.record(event="run_failed", reason=str(error), failures=failures)
