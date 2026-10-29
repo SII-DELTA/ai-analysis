@@ -58,6 +58,18 @@
 #aa-historical-timeline button:disabled { color: #52606d; cursor: default; }
 #aa-historical-current-date { font-variant-numeric: tabular-nums; }
 #aa-historical-view-explanation { margin: 6px 0 2px; color: #334e68; line-height: 1.45; }
+#aa-historical-frame-loading-status {
+  flex: 0 0 20px;
+  height: 20px;
+  margin: 0;
+  padding: 0 14px;
+  color: var(--frontier-secondary-text, #334e68);
+  font-size: 13px;
+  line-height: 20px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 #aa-historical-progress-panel { min-width: 0; color: #1f2933; }
 #aa-historical-progress-panel p,
 #aa-historical-progress-panel li { font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }

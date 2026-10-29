@@ -2,6 +2,7 @@ import { LineSegments2 } from "three/addons/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/addons/lines/LineSegmentsGeometry.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { initializeHistoricalProgressController } from "./frontier_3d_historical_progress_controller.js";
+import { createHistoricalSceneTransition } from "./frontier_3d_historical_scene_transition.js";
 import { axisTickValues } from "./frontier_3d_threejs_axis_tick_value_generator.js";
 import { matchingModelGroups } from "./frontier_3d_threejs_base_model_search_matcher.js";
 import { compareModelReasoningLevels, percentageDifferenceFromBaseline, committedStandoutAxisWeight, formatSignificantNumber, layoutPinnedModelNameAnnotations } from "./frontier_3d_threejs_model_comparison_view_calculations.js";
@@ -116,9 +117,11 @@ import {
     return;
   }
   let webglContextUnavailable = false;
+  let historicalSceneTransition = null;
   webglRenderer.domElement.addEventListener("webglcontextlost", (event) => {
     event.preventDefault();
     webglContextUnavailable = true;
+    historicalSceneTransition?.finish();
     renderFrameRequested = false;
     clearHoverInteractionImmediately();
     setRuntimeIssue("webgl_context", "三维图的图形上下文已丢失，正在等待浏览器恢复。");
@@ -391,13 +394,15 @@ import {
   function requestThreeDimensionalSceneRender() {
     if (renderFrameRequested || webglContextUnavailable) return;
     renderFrameRequested = true;
-    window.requestAnimationFrame(() => {
+    window.requestAnimationFrame((now) => {
       renderFrameRequested = false;
       if (webglContextUnavailable) return;
+      const historicalTransitionContinues = historicalSceneTransition?.advance(now);
       webglRenderer.render(threeScene, perspectiveCamera);
       updateProjectedAxisAnnotations();
       updatePinnedModelNameLabelPositions();
       updateLineageOverflowDirectionLabelPositions();
+      if (historicalTransitionContinues) requestThreeDimensionalSceneRender();
     });
   }
 
@@ -405,17 +410,18 @@ import {
 
   function clearThreeObjectGroup(group) {
     while (group.children.length) {
-      const child = group.children.pop();
-      child.userData.foregroundMaterial?.dispose();
-      child.userData.dateFadedMaterial?.dispose();
-      // THREE.Sprite 共享模块级 geometry；销毁其中一个会迫使全部 Logo 在下一帧重建 GPU buffer。
-      if (!child.isSprite && child.geometry && child.geometry.dispose) {
-        child.geometry.dispose();
-      }
-      if (child.material && child.material.dispose && !child.userData.sharedMaterial) {
-        child.material.dispose();
-      }
+      const child = group.children[0];
+      group.remove(child);
+      disposeThreeDimensionalObject(child);
     }
+  }
+
+  function disposeThreeDimensionalObject(child) {
+    const ownedMaterials = new Set([child.userData.foregroundMaterial, child.userData.dateFadedMaterial]);
+    if (!child.userData.sharedMaterial) ownedMaterials.add(child.material);
+    ownedMaterials.forEach(material => material?.dispose());
+    // THREE.Sprite 共享模块级 geometry，释放对象时保留该共享资源。
+    if (!child.isSprite) child.geometry?.dispose();
   }
 
   function scaledAxisValue(rawValue, axisConfiguration) {
@@ -890,6 +896,7 @@ import {
   }
 
   function setMarkerSizeMultiplier(nextMultiplier) {
+    historicalSceneTransition?.finish();
     if (!Number.isFinite(Number(nextMultiplier))) return false;
     markerSizeMultiplier = Math.min(1.5, Math.max(0.5, Number(nextMultiplier)));
     if (markerSizeSlider) markerSizeSlider.value = String(markerSizeMultiplier);
@@ -1105,6 +1112,7 @@ import {
 
   // 厂商筛选、「仅当期可比」与非有限坐标共同决定标记可见性；不可见的 sprite 同时退出拾取。
   function applyModelMarkerVisibilityAndRefreshDependentViews() {
+    historicalSceneTransition?.finish();
     cancelHoverDepartureGracePeriod();
     if ((hoveredModelIndex !== null && !modelMarkerIsCurrentlyVisible(hoveredModelIndex)) ||
       (hoveredPrunedLineageAncestorNode && !lineageNodePassesCurrentVisibilityFilters(hoveredPrunedLineageAncestorNode))) clearHoverInteractionImmediately();
@@ -1157,6 +1165,7 @@ import {
   }
 
   function setCountryRegionMarkerVisible(nextVisible) {
+    historicalSceneTransition?.finish();
     countryRegionMarkerVisible = Boolean(nextVisible);
     if (countryRegionMarkerToggle) {
       countryRegionMarkerToggle.checked = countryRegionMarkerVisible;
@@ -1196,6 +1205,7 @@ import {
   }
 
   function setFrontierStyle(nextStyle) {
+    historicalSceneTransition?.finish();
     if (!["wireframe", "solid", "hidden"].includes(nextStyle)) return Promise.resolve(false);
     frontierStyle = nextStyle;
     frontierStyleButtons.forEach((button) => {
@@ -1209,6 +1219,7 @@ import {
   }
 
   function setAchievableFrontierSurfaceVisible(nextVisible) {
+    historicalSceneTransition?.finish();
     if (nextVisible && activeThreeDimensionalScene.achievable_frontier_geometry_kind !== "exact_budget_steps") {
       return Promise.resolve(false);
     }
@@ -1528,7 +1539,7 @@ import {
     return [
       ...pointerInteractiveModelMarkerSprites,
       ...clickablePrunedLineageAncestorSprites,
-    ].filter((sprite) => sprite.visible);
+    ].filter((sprite) => sprite.visible && (!historicalSceneTransition || historicalSceneTransition.isPickable(sprite)));
   }
 
   function interactionTargetAtCanvasClientCoordinates(clientX, clientY) {
@@ -1853,6 +1864,7 @@ import {
   }
 
   function loadActiveMetricVariant(nextMetricVariantKey, preserveCamera) {
+    historicalSceneTransition?.finish();
     const nextMetricVariant = metricVariantsByKey[nextMetricVariantKey];
     if (!nextMetricVariant) return false;
     latestPointerCoordinates = null;
@@ -1901,7 +1913,6 @@ import {
       perspectiveCamera.position.copy(preservedCameraPosition);
       perspectiveCamera.quaternion.copy(preservedCameraQuaternion);
       orbitControls.target.copy(preservedOrbitTarget);
-      orbitControls.update();
     } else {
       applyInitialCameraConfiguration();
     }
@@ -3561,7 +3572,7 @@ import {
     requestThreeDimensionalSceneRender();
   }
   cameraViewControls=installFrontierCameraViewControls({camera:perspectiveCamera,controls:orbitControls,canvas:webglRenderer.domElement,graphContainer,
-    getBoundingSphere:()=>{const bounds=new THREE.Box3().setFromObject(staticAxesAndGridGroup);return bounds.isEmpty() ? new THREE.Sphere(new THREE.Vector3(),Math.sqrt(3)) : bounds.getBoundingSphere(new THREE.Sphere());},
+    getBoundingSphere:()=>new THREE.Sphere(new THREE.Vector3(),Math.sqrt(3)),
     getInitialCameraDirection:()=>{const eye=activeThreeDimensionalScene.initial_camera_configuration.eye;return [eye.x,eye.y,eye.z];},
     hitTest:interactionTargetAtCanvasClientCoordinates,onCameraStateCommitted:notifyExplorationViewChanged,
     onDismissOverlay:()=>{
@@ -3644,6 +3655,7 @@ import {
     onExplorationFiltersChanged:next=>{Object.assign(explorationFilters,next);applyModelMarkerVisibilityAndRefreshDependentViews();refreshVisibleModelDetails();},
     resetCamera:()=>cameraViewControls.resetCamera(),setAxisAlignedCameraView:cameraViewControls.setAxisAlignedCameraView,pinModel:model=>setSingleModelPinned(model),
     exportPng:async()=>{
+      historicalSceneTransition?.finish();
       applySystemColorSchemeToScene();
       const blob=await renderFrontierBrowserPng({scene:threeScene,camera:perspectiveCamera,graphContainer,title:document.getElementById("frontier-3d-report-title").textContent,
         metadataLines:[`数据日期：${visualizationDataset.data_date || "未知"}；${activeInteractionRelationships.cost_axis_label} × ${activeInteractionRelationships.speed_axis_label}`,
@@ -3722,6 +3734,8 @@ import {
     scene: threeScene,
     controls: orbitControls,
     renderer: webglRenderer,
+    historicalSceneTransitionState: () => historicalSceneTransition?.diagnostics() || { is_active: false },
+    cameraViewState: cameraViewControls.diagnostics,
     requestRender: requestThreeDimensionalSceneRender,
     pointerInteractionAtCanvasClientCoordinates: interactionTargetAtCanvasClientCoordinates,
     createRelationshipLineForVerification: relationshipLineObject,
@@ -3735,28 +3749,65 @@ import {
     displayedModelMarkerPositionsAndVisibility,
     displayedPrunedLineageAncestorMarkerPositions,
   };
-  initializeHistoricalProgressController((nextDataset, absenceReasonForModelUuid) => {
-    // 固定身份跨时间保留；旧帧数值必须清除，防止缺席模型借用未来观测。
-    const retainedPinnedIdentities = [...pinnedModelIdentities].map(identity => {
-      const model = allModelRecordsByIdentity.get(identity);
-      return model ? [identity, Object.fromEntries(["model_uuid", "name", "creator", "base_model_name", "reasoning_level_label", "reasoning_level_sort_order"].map(field => [field, model[field]]))] : null;
-    }).filter(Boolean);
-    visualizationDataset = expandFrontierModelReferencesForSceneConsumers(nextDataset);
-    metricVariantsByKey = visualizationDataset.metric_variants;
-    artificialAnalysisDataProvenance = visualizationDataset.artificial_analysis_data_provenance || {};
-    const historicalApiFetchDescription = artificialAnalysisApiFetchDescription();
-    const historicalApiFetchDate = document.getElementById("aa-report-header-artificial-analysis-api-fetch-date");
-    historicalApiFetchDate.textContent = historicalApiFetchDescription.headerText;
-    historicalApiFetchDate.title = historicalApiFetchDescription.detailText;
-    document.getElementById("aa-report-header-intelligence-index-version").textContent = `智能指数 ${currentIntelligenceIndexVersionTextWithInferenceNote()}`;
-    window.FRONTIER_3D_VISUALIZATION_DATASET = visualizationDataset;
-    allModelRecordsByIdentity.clear();
-    retainedPinnedIdentities.forEach(([identity, model]) => allModelRecordsByIdentity.set(identity, { ...model, panel: {}, historical_frame_absence_reason: absenceReasonForModelUuid(model.model_uuid) }));
-    (visualizationDataset.models || []).forEach(model => allModelRecordsByIdentity.set(stableModelIdentity(model), model));
-    Object.values(metricVariantsByKey).forEach(variant => {
-      (variant.three_dimensional_scene?.displayed_model_markers || []).forEach(model => allModelRecordsByIdentity.set(stableModelIdentity(model), model));
+  function historicalSceneLayers() {
+    const layers = modelVisualObjectsByModelIndex.flatMap((objects, modelIndex) => Object.entries(objects)
+      .filter(([, object]) => object?.isSprite)
+      .map(([layerName, object]) => ({ key: `${stableModelIdentity(displayedModelMarkers[modelIndex])}/${layerName}`,
+        object, replaceObject: replacement => { objects[layerName] = replacement; } })));
+    for (const [key, object, replaceObject] of [
+      ["frontier/wireframe", frontierWireframeObject, replacement => { frontierWireframeObject = replacement; }],
+      ["frontier/surface", frontierSurfaceObject, replacement => { frontierSurfaceObject = replacement; }],
+      ["frontier/achievable-surface", achievableFrontierSurfaceObject, replacement => { achievableFrontierSurfaceObject = replacement; }],
+      ["frontier/exact-boundary", exactAchievableFrontierBoundaryObject, replacement => { exactAchievableFrontierBoundaryObject = replacement; }],
+    ]) if (object) layers.push({ key, object, replaceObject });
+    return layers;
+  }
+
+  if (document.getElementById("frontier-3d-historical-progress-dataset-json")) {
+    const outgoingHistoricalSceneGroup = new THREE.Group();
+    outgoingHistoricalSceneGroup.name = "historical-scene-non-pickable-outgoing-layers";
+    threeScene.add(outgoingHistoricalSceneGroup);
+    historicalSceneTransition = createHistoricalSceneTransition({
+      outgoingGroup: outgoingHistoricalSceneGroup, requestRender: requestThreeDimensionalSceneRender,
+      disposeObject: disposeThreeDimensionalObject,
+      reducedMotionMediaQuery: window.matchMedia("(prefers-reduced-motion: reduce)"),
     });
-    loadActiveMetricVariant(activeMetricVariantKey, true);
-    explorationControls.replaceScientificDataset(visualizationDataset);
+    document.addEventListener("visibilitychange", () => { if (document.hidden) historicalSceneTransition.finish(); });
+  }
+
+  initializeHistoricalProgressController((nextDataset, absenceReasonForModelUuid, { versionBoundary, onCommitted }) => historicalSceneTransition.replaceScene({
+    getLayers: historicalSceneLayers, versionBoundary,
+    onLayersReconciled: () => {
+      clickableOrganizationLogoSprites = modelVisualObjectsByModelIndex.map(objects => objects.logoSprite);
+      pointerInteractiveModelMarkerSprites = modelVisualObjectsByModelIndex.flatMap(objects => [objects.backplateSprite, objects.logoSprite]);
+    },
+    rebuildScene: () => {
+      // 固定身份跨时间保留；旧帧数值必须清除，防止缺席模型借用未来观测。
+      const retainedPinnedIdentities = [...pinnedModelIdentities].map(identity => {
+        const model = allModelRecordsByIdentity.get(identity);
+        return model ? [identity, Object.fromEntries(["model_uuid", "name", "creator", "base_model_name", "reasoning_level_label", "reasoning_level_sort_order"].map(field => [field, model[field]]))] : null;
+      }).filter(Boolean);
+      visualizationDataset = expandFrontierModelReferencesForSceneConsumers(nextDataset);
+      metricVariantsByKey = visualizationDataset.metric_variants;
+      artificialAnalysisDataProvenance = visualizationDataset.artificial_analysis_data_provenance || {};
+      const historicalApiFetchDescription = artificialAnalysisApiFetchDescription();
+      const historicalApiFetchDate = document.getElementById("aa-report-header-artificial-analysis-api-fetch-date");
+      historicalApiFetchDate.textContent = historicalApiFetchDescription.headerText;
+      historicalApiFetchDate.title = historicalApiFetchDescription.detailText;
+      document.getElementById("aa-report-header-intelligence-index-version").textContent = `智能指数 ${currentIntelligenceIndexVersionTextWithInferenceNote()}`;
+      window.FRONTIER_3D_VISUALIZATION_DATASET = visualizationDataset;
+      allModelRecordsByIdentity.clear();
+      retainedPinnedIdentities.forEach(([identity, model]) => allModelRecordsByIdentity.set(identity, { ...model, panel: {}, historical_frame_absence_reason: absenceReasonForModelUuid(model.model_uuid) }));
+      (visualizationDataset.models || []).forEach(model => allModelRecordsByIdentity.set(stableModelIdentity(model), model));
+      Object.values(metricVariantsByKey).forEach(variant => {
+        (variant.three_dimensional_scene?.displayed_model_markers || []).forEach(model => allModelRecordsByIdentity.set(stableModelIdentity(model), model));
+      });
+      onCommitted();
+      loadActiveMetricVariant(activeMetricVariantKey, true);
+      explorationControls.replaceScientificDataset(visualizationDataset);
+    },
+  }), {
+    waitForSceneTransition: () => historicalSceneTransition.whenSettled(),
+    sceneTransitionState: () => historicalSceneTransition.diagnostics(),
   });
 })();

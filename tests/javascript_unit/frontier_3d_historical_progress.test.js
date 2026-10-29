@@ -124,7 +124,7 @@ for (const allVersions of [false, true]) {
     assert.equal(elementsById.get("aa-historical-index-version").value, selectedVersionBefore);
     assert.deepEqual(after.current_series_frame_ids, before.current_series_frame_ids);
     assert.ok(after.current_series_frame_ids.includes(after.historical_frame_id));
-    assert.match(elementsById.get("aa-historical-view-explanation").textContent, /保留上一有效场景/);
+    assert.match(elementsById.get("aa-historical-frame-loading-status").textContent, /保留上一有效场景/);
     globalThis.DecompressionStream = originalDecompressionStream;
     assert.equal(await window.setHistoricalFrontierTimelineSelection(selection), true);
     assert.equal(window.historicalFrontierVisualizationState().is_frame_loading, false);

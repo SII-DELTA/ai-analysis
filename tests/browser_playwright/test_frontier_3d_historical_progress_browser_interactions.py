@@ -143,7 +143,7 @@ def test_history_controls_keyboard_and_small_screen(historical_page, width):
 
 
 def wait_for_historical_frame_render(page):
-    page.wait_for_function("() => { const state=historicalFrontierVisualizationState(); return !state.is_frame_loading && state.historical_frame_id===state.rendered_historical_frame_id; }")
+    page.wait_for_function("() => { const state=historicalFrontierVisualizationState(); return !state.is_frame_loading && !state.scene_transition.is_active && state.historical_frame_id===state.rendered_historical_frame_id; }")
 
 
 def test_rapid_selection_commits_only_latest_frame(historical_page):
@@ -161,7 +161,7 @@ def test_decoder_failure_preserves_last_scene_and_recovers(historical_page):
     result = page.evaluate("async () => await setHistoricalFrontierTimelineSelection({historical_frame_id:historicalFrontierVisualizationState().current_series_frame_ids[0]})")
     assert result is False
     assert page.evaluate("historicalFrontierVisualizationState().rendered_historical_frame_id") == before
-    expect(page.locator("#aa-historical-view-explanation")).to_contain_text("保留上一有效场景")
+    expect(page.locator("#aa-historical-frame-loading-status")).to_contain_text("保留上一有效场景")
     page.evaluate("() => { window.DecompressionStream=window.originalHistoricalDecompressionStream; }")
     assert page.evaluate("async () => await setHistoricalFrontierTimelineSelection({historical_frame_id:historicalFrontierVisualizationState().current_series_frame_ids[0]})") is True
     wait_for_historical_frame_render(page)
@@ -182,7 +182,7 @@ def test_decoder_failure_restores_committed_version_and_timeline(historical_page
         assert page.evaluate("async () => await setHistoricalFrontierTimelineSelection({historical_frame_id:historicalFrontierVisualizationState().current_series_frame_ids[0]})") is False
     else:
         page.select_option("#aa-historical-index-version", "5.0")
-    expect(page.locator("#aa-historical-view-explanation")).to_contain_text("保留上一有效场景")
+    expect(page.locator("#aa-historical-frame-loading-status")).to_contain_text("保留上一有效场景")
     after = page.evaluate("historicalFrontierVisualizationState()")
     assert after["historical_frame_id"] == before["historical_frame_id"]
     assert after["current_series_frame_ids"] == before["current_series_frame_ids"]

@@ -80,6 +80,7 @@ export function installFrontierCameraViewControls({camera,controls,canvas,graphC
     controls.update();requestRender();onCameraStateCommitted();
   },true);
   return {resetCamera,setAxisAlignedCameraView,restoreCameraState,
+    diagnostics:()=>({automaticFraming,selectedAxisView}),
     serializeCameraState:()=>Object.fromEntries([["position",camera.position],["target",controls.target],["up",camera.up]].map(([name,vector])=>[name,vector.toArray().map(value=>Math.abs(value)<1e-10 ? 0 : Number(value.toPrecision(12)))])),
     onResize:()=>{
       const viewport=`${window.innerWidth}:${window.innerHeight}`;

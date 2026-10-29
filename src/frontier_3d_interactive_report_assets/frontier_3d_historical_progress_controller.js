@@ -86,7 +86,10 @@ export function historicalRankingForFrame(dataset, frame, variantKey, metricName
     .map((row, index) => ({ ...row, rank: index + 1 }));
 }
 
-export async function initializeHistoricalProgressController(replaceScientificDataset) {
+export async function initializeHistoricalProgressController(replaceScientificDataset, {
+  waitForSceneTransition = () => Promise.resolve(),
+  sceneTransitionState = () => ({ is_active: false }),
+} = {}) {
   const embedded = document.getElementById("frontier-3d-historical-progress-dataset-json");
   if (!embedded) return;
   let dataset = JSON.parse(embedded.textContent);
@@ -116,8 +119,6 @@ export async function initializeHistoricalProgressController(replaceScientificDa
   let currentSeries = [];
   let lastRenderedFrame = activeFrame;
   let lastRenderedSelectedVersion = selectedVersion;
-  // 既有诊断对象已展开引用，但保留原 schema 标签；恢复时按展开后的 v2 场景使用。
-  let lastRenderedScientificDataset = { ...window.FRONTIER_3D_VISUALIZATION_DATASET, schema_version: "frontier_3d_visualization_dataset/v2" };
   let selectionRequestSequence = 0;
   let isFrameLoading = false;
   let weightedRankingCacheSignature = "";
@@ -156,11 +157,14 @@ export async function initializeHistoricalProgressController(replaceScientificDa
   dateLabel.htmlFor = range.id;
   timeline.append(previousButton, range, nextButton, dateLabel);
   const explanation = element("p", undefined, "aa-historical-view-explanation");
-  explanation.setAttribute("role", "status");
   controls.append(summary, fields, timeline, explanation);
   const rejectedSources = (dataset.source_validation_outcomes || []).filter(source => source.status === "rejected");
   if (rejectedSources.length) controls.append(element("p", `采用 ${dataset.source_snapshots.length} 份验证样本；隔离 ${rejectedSources.length} 份来源：${rejectedSources.map(source => `${source.source_snapshot_id}（${source.rejection_reason}）`).join("；")}`));
   document.getElementById("frontier-3d-toolbar").before(controls);
+  const frameLoadingStatus = element("p", "", "aa-historical-frame-loading-status");
+  frameLoadingStatus.setAttribute("role", "status");
+  frameLoadingStatus.setAttribute("aria-live", "polite");
+  controls.after(frameLoadingStatus);
 
   const panel = element("details", undefined, "aa-historical-progress-panel");
   panel.className = "aa-control-section"; panel.open = true;
@@ -211,33 +215,49 @@ export async function initializeHistoricalProgressController(replaceScientificDa
   async function selectFrame(frame, replaceScene = true) {
     if (!frame) return false;
     const requestSequence = ++selectionRequestSequence;
+    const requestedSelectedVersion = selectedVersion;
     activeFrame = frame;
     synchronizeControls();
     isFrameLoading = replaceScene;
     controls.setAttribute("aria-busy", String(isFrameLoading));
     panel.setAttribute("aria-busy", String(isFrameLoading));
     if (!replaceScene) { renderHistoricalDetails(); return true; }
-    const selectionDescription = explanation.textContent;
-    explanation.textContent = `正在载入时间步。${selectionDescription}`;
+    frameLoadingStatus.textContent = "正在载入时间步。";
+    frameLoadingStatus.title = "";
     try {
       const payload = await decodeHistoricalFramePayload(dataset, frame);
       if (requestSequence !== selectionRequestSequence) return false;
       const scientific = materializeHistoricalFrame({ ...dataset, scene_geometry_definitions: payload.scene_geometry_definitions }, { ...frame, scientific_dataset: payload.scientific_dataset });
-      isFrameLoading = false;
-      replaceScientificDataset(scientific, modelUuid => historicalModelAbsenceReason(dataset, frame, modelUuid));
-      lastRenderedFrame = frame;
-      lastRenderedSelectedVersion = selectedVersion;
-      lastRenderedScientificDataset = scientific;
-      explanation.textContent = selectionDescription;
+      // 当前过渡结束后只提交最新目标；过时的等待请求不会形成动画队列。
+      await waitForSceneTransition();
+      if (requestSequence !== selectionRequestSequence) return false;
+      let hasCommitted = false;
+      const onCommitted = () => {
+        if (hasCommitted) return;
+        hasCommitted = true;
+        lastRenderedFrame = frame;
+        lastRenderedSelectedVersion = requestedSelectedVersion;
+        if (requestSequence === selectionRequestSequence) isFrameLoading = false;
+      };
+      await replaceScientificDataset(scientific, modelUuid => historicalModelAbsenceReason(dataset, frame, modelUuid), {
+        versionBoundary: lastRenderedFrame.intelligence_index_version !== frame.intelligence_index_version,
+        onCommitted,
+      });
+      onCommitted();
+      renderHistoricalDetails();
+      if (requestSequence === selectionRequestSequence) frameLoadingStatus.textContent = "";
       return true;
     } catch (error) {
+      if (requestSequence !== selectionRequestSequence) return false;
+      await waitForSceneTransition();
       if (requestSequence !== selectionRequestSequence) return false;
       activeFrame = lastRenderedFrame;
       selectedVersion = lastRenderedSelectedVersion;
       isFrameLoading = false;
       synchronizeControls();
-      if (lastRenderedScientificDataset) replaceScientificDataset(lastRenderedScientificDataset, modelUuid => historicalModelAbsenceReason(dataset, lastRenderedFrame, modelUuid));
-      explanation.textContent = `时间步载入失败，保留上一有效场景：${String(error.message || error)}。可以继续选择其他时间步。`;
+      frameLoadingStatus.textContent = "载入失败，保留上一有效场景。请重新选择时间步。";
+      frameLoadingStatus.title = `时间步载入失败：${String(error.message || error)}。可以继续选择其他时间步。`;
+      renderHistoricalDetails();
       return false;
     } finally {
       if (requestSequence === selectionRequestSequence) {
@@ -269,7 +289,7 @@ export async function initializeHistoricalProgressController(replaceScientificDa
   range.addEventListener("input", () => selectIndex(Number(range.value)));
   trajectorySelect.addEventListener("change", () => { trajectoryModelUuid = trajectorySelect.value; renderHistoricalDetails(); });
 
-  function drawChart(svg, values, label, ranks = false, referenceValues = values) {
+  function drawChart(svg, values, label, ranks = false, referenceValues = values, chartSeries = currentSeries) {
     svg.replaceChildren(); svg.setAttribute("viewBox", "0 0 360 150"); svg.setAttribute("role", "img"); svg.setAttribute("aria-label", label);
     const svgNode = (tag, attributes, text) => {
       const node = document.createElementNS(svg.namespaceURI, tag);
@@ -279,7 +299,7 @@ export async function initializeHistoricalProgressController(replaceScientificDa
     };
     const finite = values.filter(value => Number.isFinite(value.value));
     if (!finite.length) { svgNode("text", { x: 12, y: 65 }, "该区间暂无可比数据或前沿名次"); return; }
-    const times = currentSeries.map(frame => Date.parse(frame.release_cutoff_date || frame.observed_at_utc));
+    const times = chartSeries.map(frame => Date.parse(frame.release_cutoff_date || frame.observed_at_utc));
     const firstTime = times[0], duration = times.at(-1) - firstTime || 1;
     const referenceFinite = referenceValues.filter(value => Number.isFinite(value.value));
     const lower = ranks ? 1 : Math.min(...referenceFinite.map(value => value.value));
@@ -293,17 +313,19 @@ export async function initializeHistoricalProgressController(replaceScientificDa
     svgNode("path", { d: historicalStepPath(points), class: "aa-history-chart-line" });
     svgNode("text", { x: 2, y: 22 }, ranks ? "1" : upper.toFixed(1));
     svgNode("text", { x: 2, y: 118 }, ranks ? upper.toFixed(0) : lower.toFixed(1));
-    svgNode("text", { x: 35, y: 143 }, (currentSeries[0].release_cutoff_date || currentSeries[0].observed_at_utc).slice(0, 10));
-    svgNode("text", { x: 345, y: 143, "text-anchor": "end" }, (currentSeries.at(-1).release_cutoff_date || currentSeries.at(-1).observed_at_utc).slice(0, 10));
+    svgNode("text", { x: 35, y: 143 }, (chartSeries[0].release_cutoff_date || chartSeries[0].observed_at_utc).slice(0, 10));
+    svgNode("text", { x: 345, y: 143, "text-anchor": "end" }, (chartSeries.at(-1).release_cutoff_date || chartSeries.at(-1).observed_at_utc).slice(0, 10));
     points.filter(Boolean).forEach(point => {
-      const circle = svgNode("circle", { cx: point.x, cy: point.y, r: point.item.frame === activeFrame ? 4.5 : 2.5, class: "aa-history-chart-point" });
+      const circle = svgNode("circle", { cx: point.x, cy: point.y, r: point.item.frame === lastRenderedFrame ? 4.5 : 2.5, class: "aa-history-chart-point" });
       const title = document.createElementNS(svg.namespaceURI, "title"); title.textContent = `${point.item.frame.release_cutoff_date || point.item.frame.observed_at_utc} · V${point.version} · ${point.item.value}`; circle.append(title);
       circle.addEventListener("click", () => selectFrame(point.item.frame));
     });
   }
 
   function renderHistoricalDetails() {
-    if (isFrameLoading) return;
+    // 说明、名次和表格跟随已提交场景，等待中的选择只更新控件与加载行。
+    const activeFrame = lastRenderedFrame;
+    const currentSeries = historicalSeriesFrames(dataset, { ...activeFrame, intelligence_index_version: lastRenderedSelectedVersion });
     const variantKey = activeVariantKey();
     const details = activeFrame.metric_variant_summaries[variantKey];
     const settings = standoutSettings();
@@ -325,9 +347,9 @@ export async function initializeHistoricalProgressController(replaceScientificDa
     const unresolvedIdentityCount = activeFrame.model_observation_indices.filter(index => dataset.release_identity_resolution_by_model_uuid?.[dataset.model_observations[index].model_uuid] === "unresolved_release_group").length;
     coverage.textContent = `${details.analysis_eligible_model_count} 个可比模型 · ${details.pareto_model_uuids.length} 个前沿成员 · 其中估算 ${details.estimated_intelligence_count}，估算状态未知 ${details.unknown_estimation_status_count}；release 归组未知 ${unresolvedIdentityCount}。${details.unavailable_reason || ""}`;
     const scoreValues = currentSeries.map(frame => ({ frame, value: frame.metric_variant_summaries[variantKey].highest_comparable_intelligence }));
-    drawChart(scoreChart, scoreValues.slice(0, currentIndex + 1), "同版本可比候选集最高智能分，版本断点不连接", false, scoreValues);
+    drawChart(scoreChart, scoreValues.slice(0, currentIndex + 1), "同版本可比候选集最高智能分，版本断点不连接", false, scoreValues, currentSeries);
     const rankValues = currentSeries.map((frame, index) => ({ frame, value: rankings[index].find(row => row.model_uuid === trajectoryModelUuid)?.rank ?? null }));
-    drawChart(rankChart, rankValues.slice(0, currentIndex + 1), `${dataset.models_by_uuid[trajectoryModelUuid]?.name || "所选模型"}的${FRONTIER_STANDOUT_METRIC_DEFINITIONS_BY_NAME[metric].label}前沿名次轨迹`, true, rankValues);
+    drawChart(rankChart, rankValues.slice(0, currentIndex + 1), `${dataset.models_by_uuid[trajectoryModelUuid]?.name || "所选模型"}的${FRONTIER_STANDOUT_METRIC_DEFINITIONS_BY_NAME[metric].label}前沿名次轨迹`, true, rankValues, currentSeries);
     methodNote.textContent = `现行方法 · ${FRONTIER_STANDOUT_METRIC_DEFINITIONS_BY_NAME[metric].label}；分析全集不按年龄删除模型。名次只解释该时点的比较，分值不作跨日期增长量。${details.small_sample_warning || ""} F1 候选未启用。`;
     const change = historicalMembershipChanges(currentSeries[currentIndex - 1], activeFrame, variantKey);
     changes.replaceChildren(element("h3", "前沿成员进出"));
@@ -360,6 +382,7 @@ export async function initializeHistoricalProgressController(replaceScientificDa
   };
   window.historicalFrontierVisualizationState = () => ({ ...activeFrame, scientific_dataset: undefined, scientific_dataset_compressed_base64_gzip: undefined,
     rendered_historical_frame_id: lastRenderedFrame.historical_frame_id, is_frame_loading: isFrameLoading,
+    scene_transition: sceneTransitionState(),
     current_series_frame_ids: currentSeries.map(frame => frame.historical_frame_id),
     selected_trajectory_model_uuid: trajectoryModelUuid,
     source_observed_at_utc_source: sourceById.get(activeFrame.source_snapshot_id).observed_at_utc_source,
