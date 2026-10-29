@@ -3752,9 +3752,11 @@ import {
     window.FRONTIER_3D_VISUALIZATION_DATASET = visualizationDataset;
     allModelRecordsByIdentity.clear();
     retainedPinnedIdentities.forEach(([identity, model]) => allModelRecordsByIdentity.set(identity, { ...model, panel: {}, historical_frame_absence_reason: absenceReasonForModelUuid(model.model_uuid) }));
+    (visualizationDataset.models || []).forEach(model => allModelRecordsByIdentity.set(stableModelIdentity(model), model));
     Object.values(metricVariantsByKey).forEach(variant => {
       (variant.three_dimensional_scene?.displayed_model_markers || []).forEach(model => allModelRecordsByIdentity.set(stableModelIdentity(model), model));
     });
     loadActiveMetricVariant(activeMetricVariantKey, true);
+    explorationControls.replaceScientificDataset(visualizationDataset);
   });
 })();

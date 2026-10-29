@@ -74,6 +74,41 @@ def test_real_observations_and_version_boundary(historical_page):
     assert page.evaluate("historicalFrontierVisualizationState().observed_at_utc") == "2026-02-01T00:00:00Z"
 
 
+def test_exploration_table_and_csv_follow_committed_historical_frame(historical_page):
+    page = historical_page
+    page.locator("#aa-table-view-tab").click()
+    page.locator("#aa-all-model-table-search").fill("研究模型")
+    rows = page.locator("#aa-all-model-table tbody tr")
+    expect(rows).to_have_count(3)
+    page.locator("#aa-model-exploration-controls").evaluate("element => element.open = true")
+    page.locator("#aa-play-release-date-filter").click()
+    expect(page.locator("#aa-play-release-date-filter")).to_have_attribute("aria-pressed", "true")
+    page.locator("#aa-historical-previous-step").click()
+    wait_for_historical_frame_render(page)
+    expect(page.locator("#aa-play-release-date-filter")).to_have_attribute("aria-pressed", "false")
+    expect(rows).to_have_count(2)
+    expect(page.locator("#aa-all-model-table")).not_to_contain_text("研究模型 3")
+    with page.expect_download() as downloaded:
+        page.locator("#aa-export-all-model-table-csv").click()
+    assert "研究模型 3" not in downloaded.value.path().read_text(encoding="utf-8-sig")
+
+    page.select_option("#aa-historical-view-mode", "observation_replay")
+    wait_for_historical_frame_render(page)
+    page.select_option("#aa-historical-index-version", "5.0")
+    wait_for_historical_frame_render(page)
+    page.select_option("#aa-speed-metric-select", "raw")
+    expect(rows).to_have_count(1)
+    expect(rows).to_contain_text("研究模型 3")
+    expect(page.locator("#aa-all-model-table-search")).to_have_value("研究模型")
+    assert page.evaluate("serializeFrontierViewState().table.active_tab") == "table"
+    with page.expect_download() as downloaded:
+        page.locator("#aa-export-all-model-table-csv").click()
+    assert downloaded.value.suggested_filename == "frontier-models-2026-10-28.csv"
+    exported_csv = downloaded.value.path().read_text(encoding="utf-8-sig")
+    assert "研究模型 3" in exported_csv
+    assert "研究模型 1" not in exported_csv
+
+
 def test_measured_policy_and_v5_unavailable_effective_speed(historical_page):
     page = historical_page
     page.select_option("#aa-historical-analysis-sample", "measured_only")

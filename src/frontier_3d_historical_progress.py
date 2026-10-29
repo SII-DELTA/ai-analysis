@@ -33,6 +33,10 @@ from .frontier_3d_visualization_dataset_builder import (
 
 HISTORICAL_PROGRESS_SCHEMA_VERSION = "frontier_3d_historical_progress_dataset/v1"
 HISTORICAL_ANALYSIS_SAMPLE_POLICIES = ("include_estimated", "measured_only")
+# 历史来源未留存可核验的任务耗时，v3 帧沿用已经批准的两种速度口径。
+HISTORICAL_SUPPORTED_SPEED_METRIC_DEFINITIONS = {
+    name: SPEED_METRIC_DEFINITIONS[name] for name in ("effective", "raw")
+}
 STANDOUT_COLUMN_BY_METRIC = {
     "trend_residual": "standout_trend_residual",
     "intelligence_uplift": "standout_intelligence_uplift",
@@ -121,7 +125,7 @@ def _build_frame_scientific_dataset(dataframe, snapshot, shared_metadata, axis_d
     }
     variants, summaries = {}, {}
     for cost_name, cost_definition in COST_METRIC_DEFINITIONS.items():
-        for speed_name, speed_definition in SPEED_METRIC_DEFINITIONS.items():
+        for speed_name, speed_definition in HISTORICAL_SUPPORTED_SPEED_METRIC_DEFINITIONS.items():
             key = f"{cost_name}__{speed_name}"
             cost, speed = cost_definition["column_name"], speed_definition["column_name"]
             eligible, reasons = frontier.analysis_eligibility_for_frontier_3d_metric_variant(dataframe, cost, speed)
@@ -256,14 +260,14 @@ def build_historical_progress_dataset(snapshots, *, frame_cache_directory=None, 
     shared = {"schema_version": "frontier_3d_visualization_dataset/v3", "interactive_renderer": "threejs",
               "generated_at": generated_at, "graph_div_id": visualize.GRAPH_DIV_ID, "initial_variant_key": "effective__effective",
               "speed_scale": "log", "cost_metric_definitions": COST_METRIC_DEFINITIONS,
-              "speed_metric_definitions": SPEED_METRIC_DEFINITIONS,
+              "speed_metric_definitions": HISTORICAL_SUPPORTED_SPEED_METRIC_DEFINITIONS,
               "organization_identity_metadata_by_creator_name": organization_metadata}
     prepared = {snapshot["source_snapshot_id"]: _prepared_dataframe(snapshot, identity_by_uuid, first_dates) for snapshot in snapshots}
     axis_domains = {}
     for snapshot in snapshots:
         dataframe = prepared[snapshot["source_snapshot_id"]]
         for cost_name, cost_definition in COST_METRIC_DEFINITIONS.items():
-            for speed_name, speed_definition in SPEED_METRIC_DEFINITIONS.items():
+            for speed_name, speed_definition in HISTORICAL_SUPPORTED_SPEED_METRIC_DEFINITIONS.items():
                 cost, speed = cost_definition["column_name"], speed_definition["column_name"]
                 complete = dataframe[dataframe[frontier.dims_for(cost, speed)].notna().all(axis=1)]
                 if complete.empty:

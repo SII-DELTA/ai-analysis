@@ -59,6 +59,16 @@ def historical_fixture_dataset():
     ])
 
 
+def test_historical_v3_frames_keep_only_supported_speed_metrics():
+    dataset = historical_fixture_dataset()
+    shared = dataset["scientific_dataset_shared_metadata"]
+    assert shared["schema_version"] == "frontier_3d_visualization_dataset/v3"
+    assert set(shared["speed_metric_definitions"]) == {"effective", "raw"}
+    assert all(set(frame["scientific_dataset"]["metric_variants"]) == {
+        "effective__effective", "effective__raw", "blended__effective", "blended__raw",
+    } for frame in dataset["frames"])
+
+
 def test_reasoning_efforts_share_earliest_release_step_and_keep_separate_points():
     dataset = historical_fixture_dataset()
     frames = [frame for frame in dataset["frames"] if frame["source_snapshot_id"] == "later"
