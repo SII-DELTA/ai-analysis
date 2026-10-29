@@ -1,4 +1,4 @@
-"""v3 公共模型表、v2 入口适配与浏览器投影；不改变科学指标数值。"""
+"""v4 公共模型表、v2/v3 兼容与浏览器投影；保留既有科学指标数值。"""
 from __future__ import annotations
 
 import copy
@@ -13,8 +13,10 @@ from referencing import Registry, Resource
 
 from .frontier_3d_exact_achievable_frontier_scene_geometry import build_exact_achievable_frontier_geometry_from_scene
 
-SCIENTIFIC_CONTRACT_SCHEMA_VERSION = "frontier_3d_visualization_dataset/v3"
-BROWSER_PROJECTION_SCHEMA_VERSION = "frontier_3d_browser_projection/v1"
+SCIENTIFIC_CONTRACT_SCHEMA_VERSION = "frontier_3d_visualization_dataset/v4"
+BROWSER_PROJECTION_SCHEMA_VERSION = "frontier_3d_browser_projection/v2"
+PREVIOUS_SCIENTIFIC_CONTRACT_SCHEMA_VERSION = "frontier_3d_visualization_dataset/v3"
+PREVIOUS_BROWSER_PROJECTION_SCHEMA_VERSION = "frontier_3d_browser_projection/v1"
 LEGACY_SCENE_SCHEMA_VERSION = "frontier_3d_visualization_dataset/v2"
 SCHEMA_DIRECTORY = Path(__file__).with_name("frontier_3d_contract_schemas")
 MARKER_VARIANT_FIELD_NAMES = frozenset({
@@ -49,14 +51,14 @@ def _identity_key(model_information):
 
 def adapt_frontier_3d_visualization_dataset_to_v3(dataset):
     """v2 只在入口迁移；缺失 UUID 明确降级，不从相似名称推测真实身份。"""
-    if dataset.get("schema_version") == SCIENTIFIC_CONTRACT_SCHEMA_VERSION:
+    if dataset.get("schema_version") in (SCIENTIFIC_CONTRACT_SCHEMA_VERSION, PREVIOUS_SCIENTIFIC_CONTRACT_SCHEMA_VERSION):
         return copy.deepcopy(dataset)
     if dataset.get("schema_version") != LEGACY_SCENE_SCHEMA_VERSION:
         raise ValueError("Frontier 3D visualization dataset schema_version 不匹配")
     from .frontier_3d_visualization_dataset_builder import validate_frontier_3d_visualization_dataset
     validate_frontier_3d_visualization_dataset(dataset)
     result = {key: copy.deepcopy(value) for key, value in dataset.items() if key in TOP_LEVEL_SCIENTIFIC_CONTRACT_FIELD_NAMES}
-    result["schema_version"] = SCIENTIFIC_CONTRACT_SCHEMA_VERSION
+    result["schema_version"] = PREVIOUS_SCIENTIFIC_CONTRACT_SCHEMA_VERSION
     models = result["models"] = []
     model_index_by_identity = {}
 
@@ -133,7 +135,8 @@ def expand_frontier_3d_visualization_dataset_for_scene_consumers(dataset):
     """给现有场景消费者提供 v2 形状的只读副本；磁盘与 HTML 仍使用引用契约。"""
     if dataset.get("schema_version") == LEGACY_SCENE_SCHEMA_VERSION:
         return copy.deepcopy(dataset)
-    if dataset.get("schema_version") not in (SCIENTIFIC_CONTRACT_SCHEMA_VERSION, BROWSER_PROJECTION_SCHEMA_VERSION):
+    if dataset.get("schema_version") not in (SCIENTIFIC_CONTRACT_SCHEMA_VERSION, BROWSER_PROJECTION_SCHEMA_VERSION,
+                                            PREVIOUS_SCIENTIFIC_CONTRACT_SCHEMA_VERSION, PREVIOUS_BROWSER_PROJECTION_SCHEMA_VERSION):
         raise ValueError("Frontier 3D visualization dataset schema_version 不匹配")
     result = copy.deepcopy(dataset)
     models = result.pop("models")
@@ -166,7 +169,7 @@ def expand_frontier_3d_visualization_dataset_for_scene_consumers(dataset):
         markers = []
         for reference in scene["displayed_model_markers"]:
             common = model_information(reference)
-            if dataset.get("schema_version") == BROWSER_PROJECTION_SCHEMA_VERSION:
+            if dataset.get("schema_version") in (BROWSER_PROJECTION_SCHEMA_VERSION, PREVIOUS_BROWSER_PROJECTION_SCHEMA_VERSION):
                 identity = dataset["organization_identity_metadata_by_creator_name"].get(common["creator"], {})
                 for field in ("creator_uuid", "organization_identity_key", "country_region_category"):
                     if field not in common and field in identity:
@@ -215,10 +218,12 @@ def _require_finite_json_numbers(value, field_path="dataset"):
             _require_finite_json_numbers(child, f"{field_path}[{index}]")
 
 
-@lru_cache(maxsize=2)
-def _schema_validator(browser_projection):
-    common = json.loads((SCHEMA_DIRECTORY / "frontier_3d_model_reference_contract_common.schema.json").read_text())
-    schema = json.loads((SCHEMA_DIRECTORY / ("frontier_3d_browser_projection_v1.schema.json" if browser_projection else "frontier_3d_scientific_dataset_v3.schema.json")).read_text())
+@lru_cache(maxsize=4)
+def _schema_validator(browser_projection, schema_version):
+    current = schema_version in (SCIENTIFIC_CONTRACT_SCHEMA_VERSION, BROWSER_PROJECTION_SCHEMA_VERSION)
+    common = json.loads((SCHEMA_DIRECTORY / ("frontier_3d_model_reference_contract_common_v2.schema.json" if current else "frontier_3d_model_reference_contract_common.schema.json")).read_text())
+    filename = ("frontier_3d_browser_projection_v2.schema.json" if browser_projection else "frontier_3d_scientific_dataset_v4.schema.json") if current else ("frontier_3d_browser_projection_v1.schema.json" if browser_projection else "frontier_3d_scientific_dataset_v3.schema.json")
+    schema = json.loads((SCHEMA_DIRECTORY / filename).read_text())
     registry = Registry().with_resource(common["$id"], Resource.from_contents(common))
     Draft202012Validator.check_schema(common)
     Draft202012Validator.check_schema(schema)
@@ -227,7 +232,7 @@ def _schema_validator(browser_projection):
 
 def validate_versioned_frontier_3d_model_reference_contract(dataset, *, browser_projection):
     _require_finite_json_numbers(dataset)
-    error = next(_schema_validator(browser_projection).iter_errors(dataset), None)
+    error = next(_schema_validator(browser_projection, dataset.get("schema_version")).iter_errors(dataset), None)
     if error:
         field_path = ".".join(map(str, error.absolute_path))
         raise ValueError(f"JSON Schema 校验失败 {field_path}：{error.message}")
@@ -240,6 +245,27 @@ def validate_versioned_frontier_3d_model_reference_contract(dataset, *, browser_
         expected = "model_uuid" if model.get("model_uuid") else "legacy_creator_and_name_without_uuid"
         if model.get("identity_resolution", "model_uuid") != expected:
             raise ValueError("identity_resolution 与 model_uuid 不一致")
+    if dataset["schema_version"] in (SCIENTIFIC_CONTRACT_SCHEMA_VERSION, BROWSER_PROJECTION_SCHEMA_VERSION):
+        for key, variant in dataset["metric_variants"].items():
+            indices = [record["model_index"] for record in variant["model_analysis_records"]]
+            if sorted(indices) != list(range(len(dataset["models"]))):
+                raise ValueError(f"{key}.model_analysis_records 必须唯一覆盖全部公共模型")
+            displayed_indices = {marker["model_index"] for marker in variant["three_dimensional_scene"]["displayed_model_markers"]}
+            if any(not 0 <= index < len(dataset["models"]) for index in displayed_indices):
+                raise ValueError(f"{key}.displayed_model_markers.model_index 引用越界")
+            for record in variant["model_analysis_records"]:
+                if record["is_displayed"] != (record["model_index"] in displayed_indices):
+                    raise ValueError(f"{key}.model_analysis_records 上图状态与场景引用不一致")
+                eligibility = record.get("analysis_eligibility")
+                if eligibility is None:
+                    eligibility_index = record.get("analysis_eligibility_index")
+                    definitions = dataset.get("analysis_eligibility_definitions", [])
+                    if not isinstance(eligibility_index, int) or not 0 <= eligibility_index < len(definitions):
+                        raise ValueError(f"{key}.model_analysis_records.analysis_eligibility_index 引用越界")
+                    eligibility = definitions[eligibility_index]
+                if record["missing_dimension_names"] or not eligibility["is_analysis_eligible_for_current_metric_variant"]:
+                    if any(value is not None for classification in record["sensitivity_by_intelligence_half_width"].values() for value in classification.values()):
+                        raise ValueError(f"{key} 不合格记录的敏感性必须保持未知")
     expanded = expand_frontier_3d_visualization_dataset_for_scene_consumers(dataset)
     from .frontier_3d_visualization_dataset_builder import validate_frontier_3d_visualization_dataset, _validate_coordinate_lists
     validate_frontier_3d_visualization_dataset(expanded)
@@ -283,7 +309,7 @@ def build_frontier_3d_browser_projection(dataset):
     from .frontier_3d_visualization_dataset_builder import validate_frontier_3d_visualization_dataset
     validate_frontier_3d_visualization_dataset(dataset)
     result = adapt_frontier_3d_visualization_dataset_to_v3(dataset)
-    result["schema_version"] = BROWSER_PROJECTION_SCHEMA_VERSION
+    result["schema_version"] = BROWSER_PROJECTION_SCHEMA_VERSION if result["schema_version"] == SCIENTIFIC_CONTRACT_SCHEMA_VERSION else PREVIOUS_BROWSER_PROJECTION_SCHEMA_VERSION
     for model in result["models"]:
         if model.get("model_uuid"):
             model.pop("identity_resolution", None)
@@ -309,7 +335,7 @@ def build_frontier_3d_browser_projection(dataset):
     eligibility_definitions = result.setdefault("analysis_eligibility_definitions", [])
     eligibility_index_by_serialized_definition = {json.dumps(definition, ensure_ascii=False, sort_keys=True): index for index, definition in enumerate(eligibility_definitions)}
     for variant in result["metric_variants"].values():
-        references = [*variant["three_dimensional_scene"]["displayed_model_markers"], *variant["excluded_models_with_drop_reason"],
+        references = [*variant["three_dimensional_scene"]["displayed_model_markers"], *variant["excluded_models_with_drop_reason"], *variant.get("model_analysis_records", []),
                       *(node for nodes in variant["interaction_relationships"].get("lineages", {}).values() for node in nodes)]
         for reference in references:
             if "analysis_eligibility" not in reference:

@@ -781,6 +781,11 @@ def main(command_line_arguments: list[str] | None = None) -> None:
                 else frontier.DEFAULT_RECENT_RELEASE_FRONTIER_DISTANCE_GRACE_PERIOD_MONTHS
             ),
         )
+        from .frontier_3d_refresh_difference_history import attach_refresh_difference_report_from_cached_sources
+        attach_refresh_difference_report_from_cached_sources(dataset,
+            args.artificial_analysis_raw_data_directory or fetch_data.RAW,
+            output_html_path.parent / "frontier-3d-scientific-snapshot-history",
+            accepted_source_records=models_dataframe.attrs.get("frontier_refresh_accepted_source_records"))
         write_frontier_3d_visualization_dataset(dataset, dataset_output_path)
         print(f"可视化数据契约: {dataset_output_path}")
 
@@ -803,6 +808,10 @@ def main(command_line_arguments: list[str] | None = None) -> None:
             # E7：静态导出失败不再吞掉错误（交互式 HTML 已写出，但整体以非零码退出）
             sys.exit(f"静态导出失败：{static_export_output_path}（见上方 [warn]；需要 kaleido）")
         print(f"✅ 静态图: {static_export_written_path}")
+
+    if models_dataframe is not None:
+        from .frontier_3d_refresh_difference_history import save_bound_scientific_snapshot
+        save_bound_scientific_snapshot(dataset, output_html_path.parent / "frontier-3d-scientific-snapshot-history")
 
 
 if __name__ == "__main__":

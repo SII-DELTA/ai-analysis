@@ -71,14 +71,16 @@ DISPLAYED_MODEL_MARKER_VALUE_PROVENANCE_REQUIRED_KEYS = (
 def verify_frontier_3d_visualization_dataset_embedded_in_rendered_html(
     rendered_frontier_3d_html_path: Path,
 ) -> None:
-    """验证渲染产物里内嵌的真实数据契约（不是合成契约）。"""
+    """验证产物实际内嵌的契约；输入也可以是合成验收页。"""
     rendered_html_text = rendered_frontier_3d_html_path.read_text(encoding="utf-8")
     embedded_dataset_matches = FRONTIER_3D_EMBEDDED_VISUALIZATION_DATASET_SCRIPT_TAG_PATTERN.findall(
         rendered_html_text
     )
     assert len(embedded_dataset_matches) == 1, "HTML 中应恰有一段内嵌数据契约"
     embedded_dataset = json.loads(embedded_dataset_matches[0])
-    if embedded_dataset.get("schema_version") == "frontier_3d_browser_projection/v1":
+    if embedded_dataset.get("schema_version") in (
+        "frontier_3d_browser_projection/v1", "frontier_3d_browser_projection/v2"
+    ):
         validate_frontier_3d_browser_projection(embedded_dataset)
     else:
         validate_frontier_3d_visualization_dataset(embedded_dataset)
@@ -163,7 +165,7 @@ def main() -> None:
     )
 
     assert FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION == (
-        "frontier_3d_visualization_dataset/v3"
+        "frontier_3d_visualization_dataset/v4"
     )
     validate_frontier_3d_visualization_dataset(dataset)
     assert dataset["interactive_renderer"] == "threejs"
@@ -191,12 +193,19 @@ def main() -> None:
         "effective__raw",
         "blended__effective",
         "blended__raw",
+        "effective__tasks_per_hour",
+        "blended__tasks_per_hour",
     }
     assert set(dataset["metric_variants"]) == expected_variant_keys
     for variant in dataset["metric_variants"].values():
         scene = variant["three_dimensional_scene"]
         relationships = variant["interaction_relationships"]
-        assert scene["displayed_model_markers"]
+        if relationships["speed_axis_field"] == "intelligence_index_tasks_per_hour":
+            # 此厂商身份样本没有可核验的目录任务耗时，任务速度应保持空场景。
+            assert scene["displayed_model_markers"] == []
+            assert variant["analysis_eligible_model_count"] == 0
+        else:
+            assert scene["displayed_model_markers"]
         assert scene["three_dimensional_axis_configuration"]["x_axis"]["scale_type"] == (
             "log"
         )

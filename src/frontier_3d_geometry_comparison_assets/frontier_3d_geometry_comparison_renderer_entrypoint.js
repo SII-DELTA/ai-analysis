@@ -303,7 +303,7 @@ try {
     }
     element("comparison-hover-name").textContent = model ? model.name : "悬浮模型查看同一位置";
     element("comparison-hover-values").textContent = model
-      ? `成本 ${number(model.raw_position[0])} ${variant.cost_axis_unit} · 速度 ${number(model.raw_position[1])} tok/s · 智能 ${number(model.raw_position[2])} · ${!model.analysis_eligible ? "历史口径，不参与本口径分析" : model.is_pareto ? "分析 Pareto 点" : "参与分析的非 Pareto 点"}`
+      ? `成本 ${number(model.raw_position[0])} ${variant.cost_axis_unit} · 速度 ${number(model.raw_position[1])} ${variant.speed_axis_unit || "tok/s"} · 智能 ${number(model.raw_position[2])} · ${!model.analysis_eligible ? "历史口径，不参与本口径分析" : model.is_pareto ? "分析 Pareto 点" : "参与分析的非 Pareto 点"}`
       : "两个视图的模型标识与数值一致。";
     requestRender();
   }

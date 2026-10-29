@@ -32,7 +32,7 @@ def test_comparison_preserves_source_delaunay_indices_and_excludes_historical_an
     source_before = copy.deepcopy(source_dataset)
     comparison = build_geometry_comparison_dataset(source_dataset, "synthetic-source-sha256")
     assert comparison["source_dataset_sha256"] == "synthetic-source-sha256"
-    assert len(comparison["metric_variants"]) == 4
+    assert set(comparison["metric_variants"]) == set(source_dataset["metric_variants"])
     for key, variant in comparison["metric_variants"].items():
         scene = source_dataset["metric_variants"][key]["three_dimensional_scene"]
         original_mesh = scene["pareto_frontier_surface_triangle_mesh"]
@@ -75,7 +75,7 @@ def test_artifacts_are_self_contained_escaped_and_input_is_not_overwritten(sourc
     assert source_path.read_bytes() == original_bytes
     metrics = json.loads(artifacts["metrics"].read_text())
     assert metrics["source_dataset_sha256"] == hashlib.sha256(original_bytes).hexdigest()
-    assert len(metrics["metric_variants"]) == 4
+    assert set(metrics["metric_variants"]) == set(source["metric_variants"])
 
 
 def test_shared_output_destination_and_symlinked_output_files_are_rejected(source_dataset, tmp_path):

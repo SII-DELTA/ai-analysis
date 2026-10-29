@@ -1,4 +1,4 @@
-"""构建 v3 纯几何科学契约，读取入口兼容 v2；所有数值为有限数或 null。"""
+"""构建 v4 六口径纯几何科学契约，读取兼容 v2/v3；数值为有限数或 null。"""
 from __future__ import annotations
 
 import base64
@@ -14,7 +14,10 @@ import json
 from uuid import UUID
 
 from . import frontier, visualize
-from .fetch_data import MODELS_DATAFRAME_ATTRS_KEY_ARTIFICIAL_ANALYSIS_DATA_PROVENANCE
+from .fetch_data import (
+    EMBEDDED_MODEL_CATALOG_INTELLIGENCE_AGREEMENT_ABSOLUTE_TOLERANCE,
+    MODELS_DATAFRAME_ATTRS_KEY_ARTIFICIAL_ANALYSIS_DATA_PROVENANCE,
+)
 from .frontier_3d_organization_identity_metadata_registry import (
     organization_identity_metadata_by_creator_name,
 )
@@ -26,7 +29,7 @@ from .frontier_3d_versioned_model_reference_contract import (
 )
 
 LEGACY_FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION = "frontier_3d_visualization_dataset/v2"
-FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION = "frontier_3d_visualization_dataset/v3"
+FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION = "frontier_3d_visualization_dataset/v4"
 DEFAULT_SPEED_METRIC_NAME = "effective"
 DEFAULT_COST_METRIC_NAME = "effective"
 DEFAULT_FRONTIER_3D_VISUALIZATION_DATASET_FILENAME = (
@@ -55,6 +58,13 @@ SPEED_METRIC_DEFINITIONS = {
         "label": "原始速度",
         "description": "原始生成速度，单位 tok/s；不代表端到端任务耗时。",
         "axis_title_text": "原始速度",
+    },
+    "tasks_per_hour": {
+        "column_name": "intelligence_index_tasks_per_hour",
+        "label": "任务速度",
+        "description": "3600 ÷ 当期可核验的智能指数任务耗时（秒），单位任务/小时；不使用 API 端到端延迟补位。",
+        "axis_title_text": "任务速度",
+        "unit": "任务/小时",
     },
 }
 
@@ -352,6 +362,7 @@ def _build_expanded_frontier_3d_visualization_dataset(
     recent_release_frontier_distance_grace_period_months: int = (
         frontier.DEFAULT_RECENT_RELEASE_FRONTIER_DISTANCE_GRACE_PERIOD_MONTHS
     ),
+    include_all_input_model_analysis_records: bool = False,
 ) -> dict[str, Any]:
     """把已合并的 AA DataFrame 转成前端可直接渲染的数据契约。
 
@@ -416,6 +427,8 @@ def _build_expanded_frontier_3d_visualization_dataset(
 
     for cost_metric_name, cost_metric_definition in COST_METRIC_DEFINITIONS.items():
         for speed_metric_name, speed_metric_definition in SPEED_METRIC_DEFINITIONS.items():
+            if not include_all_input_model_analysis_records and speed_metric_name == "tasks_per_hour":
+                continue
             variant_key = f"{cost_metric_name}__{speed_metric_name}"
             cost_metric_column_name = cost_metric_definition["column_name"]
             speed_metric_column_name = speed_metric_definition["column_name"]
@@ -497,6 +510,30 @@ def _build_expanded_frontier_3d_visualization_dataset(
                 ],
                 "excluded_models_with_drop_reason": _excluded_models_with_drop_reason(variant_df),
             }
+            if include_all_input_model_analysis_records:
+                from .frontier_3d_sensitivity_analysis import classify_frontier_sensitivity_intervals
+                records = []
+                interval_inputs = []
+                for _, row in variant_df.iterrows():
+                    missing = list(row.get(frontier.MISSING_DIMENSION_NAMES_COLUMN_NAME) or [])
+                    eligibility = visualize.model_analysis_eligibility(row)
+                    records.append({
+                        "model_uuid": visualize._text_or_none(row.get("id")),
+                        "name": str(row["name"]), "creator": row["creator"],
+                        "analysis_eligibility": eligibility,
+                        "missing_dimension_names": missing, "drop_reason": str(row["drop_reason"]),
+                        "is_displayed": bool(row["kept"]),
+                        "layer": visualize._finite_float_or_none(row["layer"]),
+                    })
+                    interval_inputs.append({"intelligence": visualize._finite_float_or_none(row["intelligence"]),
+                        "cost": visualize._finite_float_or_none(row[cost_metric_column_name]),
+                        "speed": visualize._finite_float_or_none(row[speed_metric_column_name]),
+                        "eligible": eligibility["is_analysis_eligible_for_current_metric_variant"] and not missing})
+                for half_width in (.5, 1):
+                    classifications = classify_frontier_sensitivity_intervals(interval_inputs, intelligence_half_width=half_width)
+                    for record, classification in zip(records, classifications):
+                        record.setdefault("sensitivity_by_intelligence_half_width", {})[str(half_width)] = classification
+                metric_variants[variant_key]["model_analysis_records"] = records
             if not interaction_payload["models"]:
                 # RVF-002 / R1-03：单个口径零模型（如有效速度全缺）只输出合法空场景并告警，不阻断其他口径
                 print(
@@ -505,13 +542,13 @@ def _build_expanded_frontier_3d_visualization_dataset(
                     "（该口径的维度值全部缺失或全部被剪枝），输出空场景；其他口径不受影响"
                 )
 
-    if all(metric_variant["kept_model_count"] == 0 for metric_variant in metric_variants.values()):
+    if not include_all_input_model_analysis_records and all(metric_variant["kept_model_count"] == 0 for metric_variant in metric_variants.values()):
         raise ValueError("所有口径剪枝后都没有保留模型，请放宽参数或检查成本/速度数据")
 
     displayed_creators = {marker["creator"] for variant in metric_variants.values() for marker in variant["three_dimensional_scene"]["displayed_model_markers"]}
     unregistered_displayed_creators = sorted(name for name in displayed_creators if organization_identity_metadata[name]["registration_status"].startswith("unregistered"))
     if unregistered_displayed_creators:
-        print("[warn] 四口径显示并集中存在未注册厂商：" + "、".join(unregistered_displayed_creators), file=sys.stderr)
+        print("[warn] 各口径显示并集中存在未注册厂商：" + "、".join(unregistered_displayed_creators), file=sys.stderr)
 
     initial_variant_key = f"{initial_cost_metric_name}__{initial_speed_metric_name}"
     if initial_variant_key not in metric_variants:
@@ -527,7 +564,8 @@ def _build_expanded_frontier_3d_visualization_dataset(
         "initial_variant_key": initial_variant_key,
         "speed_scale": speed_scale,
         "cost_metric_definitions": COST_METRIC_DEFINITIONS,
-        "speed_metric_definitions": SPEED_METRIC_DEFINITIONS,
+        "speed_metric_definitions": {key: value for key, value in SPEED_METRIC_DEFINITIONS.items()
+                                     if include_all_input_model_analysis_records or key != "tasks_per_hour"},
         "organization_identity_metadata_by_creator_name": (
             organization_identity_metadata
         ),
@@ -780,7 +818,7 @@ def validate_frontier_3d_visualization_dataset(dataset: dict[str, Any]) -> None:
     零模型、零 Pareto 的空网格是合法场景；
     缺键的空 scene 不合法。
     """
-    if dataset.get("schema_version") == FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION:
+    if dataset.get("schema_version") in (FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION, "frontier_3d_visualization_dataset/v3"):
         from .frontier_3d_versioned_model_reference_contract import validate_versioned_frontier_3d_model_reference_contract
         validate_versioned_frontier_3d_model_reference_contract(dataset, browser_projection=False)
         return
@@ -797,7 +835,7 @@ def validate_frontier_3d_visualization_dataset(dataset: dict[str, Any]) -> None:
     expected_variant_keys = {
         f"{cost_metric_name}__{speed_metric_name}"
         for cost_metric_name in COST_METRIC_DEFINITIONS
-        for speed_metric_name in SPEED_METRIC_DEFINITIONS
+        for speed_metric_name in ("effective", "raw")
     }
     missing_variant_keys = expected_variant_keys - set(metric_variants)
     if missing_variant_keys:
@@ -864,8 +902,106 @@ def default_frontier_3d_visualization_dataset_path_for_html(
     return output_html_path.with_name(DEFAULT_FRONTIER_3D_VISUALIZATION_DATASET_FILENAME)
 
 
+def models_dataframe_with_verified_intelligence_index_task_speed(
+    df: pd.DataFrame, *, artificial_analysis_data_provenance=None,
+) -> pd.DataFrame:
+    """供科学契约和离线模拟共用；仅从当期可核验的正有限任务秒值派生时速。"""
+    df = df.copy()
+    seconds_column = "artificial_analysis_intelligence_index_time_per_task_seconds"
+    current_column = "intelligence_index_time_per_task_value_is_from_current_intelligence_index_version"
+    raw_seconds = df.get(seconds_column, pd.Series(np.nan, index=df.index))
+    seconds = pd.to_numeric(raw_seconds.map(lambda value: None if isinstance(value, (bool,np.bool_)) else visualize._finite_float_or_none(value)), errors="coerce")
+    current = df.get(current_column, pd.Series(False, index=df.index)).map(_is_true_boolean_value)
+    from .fetch_data import intelligence_index_version_family
+    provenance = artificial_analysis_data_provenance
+    if provenance is None:
+        provenance = artificial_analysis_data_provenance_from_models_dataframe(df)
+    catalog_version = intelligence_index_version_family(provenance.get("embedded_model_catalog_intelligence_index_version"))
+    current_version = intelligence_index_version_family(provenance.get("current_intelligence_index_version"))
+    catalog_intelligence = pd.to_numeric(df.get("intelligence_measurement_catalog_intelligence", pd.Series(np.nan,index=df.index)),errors="coerce")
+    current_intelligence = pd.to_numeric(df["intelligence"],errors="coerce")
+    catalog_source = df.get("intelligence_measurement_source", pd.Series(None,index=df.index,dtype=object))
+    current &= (catalog_source.eq("artificial_analysis_embedded_model_catalog_accepted_partition")
+                & np.isfinite(catalog_intelligence) & np.isfinite(current_intelligence)
+                & catalog_intelligence.sub(current_intelligence).abs().le(EMBEDDED_MODEL_CATALOG_INTELLIGENCE_AGREEMENT_ABSOLUTE_TOLERANCE + 1e-9)
+                & bool(catalog_version and catalog_version == current_version)).fillna(False)
+    df[seconds_column] = seconds
+    df[current_column] = current
+    df["intelligence_index_tasks_per_hour"] = (3600 / seconds).where(current & np.isfinite(seconds) & seconds.gt(0))
+    return df
+
+
 def build_frontier_3d_visualization_dataset(df: pd.DataFrame, **parameters) -> dict[str, Any]:
-    """默认输出 v3；计算与科学数值保持既有口径，不创建 Plotly 图。"""
-    return adapt_frontier_3d_visualization_dataset_to_v3(
-        _build_expanded_frontier_3d_visualization_dataset(df, **parameters)
+    """v4 保留全部输入与六口径分析引用；四个既有口径继续使用相同计算。"""
+    from .frontier_3d_versioned_model_reference_contract import _identity_key
+    df = df.copy().reset_index(drop=True)
+    df.attrs.pop("frontier_refresh_accepted_source_records", None)
+    df = models_dataframe_with_verified_intelligence_index_task_speed(
+        df, artificial_analysis_data_provenance=parameters.get("artificial_analysis_data_provenance"),
     )
+    seconds_column = "artificial_analysis_intelligence_index_time_per_task_seconds"
+    current_column = "intelligence_index_time_per_task_value_is_from_current_intelligence_index_version"
+    seconds, current = df[seconds_column], df[current_column]
+    df = _models_dataframe_with_invalid_axis_coordinates_treated_as_missing(df)
+    expanded = _build_expanded_frontier_3d_visualization_dataset(df, include_all_input_model_analysis_records=True, **parameters)
+    all_records = {key: variant.pop("model_analysis_records") for key, variant in expanded["metric_variants"].items()}
+    result = adapt_frontier_3d_visualization_dataset_to_v3(expanded)
+    result["schema_version"] = FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION
+    result["model_table_coverage"] = "all_input_records"
+    result["analysis_parameters"] = {key: parameters.get(key, default) for key, default in {
+        "since_months": 18, "max_layers": 3, "hard_age_cutoff_months": 36, "speed_scale": "log",
+        "recent_release_frontier_distance_grace_period_months": frontier.DEFAULT_RECENT_RELEASE_FRONTIER_DISTANCE_GRACE_PERIOD_MONTHS,
+    }.items()}
+    indices = {_identity_key(model): index for index, model in enumerate(result["models"])}
+    seen_input_identities = set()
+    relationship_configuration = visualize.build_model_relationship_configuration_resolver_for_models_dataframe(df)
+    for _, row in df.iterrows():
+        identity = {"name": str(row["name"]), "creator": _creator_name_or_placeholder(row.get("creator")),
+                    "model_uuid": visualize._text_or_none(row.get("id"))}
+        key = _identity_key(identity)
+        if key in seen_input_identities:
+            raise ValueError("输入表包含重复模型 UUID 或无 UUID 的重复身份")
+        seen_input_identities.add(key)
+        if key not in indices:
+            indices[key] = len(result["models"])
+            result["models"].append({**identity, "identity_resolution": "model_uuid" if identity["model_uuid"] else "legacy_creator_and_name_without_uuid"})
+        model = result["models"][indices[key]]
+        base_name, tier, reasoning_level, reasoning_order, _ = relationship_configuration(row)
+        for field, value in (("base_model_name", base_name), ("tier", tier),
+                             ("reasoning_level_label", reasoning_level), ("reasoning_level_sort_order", reasoning_order)):
+            model.setdefault(field, value)
+        panel = model.setdefault("panel", {})
+        for field in ("intelligence", "cost_to_run", "eff_speed", "output_speed", "blended_price_cache_input_output_7_to_2_to_1",
+                      "output_mtokens", "intelligence_index_tasks_per_hour", seconds_column, "median_end_to_end_response_time_seconds"):
+            panel[field] = visualize._finite_float_or_none(row.get(field))
+        panel["release_date"] = _iso_calendar_date_text(row["release_date"]) if pd.notna(row.get("release_date")) else "?"
+        raw_estimated_flag = visualize._boolean_or_none(row.get("artificial_analysis_intelligence_index_is_estimated"))
+        catalog_intelligence = visualize._finite_float_or_none(row.get("intelligence_measurement_catalog_intelligence"))
+        catalog_source = visualize._text_or_none(row.get("intelligence_measurement_source"))
+        verified_measurement = (raw_estimated_flag is not None and panel["intelligence"] is not None
+                                and catalog_intelligence is not None and math.isclose(catalog_intelligence, panel["intelligence"], abs_tol=EMBEDDED_MODEL_CATALOG_INTELLIGENCE_AGREEMENT_ABSOLUTE_TOLERANCE + 1e-9, rel_tol=0)
+                                and catalog_source == "artificial_analysis_embedded_model_catalog_accepted_partition")
+        model["intelligence_measurement_status"] = ("estimated" if raw_estimated_flag else "measured") if verified_measurement else "unknown"
+        model["artificial_analysis_intelligence_index_is_estimated"] = raw_estimated_flag
+        model["intelligence_measurement_evidence"] = {
+            "source": catalog_source,
+            "catalog_intelligence": catalog_intelligence,
+            "catalog_captured_at_utc": result["artificial_analysis_data_provenance"].get("embedded_model_catalog_captured_at_utc"),
+            "catalog_intelligence_index_version": result["artificial_analysis_data_provenance"].get("embedded_model_catalog_intelligence_index_version"),
+        }
+        model["value_provenance"] = {field: visualize._text_or_none(row.get(field))
+                                     for field in visualize.DISPLAYED_MODEL_MARKER_VALUE_PROVENANCE_COLUMN_NAMES}
+        model["intelligence_index_task_time_evidence"] = {
+            "is_verified_current": bool(current.loc[row.name]),
+            "source": visualize._text_or_none(row.get("intelligence_measurement_source")),
+            "unavailability_reason": None if panel["intelligence_index_tasks_per_hour"] is not None else (
+                "任务耗时缺失、非正或非有限" if not (pd.notna(seconds.loc[row.name]) and math.isfinite(seconds.loc[row.name]) and seconds.loc[row.name] > 0)
+                else "任务耗时无法核验为当期；未以 API 端到端延迟补位"),
+        }
+    for key, records in all_records.items():
+        for record in records:
+            record["model_index"] = indices[_identity_key(record)]
+            for field in ("model_uuid", "name", "creator"):
+                record.pop(field)
+        result["metric_variants"][key]["model_analysis_records"] = records
+    return result

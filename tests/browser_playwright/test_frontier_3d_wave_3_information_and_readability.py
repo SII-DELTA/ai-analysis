@@ -129,7 +129,7 @@ def test_preference_persistence_and_storage_failure(browser, synthetic_frontier_
     errors = []
     page.on("pageerror", lambda error: errors.append(str(error)))
     if storage_throws:
-        page.add_init_script("Object.defineProperty(window,'localStorage',{get(){throw new Error('storage unavailable')}})")
+        context.add_init_script("Object.defineProperty(window,'localStorage',{get(){throw new Error('storage unavailable')}})")
     page.goto(synthetic_frontier_report_path.as_uri())
     page.wait_for_function("typeof setFrontierMarkerSizeMultiplier === 'function'")
     assert page.evaluate("frontierThreeDimensionalVisualizationState().markerSizeMultiplier") == .5
@@ -137,7 +137,12 @@ def test_preference_persistence_and_storage_failure(browser, synthetic_frontier_
     page.evaluate("pinFrontierBaseModel('Qwen4 Max')")
     page.locator("#aa-pinned-comparison-panel > summary").click()
     page.locator('[data-comparison-field="output_mtokens"]').first.check()
-    page.reload()
+    # 用同一浏览器 context 的新文档验证本地偏好，避免 URL 状态或 hash 导航代替持久化。
+    page.wait_for_function("location.hash.startsWith('#frontier-view-state-v1=') && JSON.parse(decodeURIComponent(location.hash.split('=')[1])).display.pinned_comparison_optional_fields.includes('output_mtokens')")
+    page.close()
+    page = context.new_page()
+    page.on("pageerror", lambda error: errors.append(str(error)))
+    page.goto(synthetic_frontier_report_path.as_uri())
     page.wait_for_function("typeof setFrontierMarkerSizeMultiplier === 'function'")
     assert page.evaluate("frontierThreeDimensionalVisualizationState().markerSizeMultiplier") == (.5 if storage_throws else 1.25)
     page.evaluate("pinFrontierBaseModel('Qwen4 Max')")
@@ -148,7 +153,8 @@ def test_preference_persistence_and_storage_failure(browser, synthetic_frontier_
 
 
 def test_legacy_v2_degrades_without_new_fields(frontier_page, synthetic_frontier_dataset, tmp_path):
-    dataset = expand_frontier_3d_visualization_dataset_for_scene_consumers(synthetic_frontier_dataset)
+    from tests.python_unit.test_frontier_3d_v3_deduplicated_contract_and_browser_projection import build_legacy_v3_dataset
+    dataset = expand_frontier_3d_visualization_dataset_for_scene_consumers(build_legacy_v3_dataset())
     for definitions in [dataset["cost_metric_definitions"], dataset["speed_metric_definitions"]]:
         for definition in definitions.values():
             definition.pop("description", None)

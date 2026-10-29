@@ -7,6 +7,10 @@ import { compareModelReasoningLevels, percentageDifferenceFromBaseline, committe
 import { solveFrontierAxisAnnotationLayout } from "./frontier_3d_threejs_axis_annotation_layout_solver.js";
 import { expandFrontierModelReferencesForSceneConsumers } from "./frontier_3d_model_reference_expander.js";
 import * as THREE from "three";
+import { mountFrontierModelExplorationControls, downloadFrontierBrowserArtifact } from "./frontier_3d_model_exploration_controls.js";
+import { modelVisibilityForExplorationFilters, intelligenceMeasurementStatusText, frontierSensitivityStatusText, decodeFrontierViewStateHash } from "./frontier_3d_view_state_and_model_table.js";
+import { installFrontierCameraViewControls } from "./frontier_3d_camera_view_controls.js";
+import { renderFrontierBrowserPng } from "./frontier_3d_browser_png_export.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import {
   FRONTIER_STANDOUT_METRIC_DEFINITIONS_BY_NAME,
@@ -63,6 +67,10 @@ import {
   }
 
   const reportHeader = document.getElementById("frontier-3d-report-header");
+  let explorationControls = null;
+  let cameraViewControls = null;
+  const explorationFilters = { measured_only: false, cutoff_date: null, date_mode: "fade", sensitivity_intelligence_half_width: "off" };
+  function notifyExplorationViewChanged() { explorationControls?.sharedViewChanged(); }
 
   // 契约顶层数据来源（W1-8 起提供）；旧契约缺该字段时页头降级为「抓取时间未知」等文案，不报错。
   const artificialAnalysisDataProvenance =
@@ -101,6 +109,9 @@ import {
     webglRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: false });
   } catch {
     setRuntimeIssue("webgl_unavailable", "无法启动三维图：当前环境不支持 WebGL，或图形资源不足。请启用浏览器图形加速后重新加载。");
+    explorationControls = mountFrontierModelExplorationControls({dataset:visualizationDataset,reportShell,toolbar,plotRegion,graphContainer,sidePanel,webglAvailable:false});
+    window.serializeFrontierViewState = explorationControls.getState;
+    window.setFrontierExplorationFilters = explorationControls.setExplorationFilters;
     return;
   }
   let webglContextUnavailable = false;
@@ -196,8 +207,9 @@ import {
   const pinnedModelIdentities = new Set();
   const allModelRecordsByIdentity = new Map();
   function stableModelIdentity(model) {
-    return model.model_uuid || `legacy:${JSON.stringify([model.creator, model.name])}`;
+    return model.model_uuid?.toLowerCase() || `legacy:${JSON.stringify([model.creator, model.name])}`;
   }
+  (visualizationDataset.models || []).forEach(model => allModelRecordsByIdentity.set(stableModelIdentity(model),model));
   Object.values(metricVariantsByKey).forEach((variant) => {
     (variant.three_dimensional_scene?.displayed_model_markers || []).forEach((model) => {
       allModelRecordsByIdentity.set(stableModelIdentity(model), model);
@@ -336,8 +348,8 @@ import {
   }
 
   function updateProjectedAxisAnnotations() {
-    const canvasWidth = graphContainer.clientWidth;
-    const canvasHeight = graphContainer.clientHeight;
+    // 标注沿实际 CSS 像素投影，避免分数高度被 clientHeight 取整后偏离轴端。
+    const {width:canvasWidth,height:canvasHeight} = graphContainer.getBoundingClientRect();
     const measurementViewport = `${canvasWidth}:${canvasHeight}:${window.innerWidth}:${window.innerHeight}`;
     if (measurementViewport !== axisAnnotationMeasurementViewport) {
       measuredAxisAnnotationSizes = new WeakMap();
@@ -394,6 +406,7 @@ import {
     while (group.children.length) {
       const child = group.children.pop();
       child.userData.foregroundMaterial?.dispose();
+      child.userData.dateFadedMaterial?.dispose();
       // THREE.Sprite 共享模块级 geometry；销毁其中一个会迫使全部 Logo 在下一帧重建 GPU buffer。
       if (!child.isSprite && child.geometry && child.geometry.dispose) {
         child.geometry.dispose();
@@ -753,6 +766,12 @@ import {
     context.beginPath(); context.arc(64, 64, 54, 0, Math.PI * 2);
     context.setLineDash([8, 8]); context.lineWidth = 5; context.strokeStyle = "rgba(71,85,105,0.8)"; context.stroke();
   });
+  const sensitivityRingMaterials = Object.fromEntries([
+    ["robust", "#16a34a", false], ["sensitive", "#b45309", true], ["near", "#a855f7", true], ["new_entry", "#0891b2", false],
+  ].map(([name,color,dashed]) => [name,spriteMaterial(canvasTextureFromDrawing(context=>{
+    context.beginPath();context.arc(64,64,54,0,Math.PI*2);context.lineWidth=6;context.strokeStyle=color;
+    if(dashed)context.setLineDash([9,7]);context.stroke();
+  }))]));
   const pinnedRingTexture = canvasTextureFromDrawing((context) => {
     context.beginPath();
     context.arc(64, 64, 54, 0, Math.PI * 2);
@@ -879,6 +898,7 @@ import {
     }
     writeStoredPreference(MARKER_SIZE_STORAGE_KEY, markerSizeMultiplier);
     requestThreeDimensionalSceneRender();
+    notifyExplorationViewChanged();
     return true;
   }
 
@@ -909,6 +929,8 @@ import {
     const model = displayedModelMarkers[modelIndex];
     if (!model) return [];
     const reasons = [];
+    const explorationVisibility = modelVisibilityForExplorationFilters(model,explorationFilters);
+    if (!explorationVisibility.visible) reasons.push(explorationVisibility.reason);
     if (!currentOrganizationVisibility(model.creator)) reasons.push("厂商筛选");
     if (showOnlyCurrentIntelligenceIndexVersionComparableModels &&
         !modelIsAnalysisEligibleForActiveMetricVariant(model)) reasons.push("仅当期可比");
@@ -1058,7 +1080,12 @@ import {
       );
       pinnedRingSprite.visible = false;
 
+      const sensitivityRingSprite = addSharedMaterialSprite(sensitivityRingMaterials.robust,position,60,48);
+      sensitivityRingSprite.visible = false;
+      const newFrontierEntrySprite = addSharedMaterialSprite(sensitivityRingMaterials.new_entry,position,70,47);
+      newFrontierEntrySprite.visible = false;
       modelVisualObjectsByModelIndex.push({
+        sensitivityRingSprite, newFrontierEntrySprite,
         creatorName: model.creator,
         isAnalysisEligible,
         hasNonFiniteContractCoordinate: nonFiniteMarkerCoordinateCount > 0,
@@ -1093,6 +1120,7 @@ import {
       visualObjects.pinnedRingSprite.visible =
         markerVisible && modelIsPinned(model);
     });
+    applySensitivityAndRefreshEntryRings();
     renderReportHeaderModelCountSummary();
     refreshOrganizationAndCountryRegionVisibleModelCounts();
     renderHowToReadDrawer();
@@ -1103,6 +1131,7 @@ import {
     renderCurrentView();
     if (standoutRankingList) applyStandoutVisualEncoding();
     requestThreeDimensionalSceneRender();
+    notifyExplorationViewChanged();
   }
 
   function setShowOnlyCurrentIntelligenceIndexVersionComparableModels(nextValue) {
@@ -1162,6 +1191,7 @@ import {
       updateFrontierGeometryExplanationDisclosureLabel();
     }
     requestThreeDimensionalSceneRender();
+    notifyExplorationViewChanged();
   }
 
   function setFrontierStyle(nextStyle) {
@@ -1190,12 +1220,7 @@ import {
   }
 
   function applyInitialCameraConfiguration() {
-    const cameraConfiguration = activeThreeDimensionalScene.initial_camera_configuration;
-    const eye = cameraConfiguration.eye;
-    const center = cameraConfiguration.center;
-    perspectiveCamera.position.set(eye.x * 2.2, eye.y * 2.2, eye.z * 2.2);
-    orbitControls.target.set(center.x, center.y, center.z);
-    orbitControls.update();
+    cameraViewControls.resetCamera({commit:false});
   }
 
   // 谱系节点是否可作为连线端点：被剪枝的前身总会画出自己的标记；已上图（kept）的节点要求其标记当前可见
@@ -1204,6 +1229,9 @@ import {
     const creator = node.creator || node.lineage_family_key?.split("||")[0];
     if (creator && !currentOrganizationVisibility(creator)) return false;
     if (showOnlyCurrentIntelligenceIndexVersionComparableModels && !modelIsAnalysisEligibleForActiveMetricVariant(node)) return false;
+    const common = allModelRecordsByIdentity.get(stableModelIdentity(node));
+    const explorationModel = common || {...node,panel:{release_date:node.release_date}};
+    if (!modelVisibilityForExplorationFilters(explorationModel,explorationFilters).visible) return false;
     if (!node.kept) return true;
     const modelIndex = displayedModelMarkers.findIndex((model) => node.model_uuid ? model.model_uuid === node.model_uuid : model.name === node.name);
     return modelIndex >= 0 && modelMarkerIsCurrentlyVisible(modelIndex);
@@ -1212,7 +1240,7 @@ import {
   function applyRelationshipForegroundVisualEncoding() {
     modelVisualObjectsByModelIndex.forEach((visualObjects, index) => {
       const selected = modelMarkerIsCurrentlyVisible(index) && (modelIsPinned(displayedModelMarkers[index]) || hoveredModelIndex === index);
-      for (const sprite of [visualObjects.logoSprite, visualObjects.backplateSprite, visualObjects.countryRegionSprite, visualObjects.paretoRingSprite, visualObjects.pinnedRingSprite, visualObjects.standoutHaloSprite]) {
+      for (const sprite of [visualObjects.logoSprite, visualObjects.backplateSprite, visualObjects.countryRegionSprite, visualObjects.paretoRingSprite, visualObjects.pinnedRingSprite, visualObjects.standoutHaloSprite,visualObjects.sensitivityRingSprite,visualObjects.newFrontierEntrySprite]) {
         if (!sprite) continue;
         if (!sprite.userData.normalMaterial) {
           sprite.userData.normalMaterial = sprite.material;
@@ -1224,6 +1252,13 @@ import {
           sprite.userData.foregroundMaterial.depthWrite = false;
         }
         sprite.material = selected ? sprite.userData.foregroundMaterial : sprite.userData.normalMaterial;
+        if (modelVisibilityForExplorationFilters(displayedModelMarkers[index],explorationFilters).faded) {
+          if (!sprite.userData.dateFadedMaterial) sprite.userData.dateFadedMaterial = sprite.material.clone();
+          sprite.userData.dateFadedMaterial.copy(sprite.material);
+          sprite.userData.dateFadedMaterial.opacity = sprite.material.opacity * .24;
+          sprite.userData.dateFadedMaterial.depthWrite = false;
+          sprite.material = sprite.userData.dateFadedMaterial;
+        }
         // 夹紧前身可能投影重叠，选中点应保持在灰色前身（90）上层。
         sprite.renderOrder = selected ? 91 + sprite.userData.normalRenderOrder / 10 : sprite.userData.normalRenderOrder;
       }
@@ -1296,6 +1331,7 @@ import {
       transientRelationshipGroup.add(transientReasoningVariantLineObject);
     }
     applyRelationshipForegroundVisualEncoding();
+    applySystemColorSchemeToScene();
     renderLineageOverflowDirectionLabels();
     requestThreeDimensionalSceneRender();
   }
@@ -1322,6 +1358,8 @@ import {
     }
   }
 
+  function speedAxisUnit() { return activeInteractionRelationships.speed_axis_field === "intelligence_index_tasks_per_hour" ? "任务/小时" : "tok/s"; }
+
   function costAxisUnit() {
     return activeInteractionRelationships.cost_axis_unit || visualizationDataset.cost_metric_definitions?.[activeMetricVariantKey.split("__")[0]]?.unit || "USD";
   }
@@ -1338,13 +1376,20 @@ import {
     return section("模型身份", [
       `<strong>${escapeHtml(model.name)}</strong>`,
       `${escapeHtml(model.creator)} · ${escapeHtml(model.reasoning_level_label || model.tier || "档位未记录")}`,
-      `发布：${escapeHtml(panel.release_date || "未记录")}`,
+      `发布：${escapeHtml(panel.release_date && panel.release_date!=="?" ? panel.release_date : "未知发布日期")}`,
     ]) + section("坐标与备用口径", [
-      `智能指数：${formatSignificantNumber(panel.intelligence)}`,
-      `${escapeHtml(activeInteractionRelationships.speed_axis_label)}：${formatSignificantNumber(panel[activeInteractionRelationships.speed_axis_field])} tok/s`,
+      `智能指数：${formatSignificantNumber(panel.intelligence)}（${intelligenceMeasurementStatusText(model.intelligence_measurement_status)}）`,
+      `智能分来源：${escapeHtml(model.intelligence_measurement_evidence?.source ? `已接受的 AA 目录（v${model.intelligence_measurement_evidence.catalog_intelligence_index_version || "未知"}；${model.intelligence_measurement_evidence.catalog_captured_at_utc || "抓取时间未知"}）` : "未知；原始目录标记不作为实测证明")}`,
+      `任务速度：${formatSignificantNumber(panel.intelligence_index_tasks_per_hour)} 任务/小时；智能指数任务耗时 ${formatSignificantNumber(panel.artificial_analysis_intelligence_index_time_per_task_seconds)} 秒`,
+      ...(model.intelligence_index_task_time_evidence?.unavailability_reason ? [escapeHtml(model.intelligence_index_task_time_evidence.unavailability_reason)] : []),
+      `API 端到端延迟（独立字段）：${formatSignificantNumber(panel.median_end_to_end_response_time_seconds)} 秒`,
+      `${escapeHtml(activeInteractionRelationships.speed_axis_label)}：${formatSignificantNumber(panel[activeInteractionRelationships.speed_axis_field])} ${speedAxisUnit()}`,
       `${escapeHtml(activeInteractionRelationships.cost_axis_label)}：${formatSignificantNumber(panel[activeInteractionRelationships.cost_axis_field])} ${escapeHtml(costAxisUnit())}`,
       ...alternativeValues.map(([field, label, unit]) => `${label}：${formatSignificantNumber(panel[field])} ${unit}`),
       `冗长度：${formatSignificantNumber(panel.output_mtokens)} M tokens`,
+    ]) + section("敏感性假设与刷新", [
+      explorationFilters.sensitivity_intelligence_half_width === "off" ? "敏感性标注关闭" : `${frontierSensitivityStatusText(sensitivityClassificationForModel(model),panel.layer===1)}：智能 ±${explorationFilters.sensitivity_intelligence_half_width}；成本、速度各 ±10%；不是 AA 置信区间，不覆盖重定标误差`,
+      newlyEnteredFrontierModelUuids().has(stableModelIdentity(model)) ? "本期新入前沿（匹配历史科学快照）" : "前沿进出仅在历史科学快照可比较时标记",
     ]) + section("前沿与突出度", [
       eligible ? `帕累托层级：${formatSignificantNumber(panel.layer)}` : "帕累托层级：不参与（历史口径）",
       `${escapeHtml(FRONTIER_STANDOUT_METRIC_DEFINITIONS_BY_NAME[selectedFrontierStandoutMetricName].label)}：${standoutDisplayText(displayedStandoutValueForModel(model))}`,
@@ -1360,7 +1405,7 @@ import {
       lineageNode.relationship_kind === "same_generation_reasoning_variant" ? "同代其他档位 · 已从主散点裁剪" : "谱系前身 · 已从主散点裁剪",
       `发布：${escapeHtml(lineageNode.release_date)}`,
       `智能指数：${formatSignificantNumber(lineageNode.intelligence)}`,
-      `${escapeHtml(activeInteractionRelationships.speed_axis_label)}：${formatSignificantNumber(lineageNode.y)} tok/s`,
+      `${escapeHtml(activeInteractionRelationships.speed_axis_label)}：${formatSignificantNumber(lineageNode.y)} ${speedAxisUnit()}`,
       `${escapeHtml(activeInteractionRelationships.cost_axis_label)}：${formatSignificantNumber(lineageNode.x)} ${escapeHtml(costAxisUnit())}`,
       ...(direction ? [`箱壁夹紧：${escapeHtml(direction)}；以上数值保留原值。`] : []),
     ].join("<br>");
@@ -1656,6 +1701,7 @@ import {
     renderPinnedModelNameLabels();
     synchronizeTouchDetailsActions();
     requestThreeDimensionalSceneRender();
+    notifyExplorationViewChanged();
   }
 
   function togglePinnedBaseModelName(baseModelName) {
@@ -1734,6 +1780,7 @@ import {
     renderStandoutRanking(models, values);
     renderPinnedComparisonTable();
     requestThreeDimensionalSceneRender();
+    notifyExplorationViewChanged();
   }
 
   function renderStandoutRanking(models, values) {
@@ -1845,6 +1892,7 @@ import {
     buildAxesAndGrid();
     buildFrontierGeometry();
     buildModelMarkers();
+    applySystemColorSchemeToScene();
     setHoveredModelIndex(null);
     if (preserveCamera) {
       perspectiveCamera.position.copy(preservedCameraPosition);
@@ -1893,6 +1941,7 @@ import {
     if (loaded) {
       costMetricSelect.value = costMetricName;
       speedMetricSelect.value = speedMetricName;
+      notifyExplorationViewChanged();
     }
     return Promise.resolve(loaded);
   }
@@ -2170,6 +2219,7 @@ import {
     searchResults.setAttribute("role", "region");
     searchResults.setAttribute("aria-label", "模型搜索结果");
     searchInput.addEventListener("input", () => { searchActiveResultIndex = -1; renderSearchResults(); });
+    searchInput.addEventListener("focus", renderSearchResults);
     section.addEventListener("keydown", (event) => {
       const actions = [...searchResults.querySelectorAll("button")];
       if (event.key === "Escape") {
@@ -2197,6 +2247,10 @@ import {
         return { ...known, ...model, base_model_name: model.base_model_name || known?.base_model_name || model.name };
       }),
     ];
+    const knownIdentities = new Set(models.map(stableModelIdentity));
+    for (const record of activeMetricVariant?.model_analysis_records || []) {
+      if (!knownIdentities.has(stableModelIdentity(record))) models.push({...record,base_model_name:record.base_model_name || record.name});
+    }
     return matchingModelGroups(models, query);
   }
 
@@ -2238,6 +2292,7 @@ import {
       if (available.length) row.append(textElement("span", "aa-search-result-action-label", allKnownBaseModelIdentitiesArePinned(baseModelName) ? "取消固定" : "固定"));
       return row;
     }));
+    searchResults.hidden = !hasQuery;
     searchResults.style.display = hasQuery ? "block" : "none";
     searchInput.setAttribute("aria-expanded", String(hasQuery));
     searchInput.removeAttribute("aria-activedescendant");
@@ -2431,6 +2486,7 @@ import {
         if (checkbox.checked) selectedOptionalComparisonFieldNames.add(field); else selectedOptionalComparisonFieldNames.delete(field);
         writeStoredPreference(COMPARISON_FIELDS_STORAGE_KEY, [...selectedOptionalComparisonFieldNames]);
         renderPinnedComparisonTable();
+        notifyExplorationViewChanged();
       });
       label.append(checkbox, document.createTextNode(labels[field])); optionalFields.append(label);
     }
@@ -2442,6 +2498,7 @@ import {
     pinnedComparisonPanel.addEventListener("toggle", () => {
       if (pinnedComparisonPanel.open && window.matchMedia("(max-width: 1024px)").matches) setSidePanelExpanded(true);
       syncHorizontalOverflowFades();
+      notifyExplorationViewChanged();
     });
     reportShell.append(pinnedComparisonPanel);
   }
@@ -2836,6 +2893,7 @@ import {
     ).length;
     const historicalModelCount = historicalIntelligenceIndexVersionModelCountForActiveVariant();
     const summaryParts = [
+      `全部输入 ${visualizationDataset.model_table_coverage === "all_input_records" ? visualizationDataset.models.length : "未知（旧文件覆盖有限）"}`,
       visibleModelCount === displayedModelCount
         ? `显示 ${displayedModelCount} 个模型`
         : `显示 ${visibleModelCount}/${displayedModelCount} 个模型`,
@@ -3105,6 +3163,7 @@ import {
     for (const line of [transientLineageLineObject, transientReasoningVariantLineObject, transientSameGenerationLineObject]) line?.material.resolution.set(width, height);
     perspectiveCamera.aspect = width / height;
     perspectiveCamera.updateProjectionMatrix();
+    cameraViewControls?.onResize();
     for (const group of [modelMarkerGroup, transientRelationshipGroup]) group.children.filter(child => child.isSprite).forEach(sprite => setSpriteCssPixelSize(sprite, sprite.userData.cssPixelSize));
     if (!tooltip.hidden && latestTooltipPointerCoordinates) positionTooltip(latestTooltipPointerCoordinates);
     requestThreeDimensionalSceneRender();
@@ -3448,9 +3507,164 @@ import {
     };
   }
 
+  function modelAnalysisRecordForModel(model) {
+    return (activeMetricVariant?.model_analysis_records || []).find(record=>stableModelIdentity(record)===stableModelIdentity(model));
+  }
+  function sensitivityClassificationForModel(model) { return modelAnalysisRecordForModel(model)?.sensitivity_by_intelligence_half_width?.[explorationFilters.sensitivity_intelligence_half_width]; }
+  function newlyEnteredFrontierModelUuids() {
+    const comparison=visualizationDataset.refresh_difference_report?.frontier_comparison;
+    return new Set((comparison?.status === "comparable" ? comparison.entered_by_variant?.[activeMetricVariantKey] || [] : []).map(identity=>identity.toLowerCase()));
+  }
+  function applySensitivityAndRefreshEntryRings() {
+    const newlyEntered = newlyEnteredFrontierModelUuids();
+    modelVisualObjectsByModelIndex.forEach((objects,index)=>{
+      const model=displayedModelMarkers[index];
+      const classification=sensitivityClassificationForModel(model);
+      const kind=classification?.is_pareto_robust ? "robust" : classification?.is_near_frontier ? "near" : model.panel?.layer===1 && classification?.is_pareto_robust===false ? "sensitive" : null;
+      const ring=objects.sensitivityRingSprite;
+      if (ring) {
+        ring.visible=modelMarkerIsCurrentlyVisible(index) && explorationFilters.sensitivity_intelligence_half_width!=="off" && kind!==null;
+        if (kind) {
+          ring.material=sensitivityRingMaterials[kind];ring.userData.normalMaterial=ring.material;ring.userData.normalRenderOrder=48;
+          ring.userData.foregroundMaterial?.dispose();ring.userData.foregroundMaterial=null;
+        }
+      }
+      if(objects.newFrontierEntrySprite)objects.newFrontierEntrySprite.visible=modelMarkerIsCurrentlyVisible(index) && newlyEntered.has(stableModelIdentity(model));
+    });
+  }
+  let lastAppliedSystemColorScheme = null;
+  function applySystemColorSchemeToScene() {
+    const dark=window.matchMedia("(prefers-color-scheme: dark)").matches;
+    threeScene.background.set(dark ? 0x111827 : 0xffffff);
+    const replacements={0x64748b:0xb7c7df,0x334155:0xdde7f3,0xd8dee6:0x43536d,0x245c9a:0x80baff,0x475569:0xb7c7df,0x217a3c:0x5ee89a};
+    for(const group of [staticAxesAndGridGroup,frontierGeometryGroup,transientRelationshipGroup]) group.traverse(object=>{
+      if(!object.material?.color || object.isSprite)return;
+      const material=object.material;
+      material.userData.lightThemeColor ??= material.color.getHex();
+      material.color.setHex(dark ? replacements[material.userData.lightThemeColor] ?? material.userData.lightThemeColor : material.userData.lightThemeColor);
+    });
+    if(lastAppliedSystemColorScheme === dark){requestThreeDimensionalSceneRender();return;}
+    lastAppliedSystemColorScheme=dark;
+    for(const [category,lightColor,dashed] of [["other","#4b5563",false],["unclassified","#64748b",true]]){
+      const texture=countryRegionTextures[category],regionContext=texture.image.getContext("2d");
+      regionContext.clearRect(0,0,128,128);regionContext.save();regionContext.translate(64,64);regionContext.rotate(Math.PI/4);
+      regionContext.strokeStyle=dark ? "#cbd5e1" : lightColor;regionContext.lineWidth=9;
+      if(dashed)regionContext.setLineDash([10,8]);regionContext.strokeRect(-39,-39,78,78);regionContext.restore();texture.needsUpdate=true;
+    }
+    const context=paretoRingTexture.image.getContext("2d");
+    context.clearRect(0,0,128,128);context.beginPath();context.arc(64,64,53,0,Math.PI*2);context.lineWidth=10;
+    context.strokeStyle=dark ? "#e2e8f0" : "rgba(15,23,42,0.8)";context.stroke();paretoRingTexture.needsUpdate=true;
+    requestThreeDimensionalSceneRender();
+  }
+  cameraViewControls=installFrontierCameraViewControls({camera:perspectiveCamera,controls:orbitControls,canvas:webglRenderer.domElement,graphContainer,
+    getBoundingSphere:()=>{const bounds=new THREE.Box3().setFromObject(staticAxesAndGridGroup);return bounds.isEmpty() ? new THREE.Sphere(new THREE.Vector3(),Math.sqrt(3)) : bounds.getBoundingSphere(new THREE.Sphere());},
+    getInitialCameraDirection:()=>{const eye=activeThreeDimensionalScene.initial_camera_configuration.eye;return [eye.x,eye.y,eye.z];},
+    hitTest:interactionTargetAtCanvasClientCoordinates,onCameraStateCommitted:notifyExplorationViewChanged,
+    onDismissOverlay:()=>{
+      if(howToReadDrawer && !howToReadDrawer.hidden){setHowToReadDrawerOpen(false);return true;}
+      if(touchDetailsModel){clearHoverInteractionImmediately();return true;}
+      if(searchResults && !searchResults.hidden && searchInput?.value){
+        searchResults.hidden=true;
+        searchInput.setAttribute("aria-expanded", "false");
+        searchInput.removeAttribute("aria-activedescendant");
+        searchActiveResultIndex=-1;
+        return true;
+      }
+      return false;
+    },
+    onClearSelection:()=>{clearHoverInteractionImmediately();pinnedModelIdentities.clear();synchronizePinnedBaseModelNameAliases();applyPinnedModelVisualEncoding();renderSearchResults();},
+    onFocusSearch:()=>{setSidePanelExpanded(true);searchInput?.focus();},requestRender:requestThreeDimensionalSceneRender,
+  });
+  function sharedFrontierViewState() {
+    return {metric_variant_key:activeMetricVariantKey,pinned_model_uuids:[...pinnedModelIdentities].filter(identity=>!identity.startsWith("legacy:")).sort(),
+      hidden_organization_identity_keys:[...new Set([...hiddenOrganizationCreatorNames].map(name=>organizationIdentityMetadataByCreatorName[name]?.organization_identity_key).filter(Boolean))].sort(),
+      standout_metric:selectedFrontierStandoutMetricName,standout_axis_weights:{...standoutAxisWeights},camera:cameraViewControls.serializeCameraState(),
+      display:{comparable_only:showOnlyCurrentIntelligenceIndexVersionComparableModels,recent_release_grace_period:showModelsDisplayedOnlyBecauseOfRecentReleaseGracePeriod,country_region_markers:countryRegionMarkerVisible,
+        achievable_frontier_surface:achievableFrontierSurfaceVisible,frontier_style:frontierStyle,marker_size_multiplier:markerSizeMultiplier,
+        pinned_comparison_expanded:Boolean(pinnedComparisonPanel?.open),pinned_comparison_optional_fields:[...selectedOptionalComparisonFieldNames].sort()}};
+  }
+  function applySharedFrontierViewState(state,announce) {
+    if(state.metric_variant_key){
+      if(metricVariantsByKey[state.metric_variant_key]){const [cost,speed]=state.metric_variant_key.split("__");activateMetricCombination(cost,speed);}
+      else announce("分享口径在本文件中不存在；保留当前口径。");
+    }
+    if(state.pinned_model_uuids){
+      pinnedModelIdentities.clear();
+      for(const uuid of state.pinned_model_uuids){
+        const identity=uuid.toLowerCase();pinnedModelIdentities.add(identity);
+        if(!allModelRecordsByIdentity.has(identity)){
+          const name=`缺失模型 ${identity}`;
+          allModelRecordsByIdentity.set(identity,{model_uuid:identity,name,creator:"?",base_model_name:name,panel:{intelligence:null,release_date:"?"}});
+          announce("部分固定模型在当前文件中缺失，已保留 UUID 与未上图说明。");
+        }
+      }
+      synchronizePinnedBaseModelNameAliases();applyPinnedModelVisualEncoding();
+    }
+    if(state.hidden_organization_identity_keys){
+      const hidden=new Set(state.hidden_organization_identity_keys);
+      hiddenOrganizationCreatorNames=new Set(Object.entries(organizationIdentityMetadataByCreatorName).filter(([,metadata])=>hidden.has(metadata.organization_identity_key)).map(([name])=>name));
+      renderOrganizationFilterPanel();
+    }
+    if(state.standout_metric)selectFrontierStandoutMetric(state.standout_metric);
+    if(state.standout_axis_weights){const w=state.standout_axis_weights;setStandoutAxisWeights(w.intelligence,w.cost,w.speed);}
+    const display=state.display || {};
+    if(display.comparable_only!==undefined)setShowOnlyCurrentIntelligenceIndexVersionComparableModels(display.comparable_only);
+    if(display.recent_release_grace_period!==undefined)setShowModelsDisplayedOnlyBecauseOfRecentReleaseGracePeriod(display.recent_release_grace_period);
+    if(display.country_region_markers!==undefined)setCountryRegionMarkerVisible(display.country_region_markers);
+    if(display.achievable_frontier_surface!==undefined)setAchievableFrontierSurfaceVisible(display.achievable_frontier_surface);
+    if(display.frontier_style)setFrontierStyle(display.frontier_style);
+    if(display.marker_size_multiplier!==undefined)setMarkerSizeMultiplier(display.marker_size_multiplier);
+    if(display.pinned_comparison_optional_fields){
+      selectedOptionalComparisonFieldNames.clear();display.pinned_comparison_optional_fields.forEach(field=>selectedOptionalComparisonFieldNames.add(field));
+      pinnedComparisonPanel.querySelectorAll("[data-comparison-field]").forEach(control=>{control.checked=selectedOptionalComparisonFieldNames.has(control.dataset.comparisonField);});
+      writeStoredPreference(COMPARISON_FIELDS_STORAGE_KEY,[...selectedOptionalComparisonFieldNames]);renderPinnedComparisonTable();
+    }
+    if(display.pinned_comparison_expanded!==undefined)pinnedComparisonPanel.open=display.pinned_comparison_expanded;
+    if(state.camera)cameraViewControls.restoreCameraState(state.camera);
+    applyModelMarkerVisibilityAndRefreshDependentViews();
+  }
+
+  // 初始取景使用控制栏的最终尺寸，避免首次折叠动画把相机定在过渡布局。
+  const initialSidePanelTransition = sidePanel.style.transition;
+  sidePanel.style.transition = "none";
   buildUserInterface();
   loadActiveMetricVariant(activeMetricVariantKey, false);
   resizeThreeDimensionalRenderer();
+  explorationControls=mountFrontierModelExplorationControls({dataset:visualizationDataset,reportShell,toolbar,plotRegion,graphContainer,sidePanel,getVariantKey:()=>activeMetricVariantKey,
+    getSharedViewState:sharedFrontierViewState,applySharedViewState:applySharedFrontierViewState,
+    modelPassesSharedFilters:model=>{
+      const active=displayedModelMarkers.find(candidate=>stableModelIdentity(candidate)===stableModelIdentity(model)) || model;
+      return currentOrganizationVisibility(model.creator) && (!showOnlyCurrentIntelligenceIndexVersionComparableModels || modelIsAnalysisEligibleForActiveMetricVariant(model)) &&
+        (showModelsDisplayedOnlyBecauseOfRecentReleaseGracePeriod || !active.displayed_only_because_of_recent_release_grace_period);
+    },
+    onExplorationFiltersChanged:next=>{Object.assign(explorationFilters,next);applyModelMarkerVisibilityAndRefreshDependentViews();refreshVisibleModelDetails();},
+    resetCamera:()=>cameraViewControls.resetCamera(),setAxisAlignedCameraView:cameraViewControls.setAxisAlignedCameraView,pinModel:model=>setSingleModelPinned(model),
+    exportPng:async()=>{
+      applySystemColorSchemeToScene();
+      const blob=await renderFrontierBrowserPng({scene:threeScene,camera:perspectiveCamera,graphContainer,title:document.getElementById("frontier-3d-report-title").textContent,
+        metadataLines:[`数据日期：${visualizationDataset.data_date || "未知"}；${activeInteractionRelationships.cost_axis_label} × ${activeInteractionRelationships.speed_axis_label}`,
+          `本口径上图 ${displayedModelMarkers.length}；可见 ${displayedModelMarkers.filter((_,index)=>modelMarkerIsCurrentlyVisible(index)).length}；按当前价格、速度和评测口径计算`,
+          `智能分显示：${explorationFilters.measured_only ? "仅实测" : "含实测、估算与未知"}；发布日期截止：${explorationFilters.cutoff_date || "全部日期"}（${explorationFilters.date_mode==="hide" ? "隐藏" : "淡出"}，未知日期保留）`],
+        legendLines:["圆环：正式前沿；金色：已固定；蓝色：突出度；青色：可靠的新入前沿",
+          `前沿几何：${achievableFrontierSurfaceVisible ? "精确可达阶梯（基于已展示分析点）" : frontierStyle==="hidden" ? "已隐藏" : "Delaunay 邻接插值参照，不是帕累托面"}`,
+          `突出度：${FRONTIER_STANDOUT_METRIC_DEFINITIONS_BY_NAME[selectedFrontierStandoutMetricName].label}；权重（智能 / 成本 / 速度）：${standoutAxisWeights.intelligence} / ${standoutAxisWeights.cost} / ${standoutAxisWeights.speed}`,
+          ...(countryRegionMarkerVisible ? ["国别/地区外框：红圆中国；蓝圆角美国；灰菱形其他；虚线菱形未分类"] : []),
+          ...(hiddenOrganizationCreatorNames.size ? [`隐藏厂商：${[...hiddenOrganizationCreatorNames].join("、")}`] : []),
+          explorationFilters.sensitivity_intelligence_half_width==="off" ? "敏感性标注关闭" : `假设区间：智能 ±${explorationFilters.sensitivity_intelligence_half_width}，成本与速度各 ±10%；实线稳健，虚线敏感/近前沿；不是 AA 置信区间`],
+        pinnedModelNames:pinnedModelsInDisplayOrder().map(model=>model.name)});
+      downloadFrontierBrowserArtifact(blob,`frontier-${visualizationDataset.data_date || "unknown"}.png`);
+      requestThreeDimensionalSceneRender();
+    },
+  });
+  if(!decodeFrontierViewStateHash(window.location.hash).state?.camera)cameraViewControls.resetCamera({commit:false});
+  resizeThreeDimensionalRenderer();
+  sidePanel.style.transition = initialSidePanelTransition;
+  window.serializeFrontierViewState=explorationControls.getState;
+  window.setFrontierExplorationFilters=explorationControls.setExplorationFilters;
+  window.resetFrontierCameraView=()=>cameraViewControls.resetCamera();
+  window.setAxisAlignedFrontierCameraView=cameraViewControls.setAxisAlignedCameraView;
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change",applySystemColorSchemeToScene);
+  applySystemColorSchemeToScene();
 
   window.frontierThreeDimensionalVisualizationState =
     frontierThreeDimensionalVisualizationState;
@@ -3501,6 +3715,7 @@ import {
       logoSizeAttenuation: objects.logoSprite.material.sizeAttenuation,
     })),
     camera: perspectiveCamera,
+    scene: threeScene,
     controls: orbitControls,
     renderer: webglRenderer,
     requestRender: requestThreeDimensionalSceneRender,
