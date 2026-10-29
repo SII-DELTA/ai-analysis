@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-analysis.local/contracts/frontier_3d_historical_progress/v1",
+  "title": "历史前沿科学场景、来源与共享模型观测引用",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "historical_generator_implementation_sha256", "standout_methodology", "scientific_dataset_shared_metadata", "models_by_uuid", "source_snapshots", "identity_alias_changes", "model_observations", "model_observation_value_provenance", "scene_geometry_definitions", "frames", "initial_historical_frame_id"],
+  "properties": {
+    "schema_version": {"const": "frontier_3d_historical_progress_dataset/v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "historical_generator_implementation_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "standout_methodology": {
+      "type": "object",
+      "required": ["methodology_name", "methodology_implementation_sha256", "analysis_population_policy", "cross_date_value_comparison_supported", "f1_candidate_methods_enabled"],
+      "properties": {
+        "f1_candidate_methods_enabled": {"const": false},
+        "cross_date_value_comparison_supported": {"const": false}
+      }
+    },
+    "scientific_dataset_shared_metadata": {"type": "object"},
+    "models_by_uuid": {"type": "object", "propertyNames": {"format": "uuid"}},
+    "release_identity_resolution_by_model_uuid": {"type": "object", "additionalProperties": {"enum": ["official_release_slug", "unresolved_release_group"]}},
+    "source_validation_outcomes": {"type": "array"},
+    "source_snapshots": {
+      "type": "array", "minItems": 1,
+      "items": {"type": "object", "required": ["source_snapshot_id", "intelligence_index_version", "observed_at_utc", "observed_at_utc_source", "source_model_count"],
+        "properties": {
+          "source_snapshot_id": {"type": "string", "minLength": 1},
+          "intelligence_index_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$"},
+          "observed_at_utc": {"type": "string", "format": "date-time"},
+          "observed_at_utc_source": {"enum": ["recorded_at_fetch_time", "inferred_from_cache_file_modification_time"]},
+          "source_model_count": {"type": "integer", "minimum": 1}
+        }}
+    },
+    "identity_alias_changes": {"type": "array"},
+    "model_observations": {"type": "array", "items": {"type": "object"}},
+    "model_observation_value_provenance": {"type": "array", "items": {"type": "object", "required": ["source_snapshot_id", "values_by_field"]}},
+    "scene_geometry_definitions": {"type": "array", "minItems": 1, "items": {"type": "object"}},
+    "frames": {
+      "type": "array", "minItems": 1,
+      "items": {"type": "object", "additionalProperties": false,
+        "required": ["historical_frame_id", "historical_view_mode", "analysis_sample_policy", "source_snapshot_id", "intelligence_index_version", "observed_at_utc", "release_cutoff_date", "model_observation_indices", "scientific_dataset", "metric_variant_summaries"],
+        "properties": {
+          "historical_frame_id": {"type": "string", "minLength": 1},
+          "historical_view_mode": {"enum": ["release_retrospective", "observation_replay"]},
+          "analysis_sample_policy": {"enum": ["include_estimated", "measured_only"]},
+          "source_snapshot_id": {"type": "string", "minLength": 1},
+          "intelligence_index_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$"},
+          "observed_at_utc": {"type": "string", "format": "date-time"},
+          "release_cutoff_date": {"type": ["string", "null"], "format": "date"},
+          "model_observation_indices": {"type": "array", "items": {"type": "integer", "minimum": 0}},
+          "scientific_dataset": {"type": "object", "required": ["metric_variants", "data_date", "artificial_analysis_data_provenance"]},
+          "metric_variant_summaries": {"type": "object"}
+        }
+      }
+    },
+    "initial_historical_frame_id": {"type": "string", "minLength": 1}
+  }
+}
