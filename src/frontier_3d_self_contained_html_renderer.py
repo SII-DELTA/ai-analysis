@@ -21,6 +21,9 @@ from .frontier_3d_visualization_dataset_builder import (
 ASSET_PACKAGE = "src.frontier_3d_interactive_report_assets"
 REPORT_DOCUMENT_TEMPLATE_ASSET_NAME = "frontier_3d_self_contained_report_document.html"
 REPORT_CSS_ASSET_NAME = "frontier_3d_interactive_report.css"
+MODEL_EXPLORATION_AND_SYSTEM_THEME_CSS_ASSET_NAME = (
+    "frontier_3d_model_exploration_and_system_theme.css"
+)
 THREEJS_INTERACTIVE_RENDERER_BUNDLE_ASSET_NAME = (
     "frontier_3d_threejs_interactive_renderer_bundle.js"
 )
@@ -139,7 +142,9 @@ def render_frontier_3d_self_contained_html_report(
     validate_frontier_3d_visualization_dataset(dataset)
     dataset = build_frontier_3d_browser_projection(dataset)
     template = _read_asset_text(REPORT_DOCUMENT_TEMPLATE_ASSET_NAME)
-    css = _read_asset_text(REPORT_CSS_ASSET_NAME)
+    css = _read_asset_text(REPORT_CSS_ASSET_NAME) + "\n" + _read_asset_text(
+        MODEL_EXPLORATION_AND_SYSTEM_THEME_CSS_ASSET_NAME
+    )
     threejs_interactive_renderer_javascript = _read_asset_text(
         THREEJS_INTERACTIVE_RENDERER_BUNDLE_ASSET_NAME
     )

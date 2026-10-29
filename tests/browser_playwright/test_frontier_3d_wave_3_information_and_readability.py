@@ -1,10 +1,32 @@
 """W3 的可见行为：口径解释、搜索、固定比较、尺寸、触屏与窄屏。"""
 from playwright.sync_api import expect
+import pandas as pd
 import pytest
 import re
+from uuid import UUID
 
 from src.frontier_3d_self_contained_html_renderer import write_frontier_3d_self_contained_html_report
-from src.frontier_3d_visualization_dataset_builder import expand_frontier_3d_visualization_dataset_for_scene_consumers
+from src.frontier_3d_visualization_dataset_builder import build_frontier_3d_visualization_dataset, expand_frontier_3d_visualization_dataset_for_scene_consumers
+from tests.browser_playwright.frontier_3d_playwright_verification_support import wait_for_frontier_layout_transitions_and_render
+from tests.fixtures.build_frontier_3d_synthetic_fixture_models_dataframe import build_frontier_3d_synthetic_fixture_models_dataframe
+
+
+@pytest.fixture(scope="session")
+def same_generation_pruned_variant_report_path(tmp_path_factory):
+    models = build_frontier_3d_synthetic_fixture_models_dataframe()
+    low_reasoning_variant = models.loc[models["name"] == "Gemini 2.5 Pro"].copy()
+    low_reasoning_variant["id"] = str(UUID(int=20001))
+    low_reasoning_variant["name"] = "Gemini 2.5 Pro (low)"
+    low_reasoning_variant["intelligence"] = 80
+    models_with_low_reasoning_variant = pd.concat([models, low_reasoning_variant], ignore_index=True)
+    models_with_low_reasoning_variant.attrs = models.attrs.copy()
+    dataset = build_frontier_3d_visualization_dataset(
+        models_with_low_reasoning_variant,
+        since_months=18, max_layers=3, hard_age_cutoff_months=36, speed_scale="log",
+    )
+    report_path = tmp_path_factory.mktemp("frontier-3d-same-generation-pruned-variant-reports") / "frontier_3d.html"
+    write_frontier_3d_self_contained_html_report(dataset, report_path)
+    return report_path
 
 
 def test_search_identity_reasons_keyboard_and_pinned_comparison(frontier_page):
@@ -107,7 +129,7 @@ def test_preference_persistence_and_storage_failure(browser, synthetic_frontier_
     errors = []
     page.on("pageerror", lambda error: errors.append(str(error)))
     if storage_throws:
-        page.add_init_script("Object.defineProperty(window,'localStorage',{get(){throw new Error('storage unavailable')}})")
+        context.add_init_script("Object.defineProperty(window,'localStorage',{get(){throw new Error('storage unavailable')}})")
     page.goto(synthetic_frontier_report_path.as_uri())
     page.wait_for_function("typeof setFrontierMarkerSizeMultiplier === 'function'")
     assert page.evaluate("frontierThreeDimensionalVisualizationState().markerSizeMultiplier") == .5
@@ -115,7 +137,12 @@ def test_preference_persistence_and_storage_failure(browser, synthetic_frontier_
     page.evaluate("pinFrontierBaseModel('Qwen4 Max')")
     page.locator("#aa-pinned-comparison-panel > summary").click()
     page.locator('[data-comparison-field="output_mtokens"]').first.check()
-    page.reload()
+    # 用同一浏览器 context 的新文档验证本地偏好，避免 URL 状态或 hash 导航代替持久化。
+    page.wait_for_function("location.hash.startsWith('#frontier-view-state-v1=') && JSON.parse(decodeURIComponent(location.hash.split('=')[1])).display.pinned_comparison_optional_fields.includes('output_mtokens')")
+    page.close()
+    page = context.new_page()
+    page.on("pageerror", lambda error: errors.append(str(error)))
+    page.goto(synthetic_frontier_report_path.as_uri())
     page.wait_for_function("typeof setFrontierMarkerSizeMultiplier === 'function'")
     assert page.evaluate("frontierThreeDimensionalVisualizationState().markerSizeMultiplier") == (.5 if storage_throws else 1.25)
     page.evaluate("pinFrontierBaseModel('Qwen4 Max')")
@@ -126,7 +153,8 @@ def test_preference_persistence_and_storage_failure(browser, synthetic_frontier_
 
 
 def test_legacy_v2_degrades_without_new_fields(frontier_page, synthetic_frontier_dataset, tmp_path):
-    dataset = expand_frontier_3d_visualization_dataset_for_scene_consumers(synthetic_frontier_dataset)
+    from tests.python_unit.test_frontier_3d_v3_deduplicated_contract_and_browser_projection import build_legacy_v3_dataset
+    dataset = expand_frontier_3d_visualization_dataset_for_scene_consumers(build_legacy_v3_dataset())
     for definitions in [dataset["cost_metric_definitions"], dataset["speed_metric_definitions"]]:
         for definition in definitions.values():
             definition.pop("description", None)
@@ -322,6 +350,316 @@ def test_touch_partial_pin_button_uses_whole_group_state(browser, synthetic_fron
     context.close()
 
 
+def tap_visible_model_details(page, base_model_name="Qwen4 Max"):
+    hit = page.evaluate("""baseName => {
+      const diagnostics = frontierThreeDimensionalRendererDiagnostics;
+      return FRONTIER_3D_INTERACTION_RELATIONSHIPS.models
+        .filter(model => model.base_model_name === baseName)
+        .map(model => diagnostics.frontmostPointerInteractionAtProjectedModelPosition(model.name))
+        .find(hit => hit?.frontmostBaseModelName === baseName &&
+          document.elementFromPoint(hit.projectedCanvasPosition.clientX, hit.projectedCanvasPosition.clientY)?.tagName === "CANVAS");
+    }""", base_model_name)
+    assert hit, f"没有可轻点的 {base_model_name} 标记"
+    point = hit["projectedCanvasPosition"]
+    page.touchscreen.tap(point["clientX"], point["clientY"])
+    tooltip = page.locator("#aa-threejs-model-tooltip")
+    expect(tooltip).to_be_visible()
+    expect(tooltip.locator("strong")).to_have_text(hit["frontmostModelName"])
+    expect(tooltip).to_have_attribute("role", "dialog")
+    return hit
+
+
+def expect_closed_touch_details(page):
+    tooltip = page.locator("#aa-threejs-model-tooltip")
+    expect(tooltip).to_be_hidden()
+    expect(tooltip.locator(".aa-touch-details-actions")).to_have_count(0)
+    assert "is-touch-details" not in tooltip.get_attribute("class")
+    assert tooltip.get_attribute("role") is None
+    assert tooltip.get_attribute("aria-label") is None
+
+
+@pytest.mark.browser_context_args(has_touch=True)
+def test_repeated_real_touch_taps_reuse_one_details_action_bar(frontier_page):
+    page = frontier_page
+    page.evaluate("""() => {
+      window.frontierDetailsTouchEvents = [];
+      for (const type of ["pointerdown", "pointerup"]) document.addEventListener(type, event => {
+        if (event.pointerType === "touch") frontierDetailsTouchEvents.push({
+          type, trusted: event.isTrusted, canvas: event.target.tagName === "CANVAS"
+        });
+      }, true);
+    }""")
+    for _ in range(3):
+        tap_visible_model_details(page)
+        assert pinned_model_uuids(page) == set()
+    assert page.evaluate("frontierDetailsTouchEvents") == [
+        {"type": event_type, "trusted": True, "canvas": True}
+        for _ in range(3) for event_type in ("pointerdown", "pointerup")
+    ]
+    tooltip = page.locator("#aa-threejs-model-tooltip")
+    expect(tooltip.locator(".aa-touch-details-actions")).to_have_count(1)
+    expect(tooltip.get_by_role("button")).to_have_count(2)
+    tooltip.get_by_role("button", name="固定全部档位", exact=True).click()
+    assert pinned_model_uuids(page) == QWEN4_MAX_TIER_UUIDS
+
+
+@pytest.mark.browser_context_args(has_touch=True)
+@pytest.mark.parametrize("update_entry", ["metric_select", "metric_api", "weight_number", "weight_slider", "weight_api"])
+def test_open_touch_details_refresh_standout_without_reopening(frontier_page, update_entry):
+    page = frontier_page
+    if update_entry.startswith("weight"):
+        page.select_option("#aa-standout-metric-select", "weighted_exclusive_hypervolume")
+    page.evaluate("pinFrontierBaseModel('Qwen4 Max')")
+    hit = tap_visible_model_details(page)
+    model_name = hit["frontmostModelName"]
+    tooltip = page.locator("#aa-threejs-model-tooltip")
+    old_ranking = page.evaluate("frontierStandoutRanking()")
+    if update_entry == "metric_select":
+        page.select_option("#aa-standout-metric-select", "weighted_exclusive_hypervolume")
+    elif update_entry == "metric_api":
+        page.evaluate("selectFrontierStandoutMetric('weighted_exclusive_hypervolume')")
+    elif update_entry == "weight_number":
+        page.locator("#aa-weight-number-intelligence").fill("4")
+        page.locator("#aa-weight-number-intelligence").press("Enter")
+    elif update_entry == "weight_slider":
+        page.locator("#aa-weight-slider-intelligence").focus()
+        page.locator("#aa-weight-slider-intelligence").press("End")
+    else:
+        tooltip.get_by_role("button", name="取消固定全部档位", exact=True).focus()
+        page.evaluate("setFrontierStandoutAxisWeights(4, 1, 1)")
+        expect(tooltip.get_by_role("button", name="取消固定全部档位", exact=True)).to_be_focused()
+    ranking = page.evaluate("frontierStandoutRanking()")
+    assert ranking != old_ranking
+    ranking_row = page.locator("#aa-standout-ranking button").filter(has_text=model_name)
+    value = ranking_row.locator(".aa-ranking-value").inner_text()
+    label = page.locator("#aa-standout-metric-select option:checked").inner_text()
+    expect(tooltip).to_be_visible()
+    expect(tooltip.locator("strong")).to_have_text(model_name)
+    expect(tooltip).to_contain_text(f"{label}：{value}")
+    rank = next(index + 1 for index, row in enumerate(ranking["ranking"]) if row["name"] == model_name)
+    expect(tooltip).to_contain_text(f"突出度名次：{rank} / {len(ranking['ranking'])}")
+    assert value.endswith("%")
+    identity = page.evaluate("name => FRONTIER_3D_INTERACTION_RELATIONSHIPS.models.find(model => model.name === name).model_uuid", model_name)
+    assert comparison_standout_text_by_identity(page)[identity].startswith(value)
+    expect(tooltip.locator(".aa-touch-details-actions")).to_have_count(1)
+    assert pinned_model_uuids(page) == QWEN4_MAX_TIER_UUIDS
+
+
+@pytest.mark.browser_context_args(has_touch=True)
+def test_open_touch_details_follow_every_pin_entry_and_partial_group_state(frontier_page):
+    page = frontier_page
+    tap_visible_model_details(page)
+    tooltip = page.locator("#aa-threejs-model-tooltip")
+    pin_button = tooltip.get_by_role("button").first
+
+    def expect_pins(identities):
+        assert pinned_model_uuids(page) == identities
+        sidebar_identities = set(page.locator(".aa-pinned-variant-card").evaluate_all("cards => cards.map(card => card.dataset.modelIdentity)"))
+        assert sidebar_identities == identities
+        expect(tooltip).to_be_visible()
+        expect(pin_button).to_have_text("取消固定全部档位" if identities == QWEN4_MAX_TIER_UUIDS else "固定全部档位")
+        expect(tooltip.locator(".aa-touch-details-actions")).to_have_count(1)
+
+    pin_only_qwen4_max_high_from_ranking(page)
+    expect_pins({"00000000-0000-4000-9000-000000000000"})
+    pin_button.click()
+    expect_pins(QWEN4_MAX_TIER_UUIDS)
+    pin_button.click()
+    expect_pins(set())
+    for expression, identities in [
+        ("pinFrontierBaseModel('Qwen4 Max')", QWEN4_MAX_TIER_UUIDS),
+        ("unpinFrontierBaseModel('Qwen4 Max')", set()),
+        ("togglePinnedFrontierBaseModel('Qwen4 Max')", QWEN4_MAX_TIER_UUIDS),
+        ("togglePinnedFrontierBaseModel('Qwen4 Max')", set()),
+    ]:
+        pin_button.focus()
+        page.evaluate(expression)
+        expect_pins(identities)
+        expect(pin_button).to_be_focused()
+    page.locator("#aa-search-input").fill("Qwen4 Max")
+    page.locator(".aa-search-result-pin-button").click()
+    expect_pins(QWEN4_MAX_TIER_UUIDS)
+    page.get_by_role("button", name="移除 Qwen4 Max 的全部固定档位", exact=True).click()
+    expect_pins(set())
+    page.evaluate("pinFrontierBaseModel('Qwen4 Max')")
+    page.locator("#aa-clear-all-pinned-models").click()
+    expect_pins(set())
+
+
+@pytest.mark.browser_context_args(has_touch=True)
+@pytest.mark.parametrize("viewport", [{"width": 1400, "height": 900}, {"width": 390, "height": 844}, {"width": 320, "height": 720}])
+def test_touch_details_preserve_scroll_and_close_restore_hover_and_metric_state(frontier_page, viewport):
+    page = frontier_page
+    page.set_viewport_size(viewport)
+    page.evaluate("pinFrontierBaseModel('Qwen4 Max')")
+    if viewport["width"] <= 640:
+        page.locator("#aa-view-settings-toggle").click()
+        page.evaluate("setFrontierSidePanelExpanded(true)")
+    else:
+        page.locator("#aa-pinned-comparison-panel > summary").click()
+        page.evaluate("setFrontierSidePanelExpanded(false)")
+    wait_for_frontier_layout_transitions_and_render(page)
+    tap_visible_model_details(page)
+    tooltip = page.locator("#aa-threejs-model-tooltip")
+    close_button = tooltip.get_by_role("button", name="关闭详情")
+    close_button.focus()
+    scroll_top = tooltip.evaluate("element => { element.scrollTop = 70; return element.scrollTop; }")
+    assert scroll_top > 0, "展开控制栏或对比表后详情应实际产生滚动"
+    page.evaluate("selectFrontierStandoutMetric('weighted_exclusive_hypervolume')")
+    page.evaluate("setFrontierStandoutAxisWeights(4, .5, 2)")
+    assert tooltip.evaluate("element => element.scrollTop") == pytest.approx(scroll_top, abs=1)
+    expect(close_button).to_be_focused()
+    bounds = tooltip.bounding_box()
+    region = page.locator("#frontier-3d-plot-region").bounding_box()
+    assert bounds["x"] >= region["x"] and bounds["y"] >= region["y"]
+    assert bounds["x"] + bounds["width"] <= region["x"] + region["width"]
+    assert bounds["y"] + bounds["height"] <= region["y"] + region["height"]
+    close_button.click()
+    expect_closed_touch_details(page)
+    tap_visible_model_details(page)
+    page.keyboard.press("Escape")
+    expect_closed_touch_details(page)
+    before = page.evaluate("frontierThreeDimensionalVisualizationState()")
+    for cost, speed in [("blended", "raw"), ("blended", "effective"), ("effective", "effective")]:
+        tap_visible_model_details(page)
+        page.evaluate("([cost, speed]) => setFrontierMetricCombination(cost, speed)", [cost, speed])
+        expect_closed_touch_details(page)
+        assert pinned_model_uuids(page) == QWEN4_MAX_TIER_UUIDS
+        assert page.evaluate("frontierThreeDimensionalVisualizationState().cameraPosition") == pytest.approx(before["cameraPosition"])
+    tap_visible_model_details(page)
+    # 合成取消事件没有原生 pointer ID，只在分发期间替代 OrbitControls 的捕获释放。
+    page.locator("canvas").evaluate("""element => {
+      const releasePointerCapture = element.releasePointerCapture;
+      element.releasePointerCapture = () => {};
+      try { element.dispatchEvent(new PointerEvent("pointercancel", {pointerType: "touch", pointerId: 99})); }
+      finally { element.releasePointerCapture = releasePointerCapture; }
+    }""")
+    expect_closed_touch_details(page)
+    hit = clickable_qwen4_max_projection(page)
+    assert hit
+    point = hit["projectedCanvasPosition"]
+    page.mouse.move(point["clientX"], point["clientY"])
+    expect(tooltip).to_be_visible()
+    expect(tooltip.locator("strong")).to_have_text(hit["frontmostModelName"])
+    expect(tooltip.get_by_role("button")).to_have_count(0)
+
+
+@pytest.mark.browser_context_args(has_touch=True)
+def test_touch_details_switch_model_and_ancestor_action_ownership(frontier_page):
+    page = frontier_page
+    tap_visible_model_details(page)
+    page.locator("#aa-threejs-model-tooltip").get_by_role("button", name="固定全部档位", exact=True).click()
+    tap_visible_model_details(page, "Gemini 3 Pro")
+    tooltip = page.locator("#aa-threejs-model-tooltip")
+    expect(tooltip.get_by_role("button")).to_have_count(2)
+    tooltip.get_by_role("button", name="固定全部档位", exact=True).click()
+    assert page.evaluate("frontierThreeDimensionalVisualizationState().pinnedBaseModelNames.sort()") == ["Gemini 3 Pro", "Qwen4 Max"]
+    wait_for_frontier_layout_transitions_and_render(page)
+    hit = page.evaluate("""() => {
+      const diagnostics = frontierThreeDimensionalRendererDiagnostics;
+      for (const node of Object.values(FRONTIER_3D_INTERACTION_RELATIONSHIPS.lineages).flat().filter(node => !node.kept)) {
+        const center = diagnostics.projectedCanvasPositionForPrunedLineageAncestorName(node.name);
+        if (!center) continue;
+        for (const [offsetX, offsetY] of [[0, 0], [-3, 0], [3, 0], [0, -3], [0, 3]]) {
+          const clientX = center.clientX + offsetX, clientY = center.clientY + offsetY;
+          const target = diagnostics.pointerInteractionAtCanvasClientCoordinates(clientX, clientY);
+          if (target?.interactionTargetKind === "pruned_lineage_ancestor" && target.prunedLineageAncestorNode.name === node.name &&
+              document.elementFromPoint(clientX, clientY)?.tagName === "CANVAS") {
+            return {projectedCanvasPosition: {clientX, clientY}, frontmostInteractionTargetName: node.name};
+          }
+        }
+      }
+      return null;
+    }""")
+    assert hit, page.evaluate("""() => ({
+      message: "没有可轻点的谱系前身",
+      tooltip: document.querySelector("#aa-threejs-model-tooltip").getBoundingClientRect().toJSON(),
+      ancestors: Object.values(FRONTIER_3D_INTERACTION_RELATIONSHIPS.lineages).flat().filter(node => !node.kept)
+        .map(node => frontierThreeDimensionalRendererDiagnostics.frontmostPointerInteractionAtProjectedPrunedLineageAncestorPosition(node.name))
+    })""")
+    point = hit["projectedCanvasPosition"]
+    page.touchscreen.tap(point["clientX"], point["clientY"])
+    expect(tooltip.locator("strong")).to_have_text(hit["frontmostInteractionTargetName"])
+    expect(tooltip).to_contain_text("谱系前身")
+    expect(tooltip.get_by_role("button")).to_have_count(1)
+    expect(tooltip.get_by_role("button", name="关闭详情")).to_be_visible()
+    page.evaluate("selectFrontierStandoutMetric('intelligence_uplift')")
+    expect(tooltip.locator("strong")).to_have_text(hit["frontmostInteractionTargetName"])
+    tap_visible_model_details(page)
+    expect(tooltip.get_by_role("button", name="取消固定全部档位", exact=True)).to_be_visible()
+    page.locator("#aa-organization-filter-panel summary").click()
+    page.locator(".aa-organization-filter-row").filter(has_text="Alibaba").locator("input").uncheck()
+    expect_closed_touch_details(page)
+
+
+@pytest.mark.browser_context_args(has_touch=True)
+@pytest.mark.parametrize("interaction_mode", ["mouse", "touch"])
+def test_pruned_same_generation_details_keep_interaction_relationship_after_refresh(
+    frontier_page, same_generation_pruned_variant_report_path, interaction_mode,
+):
+    page = frontier_page
+    page.goto(same_generation_pruned_variant_report_path.as_uri())
+    page.wait_for_function("typeof frontierThreeDimensionalRendererDiagnostics !== 'undefined'")
+    page.wait_for_function("Object.values(frontierThreeDimensionalVisualizationState().organizationLogoTextureLoadStateByCreatorName).every(value => value === 'loaded')")
+    tooltip = page.locator("#aa-threejs-model-tooltip")
+
+    def open_pruned_gemini_details(source_model_name, expected_relationship_kind):
+        assert page.evaluate("name => showFrontierLineageForModelName(name)", source_model_name)
+        wait_for_frontier_layout_transitions_and_render(page)
+        point = page.evaluate("""expectedRelationshipKind => {
+          const diagnostics = frontierThreeDimensionalRendererDiagnostics;
+          const center = diagnostics.projectedCanvasPositionForPrunedLineageAncestorName('Gemini 2.5 Pro');
+          if (!center) return null;
+          for (const [offsetX, offsetY] of [[0, 0], [-3, 0], [3, 0], [0, -3], [0, 3]]) {
+            const clientX = center.clientX + offsetX, clientY = center.clientY + offsetY;
+            const target = diagnostics.pointerInteractionAtCanvasClientCoordinates(clientX, clientY);
+            if (target?.interactionTargetKind === 'pruned_lineage_ancestor' &&
+                target.prunedLineageAncestorNode.name === 'Gemini 2.5 Pro' &&
+                target.prunedLineageAncestorNode.relationship_kind === expectedRelationshipKind &&
+                document.elementFromPoint(clientX, clientY)?.tagName === 'CANVAS') return {clientX, clientY};
+          }
+          return null;
+        }""", expected_relationship_kind)
+        assert point, f"没有可真实命中的 {expected_relationship_kind} 灰点"
+        if interaction_mode == "touch":
+            page.touchscreen.tap(point["clientX"], point["clientY"])
+        else:
+            page.mouse.move(point["clientX"], point["clientY"])
+        expect(tooltip).to_be_visible()
+        expect(tooltip.locator("strong")).to_have_text("Gemini 2.5 Pro")
+
+    def expect_relationship_details(relationship_label):
+        expect(tooltip).to_be_visible()
+        expect(tooltip.locator("strong")).to_have_text("Gemini 2.5 Pro")
+        expect(tooltip).to_contain_text(f"{relationship_label} · 已从主散点裁剪")
+        expect(tooltip.get_by_role("button")).to_have_count(1 if interaction_mode == "touch" else 0)
+        if interaction_mode == "touch":
+            expect(tooltip.get_by_role("button", name="关闭详情")).to_be_visible()
+
+    open_pruned_gemini_details("Gemini 2.5 Pro (low)", "same_generation_reasoning_variant")
+    expect_relationship_details("同代其他档位")
+    assert pinned_model_uuids(page) == set()
+    for update in [
+        "selectFrontierStandoutMetric('weighted_exclusive_hypervolume')",
+        "setFrontierStandoutAxisWeights(4, .5, 2)",
+        "pinFrontierBaseModel('Gemini 2.5 Pro')",
+        "selectFrontierStandoutMetric('intelligence_uplift')",
+        "unpinFrontierBaseModel('Gemini 2.5 Pro')",
+    ]:
+        page.evaluate(update)
+        expect_relationship_details("同代其他档位")
+    if interaction_mode == "touch":
+        tooltip.get_by_role("button", name="关闭详情").click()
+        expect_closed_touch_details(page)
+    else:
+        page.evaluate("clearFrontierHoverState()")
+        expect(tooltip).to_be_hidden()
+    open_pruned_gemini_details("Gemini 3 Pro", "previous_generation")
+    expect_relationship_details("谱系前身")
+    page.evaluate("setFrontierStandoutAxisWeights(1, 1, 1)")
+    expect_relationship_details("谱系前身")
+
+
 def comparison_standout_text_by_identity(page):
     return page.evaluate("""() => {
       const headers = [...document.querySelectorAll("#aa-pinned-comparison-table thead th")].slice(1);
@@ -384,7 +722,6 @@ def test_eligible_non_frontier_standout_reuses_contract_without_joining_ranking(
     page.locator("#aa-weight-number-intelligence").press("Enter")
     after_weight_change = page.evaluate("frontierStandoutRanking().ranking.find(row => row.name === 'Qwen4 Max (high)').value")
     assert before_weight_change != after_weight_change
-    page.evaluate("clearFrontierHoverState(); showFrontierLineageForModelName('Qwen4 Max (high)')")
     expect(tooltip).to_contain_text(f"加权超体积：{ranking_value.inner_text()}")
     assert page.evaluate("""() => FRONTIER_3D_INTERACTION_RELATIONSHIPS.models.find((item) => item.name === "Mistral Large 4").standout_metrics.weighted_exclusive_hypervolume""") == 0
     weighted = comparison_standout_text_by_identity(page)

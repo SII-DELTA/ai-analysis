@@ -1088,7 +1088,7 @@ def _verify_report_interactions(page, browser_runtime_observation, check, record
     check(page.locator("#aa-standout-weight-controls").is_hidden(), "非加权口径隐藏权重控件")
     check(
         len(default_ranking["ranking"])
-        == initial_state["paretoFrontierModelCount"],
+        == page.evaluate("frontierThreeDimensionalVisualizationState().paretoFrontierModelCount"),
         "排行覆盖全部前沿模型",
     )
     page.evaluate(

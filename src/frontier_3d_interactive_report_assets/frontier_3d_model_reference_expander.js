@@ -1,7 +1,7 @@
 // 只在浏览器内展开显示副本；单文件保留去重引用，旧 v2 仍可直接读取。
 export function expandFrontierModelReferencesForSceneConsumers(dataset) {
   if (dataset.schema_version === "frontier_3d_visualization_dataset/v2") return dataset;
-  if (!["frontier_3d_browser_projection/v1", "frontier_3d_visualization_dataset/v3"].includes(dataset.schema_version)) {
+  if (!["frontier_3d_browser_projection/v1", "frontier_3d_visualization_dataset/v3", "frontier_3d_browser_projection/v2", "frontier_3d_visualization_dataset/v4"].includes(dataset.schema_version)) {
     throw new Error("不支持的 Frontier 3D 数据契约版本");
   }
   const lineageModelFields = ["name", "model_uuid", "creator", "base_model_name", "lineage_family_key", "reasoning_level_label", "reasoning_level_sort_order"];
@@ -33,6 +33,7 @@ export function expandFrontierModelReferencesForSceneConsumers(dataset) {
   };
   const metricVariants = Object.fromEntries(Object.entries(dataset.metric_variants).map(([key, variant]) => [key, {
     ...variant,
+    model_analysis_records: variant.model_analysis_records?.map(reference => ({ ...informationForReference(reference), ...referenceOverrides(reference), model_index: reference.model_index })),
     three_dimensional_scene: {
       ...variant.three_dimensional_scene,
       displayed_model_markers: variant.three_dimensional_scene.displayed_model_markers.map((reference) => {

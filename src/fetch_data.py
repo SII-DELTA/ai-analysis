@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import hashlib
 import json
 import math
 import os
@@ -461,7 +462,7 @@ def find_previous_guardrail_passed_api_language_models_response_in_history(
     """在响应历史里找「上一份通过护栏的响应」，返回 (路径, 其 API 当期成本条数)；没有可比基线时返回 None。
 
     只认不带「待护栏校验 / 被护栏拒绝」后缀的文件；抓取时间必须严格早于本次响应（排除本次响应
-    自身的归档副本）；取其中最新的一份。文件损坏（不是 JSON、没有 data 列表）时跳过。
+    自身的归档副本）；取其中最新的一份。文件或模型嵌套字段结构损坏时跳过。
     """
     if response_history_directory is None or not Path(response_history_directory).is_dir():
         return None
@@ -484,13 +485,25 @@ def find_previous_guardrail_passed_api_language_models_response_in_history(
         ):
             continue
         candidate_history_file_paths_by_fetched_at.append((history_fetched_at_compact_utc, history_file_path))
-    for _, history_file_path in sorted(candidate_history_file_paths_by_fetched_at, reverse=True):
+    for history_fetched_at_compact_utc, history_file_path in sorted(candidate_history_file_paths_by_fetched_at, reverse=True):
         try:
-            history_api_model_rows = json.loads(history_file_path.read_text(encoding="utf-8"))["data"]
+            history_response = json.loads(history_file_path.read_text(encoding="utf-8"))
+            history_api_model_rows = history_response["data"]
+            if history_response.get("fetched_at_utc") is not None:
+                recorded_history_timestamp = datetime.strptime(history_response["fetched_at_utc"], "%Y-%m-%dT%H:%M:%SZ").strftime("%Y%m%dT%H%M%SZ")
+                if recorded_history_timestamp != history_fetched_at_compact_utc:
+                    continue
         except (ValueError, KeyError, TypeError, OSError):
             print(f"[warn] 响应历史文件无法解析，不作比较基线：{history_file_path.name}")
             continue
-        if not isinstance(history_api_model_rows, list):
+        if not isinstance(history_api_model_rows, list) or not all(isinstance(row, dict) for row in history_api_model_rows):
+            continue
+        if any(
+            row.get(field) is not None and not isinstance(row[field], dict)
+            for row in history_api_model_rows
+            for field in ("evaluations", "artificial_analysis_intelligence_index_cost", "pricing", "performance")
+        ):
+            print(f"[warn] 响应历史模型嵌套字段不是对象，不作比较基线：{history_file_path.name}")
             continue
         return history_file_path, _current_api_cost_to_run_value_count_in_api_language_models_response_rows(
             history_api_model_rows
@@ -1966,6 +1979,29 @@ def _assemble_models_dataframe_with_value_provenance(
                 "artificial_analysis_intelligence_index_is_estimated": (
                     catalog_record.intelligence_index_is_estimated if catalog_record else None
                 ),
+                "intelligence_measurement_status": (
+                    ("estimated" if catalog_record.intelligence_index_is_estimated else "measured")
+                    if catalog_record and isinstance(catalog_record.intelligence_index_is_estimated, bool)
+                    and _embedded_model_catalog_output_token_count_demotion_reason_code(
+                        catalog_record.intelligence_index, ev.get("artificial_analysis_intelligence_index")
+                    ) is None else "unknown"
+                ),
+                "intelligence_measurement_catalog_intelligence": (
+                    catalog_record.intelligence_index if catalog_record else None
+                ),
+                "intelligence_measurement_source": (
+                    OUTPUT_TOKEN_COUNT_VALUE_SOURCE_ARTIFICIAL_ANALYSIS_EMBEDDED_MODEL_CATALOG_ACCEPTED_PARTITION
+                    if catalog_record else None
+                ),
+                "intelligence_index_time_per_task_value_is_from_current_intelligence_index_version": bool(
+                    catalog_record and _value_is_from_current_intelligence_index_version(
+                        embedded_model_catalog_load_result.accepted_partition_intelligence_index_version,
+                        current_intelligence_index_version,
+                    ) and _embedded_model_catalog_output_token_count_demotion_reason_code(
+                        catalog_record.intelligence_index, ev.get("artificial_analysis_intelligence_index")
+                    ) is None
+                ),
+                "median_end_to_end_response_time_seconds": performance.get("median_end_to_end_response_time_seconds"),
                 "artificial_analysis_is_reasoning_model": (
                     catalog_record.is_reasoning if catalog_record else None
                 ),
@@ -2227,6 +2263,24 @@ def build_dataframe(
     # 迁移本身不 resolve 异常；只在刷新或显式指定隔离缓存路径时写入数值缓存。
     if refresh or artificial_analysis_raw_data_directory is not None:
         seed_verified_numeric_catalog_from_legacy_load_result(numeric_catalog_raw_directory,embedded_model_catalog_load_result)
+    catalog_source_payload = {
+        "intelligence_index_version": embedded_model_catalog_load_result.accepted_partition_intelligence_index_version,
+        "records_by_model_id": {identity: dataclasses.asdict(record)
+                                for identity, record in embedded_model_catalog_load_result.records_by_model_id.items()},
+    }
+    accepted_frontier_refresh_source_records = {
+        "api_response": {"source_url": api_response_metadata.get("source_url"),
+            "tier": api_response_metadata.get("tier"),
+            "intelligence_index_version": api_response_metadata.get("intelligence_index_version"),
+            "fetched_at_utc": api_response_metadata.get("fetched_at_utc"), "data": api_model_rows},
+        "catalog_source_identity": {
+            "source_kind": "accepted_catalog_records",
+            "intelligence_index_version": catalog_source_payload["intelligence_index_version"],
+            "sha256": hashlib.sha256(json.dumps(catalog_source_payload, ensure_ascii=False, sort_keys=True,
+                separators=(",", ":"), allow_nan=False).encode("utf-8")).hexdigest()
+                if catalog_source_payload["records_by_model_id"] else None,
+        },
+    }
     df.attrs[MODELS_DATAFRAME_ATTRS_KEY_ARTIFICIAL_ANALYSIS_DATA_PROVENANCE] = {
         "artificial_analysis_api_response_fetched_at_utc": api_response_metadata["fetched_at_utc"],
         "artificial_analysis_api_response_fetched_at_utc_source": api_response_metadata[
@@ -2309,6 +2363,7 @@ def build_dataframe(
             for partition_summary in embedded_model_catalog_load_result.partition_summaries
         ],
     }
+    df.attrs["frontier_refresh_accepted_source_records"] = accepted_frontier_refresh_source_records
     return df
 
 

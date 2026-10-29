@@ -102,6 +102,8 @@ def build_standout_methodology_golden_comparison(dataset):
     expanded = expand_frontier_3d_visualization_dataset_for_scene_consumers(dataset)
     variants = {}
     for key, variant in expanded["metric_variants"].items():
+        if key.endswith("__tasks_per_hour"):
+            continue  # F1 候选仍限定批准的原四口径，任务速度未加入排名方法实验。
         models = [model for model in variant["three_dimensional_scene"]["displayed_model_markers"]
                   if model.get("analysis_eligibility", {}).get("is_analysis_eligible_for_current_metric_variant") is not False]
         if not models:

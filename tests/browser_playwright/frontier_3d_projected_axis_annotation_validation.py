@@ -315,7 +315,7 @@ def main():
         assert not observation.page_runtime_errors, observation.page_runtime_errors
         assert not observation.external_network_request_urls, observation.external_network_request_urls
         browser.close()
-    print('PASS: 四种指标组合、真实数值刻度、标题与单位、旋转/缩放/侧栏/resize、320px、放大及恢复、窄对数与线性范围')
+    print('PASS: 全部可用指标组合、真实数值刻度、标题与单位、旋转/缩放/侧栏/resize、320px、放大及恢复、窄对数与线性范围')
 
 
 if __name__ == '__main__':
