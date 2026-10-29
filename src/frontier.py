@@ -71,6 +71,10 @@ ANALYSIS_INELIGIBILITY_REASON_CODE_MARKED_INELIGIBLE_BY_CALLER_SUPPLIED_MASK = (
 VERSION_SENSITIVE_VALUE_CURRENTNESS_COLUMN_AND_REASON_CODE_BY_METRIC_COLUMN_NAME: dict[
     str, tuple[str, str]
 ] = {
+    "intelligence_index_tasks_per_hour": (
+        "intelligence_index_time_per_task_value_is_from_current_intelligence_index_version",
+        "intelligence_index_time_per_task_value_not_verified_current",
+    ),
     "cost_to_run": (
         COST_TO_RUN_VALUE_IS_FROM_CURRENT_INTELLIGENCE_INDEX_VERSION_COLUMN_NAME,
         ANALYSIS_INELIGIBILITY_REASON_CODE_COST_TO_RUN_VALUE_NOT_FROM_CURRENT_INTELLIGENCE_INDEX_VERSION,
@@ -183,6 +187,11 @@ def format_analysis_ineligibility_reason_text(
     """中文说明：`历史口径（v4.1 成本/冗长度），不参与本口径前沿计算`；版本按实际值填。"""
     if not ineligibility_reason_codes:
         return None
+    task_time_unverified = "intelligence_index_time_per_task_value_not_verified_current" in ineligibility_reason_codes
+    if task_time_unverified:
+        other_reasons = [code for code in ineligibility_reason_codes if code != "intelligence_index_time_per_task_value_not_verified_current"]
+        historical_reason = format_analysis_ineligibility_reason_text(other_reasons, cost_to_run_value_intelligence_index_version, output_token_count_value_intelligence_index_version)
+        return (historical_reason + "；" if historical_reason else "") + "任务耗时无法核验为当期，不参与本口径前沿计算"
     value_version_by_version_column_name = {
         "cost_to_run_value_intelligence_index_version": cost_to_run_value_intelligence_index_version,
         "output_token_count_value_intelligence_index_version": (

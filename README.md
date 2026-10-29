@@ -29,6 +29,7 @@ Artificial Analysis（AA）官网的模型对比图基本都是二维，唯独�
 | **7:2:1 混合单价**（x 轴，可选） | AA API 分项单价计算 | 与指数版本无关 | 缺 cache-hit 价时按 AA 惯例用 input 价代替；缺 input 或 output 则缺失 | `blended_price_cache_input_output_7_to_2_to_1`，来源列 `blended_price_cache_hit_price_source` |
 | **有效速度**（y 轴，默认） | 原始速度取 AA API；输出 token 数取详情页内嵌模型目录（被接受的分区） | token 数按其所属版本分别归一 | token 数回退到版本化快照（v4.1，非当期）；同上的显式开关 | `eff_speed`，由 `output_speed` 与 `intelligence_index_canonical_output_token_count` 派生；溯源列 `output_token_count_value_*` |
 | **原始速度**（y 轴，可选） | AA API | 与指数版本无关 | 无回退 | `performance.median_output_tokens_per_second` → `output_speed` |
+| **任务速度**（y 轴，可选） | 可核对当期的目录智能指数任务耗时 | UUID、智能分及指数版本均须相符 | 无回退；缺证时保持未知，API 端到端延迟独立展示 | `intelligence_index_tasks_per_hour = 3600 / artificial_analysis_intelligence_index_time_per_task_seconds`，单位任务/小时 |
 
 - 成本与 token 数的回退快照：
   `data/reference/artificial_analysis_intelligence_index_v4_1_single_batch_cost_and_output_token_fallback_snapshot_captured_2026_08_04.csv`
@@ -148,6 +149,8 @@ AA 在 2026-08-14 到 09-23 之间把智能指数从 v4.1 重定标到 v4.3。�
    | `effective__raw` | `cost_to_run` | `output_speed` | 成本当期 |
    | `blended__effective` | 混合单价 | `eff_speed` | token 数当期 |
    | `blended__raw` | 混合单价 | `output_speed` | 恒参与（单价与原始速度与指数版本无关） |
+   | `effective__tasks_per_hour` | `cost_to_run` | 任务/小时 | 成本当期 **且** 任务耗时可核对当期 |
+   | `blended__tasks_per_hour` | 混合单价 | 任务/小时 | 任务耗时可核对当期 |
 
 2. **照常显示，但退出全部分析计算**：
    - 显示层（`display_layer`）在全部三维齐全点（含历史口径点）上剥层；历史口径点按显示层号决定去留，
@@ -234,7 +237,7 @@ AA 条款风险沿用审计记录；降低频率与只存 JSON 不等于已取�
 | `--recent-release-grace-period-months` | 6 | 发布在近 N 个日历月内的完整模型免受层数限制；非负整数，0 关闭。读取已有契约时显式传入会提示被忽略 |
 | `--speed-scale` | `log` | 速度轴 `log` 或 `linear` |
 | `--pruning-reference-date` | API 抓取日期 | 剪枝参考日期 `YYYY-MM-DD`；不再用运行当天 |
-| `--speed-metric` | `effective` | HTML 初始速度口径：`effective` / `raw`；页面内仍可切换 |
+| `--speed-metric` | `effective` | HTML 初始速度口径：`effective` / `raw` / `tasks_per_hour`；页面内仍可切换 |
 | `--cost-metric` | `effective` | HTML 初始成本口径：`effective` / `blended`；页面内仍可切换 |
 | `--refresh` | 关 | 刷新 API，并在冷却期允许时受限更新网页目录；只刷新 API 时同时传入 `--disable-artificial-analysis-website-page-fetch` |
 | `--allow-artificial-analysis-website-page-fetch` | `--refresh` 时自动 | 显式请求受限目录刷新，不能绕过冷却期 |
@@ -362,7 +365,7 @@ uv run --frozen python scripts/generate_model_intelligence_verbosity_report.py \
 ## 交互
 
 - **页头与说明**：标题、如何阅读、模型计数、AA 署名、API 抓取日期及智能指数版本。抓取时间或版本由目录/文件时间推定时明确标注。≤640px 把计数放到元数据行最前，横滑可见其他信息。「口径说明」和「如何阅读」都可打开包含口径、方向、动态图例、历史点和未上图厂商原因的说明，Esc 关闭。
-- **口径与相机**：独立选择有效运行成本 / 7:2:1 混合单价、有效速度 / 原始速度；「正交分解视角」切换至混合单价 × 原始速度并保持相机。拖拽旋转、滚轮围绕光标缩放、右键平移。四口径各自在生成时用完整、有限的显示模型固定轴域，含宽限点和历史口径点；筛选、宽限开关、hover 和固定都不重算轴域。超范围谱系前身夹紧到箱壁，详情显示方向和原始数值。
+- **口径与相机**：独立选择两种成本与有效速度 / 原始速度 / 任务速度；「正交分解视角」切换至混合单价 × 原始速度并保持相机。拖拽旋转、滚轮围绕光标缩放、右键平移；重置、双击空白和三个轴对齐视角只调整相机。六口径各自在生成时用完整、有限的显示模型固定轴域，含宽限点和历史口径点；筛选、宽限开关、hover 和固定都不重算轴域。超范围谱系前身夹紧到箱壁，详情显示方向和原始数值。
 - **标记与图例**：标记保持恒定 CSS 像素，默认 0.5×，滑杆为 0.5–1.5×，1× 对应 Logo 容器 22px；各层等比缩放，偏好自动保存。深色环是帕累托身份，金色环是已固定，蓝色光晕是当前突出度，缺数值时使用虚线光晕。历史口径点为虚线底板与半透明 Logo。国别外框默认关闭，开启时同步显示中国双圆环、美国圆角方环、其他菱形环的图例；外框不参与拾取。
 - **详情与触屏**：桌面 hover 显示身份、三轴/备用口径与冗长度、帕累托层级和当前突出度数值及名次；成本按契约单位显示，小数保留有效位。详情按实际尺寸限制在绘图区内。触屏首次轻点打开可滚动详情卡，通过卡内按钮固定；拖拽和随后的合成 click 不固定模型。
 - **搜索**：可按完整模型名、基模型、厂商或档位检索，包含未上图记录和实际排除原因。筛选隐藏与历史口径分别说明；最多显示 40 组并提示总组数。↑↓ 选择可操作结果、Enter 固定、Esc 关闭；完全不可显示的结果只给原因。
@@ -370,6 +373,9 @@ uv run --frozen python scripts/generate_model_intelligence_verbosity_report.py \
 - **突出度**：侧栏选择指标并查看说明。加权超体积展示「排他贡献 ÷ 完整前沿超体积」的百分比，原始贡献值和排序保持不变；筛选不改变分母或排行。三个权重支持即时滑杆、数字草稿编辑、失焦或 Enter 提交到 0.25–4，以及一键重置为三个 1。
 - **几何与筛选**：默认使用 Delaunay 邻接参照，可选参照线框、实心或隐藏；「实际可达前沿（精确阶梯）」独立切换至精确预算阶梯与立面。邻接参照不是帕累托面，面内位置不代表可达模型。保留相邻且一分钟自动折叠的说明。厂商筛选、「仅当期可比」与六个月近期发布宽限只改变可见性，保留固定状态并显示隐藏原因。
 - **窄屏**：≤1200px 页头稳定两行，≤1024px 控制栏移到下方，收起固定 44px；≤640px 工具栏收入「视图设置」且控制栏初始收起。窄屏对比表复用下方面板，避免同时压缩画布。存储不可用时，本页仍可正常编辑尺寸与比较字段。
+- **分享与全模型表**：复制当前口径、固定 UUID、厂商筛选、显示开关、相机与日期/表格状态；有效 URL 字段优先于本地偏好，复制失败提供可选中文本。离线分享还须提供对应 HTML。全模型表保留全部输入，包括缺智能分与被剪枝模型，支持排序、筛选和当前 CSV；WebGL 不可用时仍可使用。旧文件只能展示实际留存记录。协议见 [视图分享契约 v1](docs/frontier-3d-view-state-v1-contract.md)。
+- **实测、日期与敏感性**：仅实测筛选隐藏估算与未知，但不改变全局排名。日期可淡出或隐藏晚于截止的模型，未知日期保留；播放默认暂停，始终按当前价格、速度和评测口径计算。敏感性默认关闭，可假设智能 ±0.5/±1、成本和速度各 ±10%，展示稳健、敏感与近前沿；这些区间不是 AA 置信区间，也不覆盖重定标误差。
+- **刷新、主题与导出**：比较严格早于本次的合格响应，说明新增、本次未出现、缺值和超过 10% 的可比变化；前沿进出只用匹配来源、版本和参数的历史科学快照，不用当前目录补算。界面和 Three 场景跟随系统主题；画布可聚焦，方向键旋转，`/` 搜索，Esc 优先关闭浮层。浏览器可导出含轴、图例、固定名、日期和 AA 署名的 2× PNG，CLI PNG/SVG 继续保留。
 
 本地品牌 SVG 优先，缺少资产的已注册厂商使用完整名称 wordmark，未知厂商使用 monogram；两类 fallback 均使用方形容器。品牌资产来源、Lobe Icons MIT 许可和商标说明见 [资产来源](src/frontier_3d_organization_identity_assets/THIRD_PARTY_ASSET_SOURCES.md)。HTML 已内嵌许可，不依赖 CDN。
 
@@ -456,16 +462,18 @@ CI 只运行锁定依赖及合成 fixture；不运行真实数据刷新。能力
 [渲染器能力清单](docs/frontier-3d-renderer-capability-parity-checklist.md)。
 
 W3 实施范围、验证记录与边界见 [W3 交付说明](docs/frontier-3d-wave-3-implementation-and-verification.md)。
+W5 的实现、兼容性、验证和体积/性能记录见 [W5 交付说明](docs/frontier-3d-wave-5-implementation-and-verification.md)。
 
-## 数据契约（科学数据 v3、浏览器投影 v1）
+## 数据契约（科学数据 v4、浏览器投影 v2）
 
-磁盘 JSON 统一写为紧凑的 `frontier_3d_visualization_dataset/v3`；读取入口继续接受有效的 v2，
+新磁盘 JSON 写为紧凑的 `frontier_3d_visualization_dataset/v4`；读取入口继续接受有效的 v2/v3，并保留原版本校验规则，
 缺少 UUID 的旧记录明确标记为 `legacy_creator_and_name_without_uuid`，不推测真实 UUID。
-HTML 使用独立的 `frontier_3d_browser_projection/v1`。完整科学契约先校验，投影后再单独校验。
+新 HTML 使用独立的 `frontier_3d_browser_projection/v2`，继续读取旧投影 v1。完整科学契约先校验，投影后再单独校验。
 
-- 顶层 `models` 集中保存名称、UUID、目录 release/effort、厂商、公共 `panel` 和值溯源；
+- 顶层 `models` 集中保存全部输入的名称、UUID、目录 release/effort、厂商、公共 `panel` 和值溯源；
   各口径的显示点、未上图记录和谱系节点通过 `model_index` 引用，并保存坐标、分析资格及指标等差异。
-- 浏览器投影只带四口径显示并集的 logo；重复的分析资格存入
+  六口径的 `model_analysis_records` 逐一覆盖公共表，并保存分析资格、未上图原因和敏感性状态。
+- 浏览器投影只带显示并集的 logo；重复的分析资格存入
   `analysis_eligibility_definitions`，引用通过 `analysis_eligibility_index` 指向它。
   重复的未上图解释存入 `excluded_model_explanation_definitions`，由
   `excluded_model_explanation_index` 引用；浏览器展开后保留完整缺维、原因和目录缺席标记。
@@ -516,7 +524,7 @@ docs/artificial-analysis-provided-data-source-analysis/  # AA 数据源、端点
 src/fetch_data.py   # 拉分页 API；离线解析详情页内嵌模型目录；值溯源、混合价、有效速度与数据质量护栏
 src/frontier.py     # 按口径判定是否参与分析（D-1）；显示层/分析层 Pareto、可达前沿、剪枝与四个突出度指标
 src/visualize.py    # 生成前沿几何/谱系数据，并保留 Plotly 静态导出 figure
-src/frontier_3d_visualization_dataset_builder.py     # 写 v3 纯几何科学契约，读取入口兼容 v2
+src/frontier_3d_visualization_dataset_builder.py     # 写 v4 六口径科学契约，读取兼容 v2/v3
 src/frontier_3d_versioned_model_reference_contract.py # 公共模型引用、浏览器投影与 Schema/语义校验
 src/frontier_3d_pure_scene_geometry.py               # 不依赖 Plotly 对象的邻接几何与迁移对拍
 src/frontier_3d_self_contained_html_renderer.py      # 把数据契约 + 前端资源内联成单文件 HTML（含产物指纹）

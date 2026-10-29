@@ -447,14 +447,14 @@ def main() -> None:
     assert cli.DEFAULT_OUTPUT_HTML_PATH.name == "frontier_3d.html"
     assert (
         dataset_builder.FRONTIER_3D_VISUALIZATION_DATASET_SCHEMA_VERSION
-        == "frontier_3d_visualization_dataset/v3"
+        == "frontier_3d_visualization_dataset/v4"
     )
     assert (
         dataset_builder.DEFAULT_FRONTIER_3D_VISUALIZATION_DATASET_FILENAME
         == "frontier_3d_visualization_dataset.json"
     )
     assert set(cli.COST_METRICS) == {"effective", "blended"}
-    assert set(cli.SPEED_METRICS) == {"effective", "raw"}
+    assert set(cli.SPEED_METRICS) == {"effective", "raw", "tasks_per_hour"}
     # 契约校验的正例与反例见 _verify_dataset_validation_positive_and_negative_examples
     # （旧版本在这里断言「空 scene 也合法」，现在空 scene 是反例）
     empty_variant_template = {

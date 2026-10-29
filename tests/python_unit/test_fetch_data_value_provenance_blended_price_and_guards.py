@@ -288,6 +288,22 @@ def _row_for_synthetic_model_index(
     return matching_rows.iloc[0]
 
 
+def test_wave_5_builder_preserves_real_fetch_verification_of_rounded_catalog_scores(synthetic_artificial_analysis_cache_layout):
+    from src.frontier_3d_visualization_dataset_builder import build_frontier_3d_visualization_dataset
+    models = fetch_data.build_dataframe(refresh=False, allow_artificial_analysis_website_page_fetch=False)
+    selected_models = models[models["id"].isin([synthetic_artificial_analysis_model_uuid(index) for index in (0, 7)])].copy()
+    selected_models["creator_uuid"] = "abcdefab-cdef-4abc-9def-abcdefabcdef"
+    assert list(selected_models["intelligence_measurement_status"]) == ["measured", "estimated"]
+    assert selected_models["intelligence_index_time_per_task_value_is_from_current_intelligence_index_version"].all()
+    dataset = build_frontier_3d_visualization_dataset(selected_models, since_months=18, max_layers=3, hard_age_cutoff_months=36, speed_scale="log")
+    by_uuid = {model["model_uuid"]: model for model in dataset["models"]}
+    for index, status in ((0, "measured"), (7, "estimated")):
+        model = by_uuid[synthetic_artificial_analysis_model_uuid(index)]
+        assert model["intelligence_measurement_status"] == status
+        assert model["panel"]["intelligence_index_tasks_per_hour"] == pytest.approx(3600 / (40 + index))
+        assert model["intelligence_index_task_time_evidence"]["is_verified_current"] is True
+
+
 # ----------------------------------------------------------------------------- 混合价
 def test_blended_price_uses_api_cache_hit_price_when_present() -> None:
     blended_price, cache_hit_price_source = (
