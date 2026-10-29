@@ -6,7 +6,7 @@ import pytest
 
 from src import frontier_3d_self_contained_html_renderer as html_renderer
 from src import frontier_3d_visualization_dataset_builder as dataset_builder
-from tests.python_unit.test_frontier_3d_v3_deduplicated_contract_and_browser_projection import build_dataset
+from tests.python_unit.test_frontier_3d_v3_deduplicated_contract_and_browser_projection import build_legacy_v3_dataset as build_dataset
 
 
 METRIC_VARIANT_KEYS = ("effective__effective", "effective__raw", "blended__effective", "blended__raw")

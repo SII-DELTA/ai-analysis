@@ -128,6 +128,9 @@ def test_contract_records_grace_only_markers_counts_reference_date_and_preserves
     dataset_builder.validate_frontier_3d_visualization_dataset(expanded)
     assert expanded["artificial_analysis_data_provenance"]["recent_release_frontier_distance_grace_period_months"] == 6
     for key, variant in expanded["metric_variants"].items():
+        if key.endswith("__tasks_per_hour"):
+            assert not variant["three_dimensional_scene"]["displayed_model_markers"]
+            continue
         scene = variant["three_dimensional_scene"]
         markers = scene["displayed_model_markers"]
         grace_only = [model for model in markers if model["displayed_only_because_of_recent_release_grace_period"]]

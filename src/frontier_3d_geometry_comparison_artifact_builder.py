@@ -97,7 +97,7 @@ def build_geometry_comparison_dataset(source_dataset, source_dataset_sha256):
         metrics, reverse_classification = compare_reference_interpolation_with_exact_steps(step_geometry, reference_mesh, displayed_models)
         metric_names = variant_key.split("__")
         cost_label = "有效运行成本" if metric_names[0] == "effective" else "7:2:1 混合单价"
-        speed_label = "有效速度" if metric_names[1] == "effective" else "原始速度"
+        speed_label = {"effective": "有效速度", "raw": "原始速度", "tasks_per_hour": "任务速度"}[metric_names[1]]
         projection_description = " × ".join(
             ("对数" if axes[axis]["scale_type"] == "log" else "线性") + name
             for axis, name in (("x_axis", "成本"), ("y_axis", "速度"))
@@ -106,6 +106,7 @@ def build_geometry_comparison_dataset(source_dataset, source_dataset_sha256):
         comparison_variants[variant_key] = {
             "label": f"{cost_label} × {speed_label}",
             "cost_axis_unit": "USD" if metric_names[0] == "effective" else "USD/M tokens",
+            "speed_axis_unit": "任务/小时" if metric_names[1] == "tasks_per_hour" else "tok/s",
             "axes": axes, "projection_plane_description": projection_description,
             "displayed_models": displayed_models, "exact_pareto_points": pareto_points,
             "exact_step_geometry": step_geometry, "reference_triangle_mesh": reference_mesh,

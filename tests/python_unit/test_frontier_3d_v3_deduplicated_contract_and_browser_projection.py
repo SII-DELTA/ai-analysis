@@ -19,11 +19,20 @@ def build_dataset():
     )
 
 
+def build_legacy_v3_dataset():
+    return dataset_builder.adapt_frontier_3d_visualization_dataset_to_v3(
+        dataset_builder._build_expanded_frontier_3d_visualization_dataset(
+            build_frontier_3d_synthetic_fixture_models_dataframe(),
+            since_months=18, max_layers=3, hard_age_cutoff_months=36, speed_scale="log",
+        )
+    )
+
+
 def test_default_generation_is_pure_geometry_and_deduplicates_models(monkeypatch):
     monkeypatch.setattr(dataset_builder.visualize, "build_figure", lambda *a, **kw: pytest.fail("默认生成不应构造 Plotly 图"))
     monkeypatch.setattr(dataset_builder.visualize.go, "Figure", lambda *a, **kw: pytest.fail("默认生成不应实例化 Plotly Figure"))
     dataset = build_dataset()
-    assert dataset["schema_version"] == "frontier_3d_visualization_dataset/v3"
+    assert dataset["schema_version"] == "frontier_3d_visualization_dataset/v4"
     assert dataset["models"]
     for variant in dataset["metric_variants"].values():
         assert not any(key.startswith("plotly_") for key in variant)
@@ -39,7 +48,7 @@ def test_projection_round_trip_preserves_interaction_fields_and_input():
     original = copy.deepcopy(dataset)
     document = html_renderer.render_frontier_3d_self_contained_html_report(dataset)
     embedded = json.loads(re.search(r'id="frontier-3d-visualization-dataset-json" type="application/json">(.*?)</script>', document, re.S)[1])
-    assert embedded["schema_version"] == "frontier_3d_browser_projection/v1"
+    assert embedded["schema_version"] == "frontier_3d_browser_projection/v2"
     dataset_builder.validate_frontier_3d_browser_projection(embedded)
     expanded = dataset_builder.expand_frontier_3d_visualization_dataset_for_scene_consumers(dataset)
     projected = dataset_builder.expand_frontier_3d_visualization_dataset_for_scene_consumers(embedded)
@@ -69,7 +78,7 @@ def test_schema_and_reference_failures_are_rejected(mutation, match):
 
 
 def test_legacy_v2_read_migrates_without_inventing_uuid(tmp_path):
-    dataset = build_dataset()
+    dataset = build_legacy_v3_dataset()
     legacy = dataset_builder.expand_frontier_3d_visualization_dataset_for_scene_consumers(dataset)
     for variant in legacy["metric_variants"].values():
         for marker in variant["three_dimensional_scene"]["displayed_model_markers"]:
@@ -113,7 +122,7 @@ def test_w3_metric_descriptions_and_excluded_effort_identity_survive_projection(
 
 
 def test_legacy_variant_group_labels_are_preserved_as_reference_differences():
-    original = dataset_builder.expand_frontier_3d_visualization_dataset_for_scene_consumers(build_dataset())
+    original = dataset_builder.expand_frontier_3d_visualization_dataset_for_scene_consumers(build_legacy_v3_dataset())
     marker = original["metric_variants"]["effective__raw"]["three_dimensional_scene"]["displayed_model_markers"][0]
     old_base_name = marker["base_model_name"]
     marker["base_model_name"] = "旧契约的口径分组名称"

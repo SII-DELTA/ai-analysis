@@ -71,7 +71,8 @@ def _boolean_or_none(raw_value: object) -> bool | None:
 
 def speed_axis_title_text_with_unit_and_scale(speed_axis_name_text: str, speed_log: bool) -> str:
     """速度轴完整标题：`<轴名> tok/s（对数）`；线性轴不带「（对数）」。"""
-    return f"{speed_axis_name_text} {SPEED_AXIS_UNIT_TEXT}" + ("（对数）" if speed_log else "")
+    unit = "任务/小时" if "任务速度" in speed_axis_name_text else SPEED_AXIS_UNIT_TEXT
+    return f"{speed_axis_name_text} {unit}" + ("（对数）" if speed_log else "")
 
 
 def intelligence_axis_title_text_with_intelligence_index_version(
@@ -637,7 +638,8 @@ def build_frontier_3d_scene_and_interaction_payload(
         + (f"，{reference_output_million_tokens_text}" if reference_output_million_tokens_text else "")
         + "），惩罚冗长推理模型；不含 TTFT 与工具耗时，跨指数版本不可比"
         if is_eff
-        else "原始 median tok/s"
+        else ("任务速度 = 3600 ÷ 智能指数任务耗时（秒）；不等于 API 端到端延迟"
+              if speed_metric_column_name == "intelligence_index_tasks_per_hour" else "原始 median tok/s")
     )
     speed_axis_title_text = speed_axis_title_text_with_unit_and_scale(
         speed_metric_axis_title_text or speed_metric_label, speed_log
