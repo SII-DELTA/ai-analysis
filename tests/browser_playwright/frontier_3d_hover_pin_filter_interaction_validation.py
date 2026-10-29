@@ -120,6 +120,15 @@ INTERACTION_RECOVERY_BUDGET_SECONDS = 60
 REAL_EVENT_ASSERTION_TIMEOUT_MILLISECONDS = 3000
 
 
+def _metric_variant_keys_in_contract_verification_order(page) -> list[str]:
+    """保留旧四口径顺序，再以固定顺序检查契约新增的口径。"""
+    return page.evaluate("""preferredKeys => {
+      const availableKeys=Object.keys(FRONTIER_3D_VISUALIZATION_DATASET.metric_variants);
+      return [...preferredKeys.filter(key=>availableKeys.includes(key)),
+        ...availableKeys.filter(key=>!preferredKeys.includes(key)).sort()];
+    }""", list(METRIC_VARIANT_KEYS))
+
+
 def _capture_current_camera_pose(page) -> dict:
     return page.evaluate("""() => {
       const {camera,controls}=frontierThreeDimensionalRendererDiagnostics;
@@ -281,7 +290,7 @@ def verify_model_lineage_interactions(page, check, *, record_event=None):
             kind:'pruned_lineage_ancestor',name:node.name,base:node.base_model_name,
             modelUuid:node.model_uuid??null,
             lineageKey:model.lineage_key}))}))};
-    })""", list(METRIC_VARIANT_KEYS))
+    })""", _metric_variant_keys_in_contract_verification_order(page))
     record_event(event="contract_capabilities", variants=capabilities)
     needs_lineage = any(variant["lineageCount"] for variant in capabilities)
     needs_ancestor = any(variant["prunedAncestorCount"] for variant in capabilities)
@@ -290,7 +299,7 @@ def verify_model_lineage_interactions(page, check, *, record_event=None):
         if not exists:
             record_event(event="capability_not_applicable", capability=capability,
                          reason="all_metric_contracts_confirm_absence")
-            print(f"  · {capability}：四个口径的契约均确认能力不存在")
+            print(f"  · {capability}：全部口径的契约均确认能力不存在")
     ordered_variants = sorted(capabilities, key=lambda variant: variant["key"] != original_metric)
     try:
         clear_hover_and_all_pinned_models()
@@ -1006,7 +1015,8 @@ def _verify_report_interactions(page, browser_runtime_observation, check, record
       FRONTIER_3D_VISUALIZATION_DATASET.metric_variants[key]
         .three_dimensional_scene.displayed_model_markers.length > 0) ?? null
     """, [original_search_and_filter_metric_variant_key, *[
-        key for key in METRIC_VARIANT_KEYS if key != original_search_and_filter_metric_variant_key
+        key for key in _metric_variant_keys_in_contract_verification_order(page)
+        if key != original_search_and_filter_metric_variant_key
     ]])
     try:
         if nonempty_search_and_filter_metric_variant_key is not None:
@@ -1040,7 +1050,7 @@ def _verify_report_interactions(page, browser_runtime_observation, check, record
             page.locator("#aa-search-input").fill("")
             record_event(event="search_and_organization_filters_verified", metric_variant=nonempty_search_and_filter_metric_variant_key)
         else:
-            print("  · 四个口径的契约均无模型，搜索和厂商过滤不适用")
+            print("  · 全部口径的契约均无模型，搜索和厂商过滤不适用")
     finally:
         _activate_metric_variant(page, original_search_and_filter_metric_variant_key)
 

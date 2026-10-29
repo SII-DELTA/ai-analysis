@@ -10,6 +10,7 @@ from playwright.sync_api import Error as PlaywrightError, TimeoutError as Playwr
 
 from src.frontier_3d_self_contained_html_renderer import write_frontier_3d_self_contained_html_report
 from src.frontier_3d_visualization_dataset_builder import (
+    build_frontier_3d_visualization_dataset,
     expand_frontier_3d_visualization_dataset_for_scene_consumers,
     validate_frontier_3d_visualization_dataset,
 )
@@ -274,6 +275,52 @@ def test_contract_capabilities_define_applicability_and_preserve_other_checks(
             assert hovered["metric_variant"] == "effective__raw"
             filters = next(event for event in events if event["event"] == "search_and_organization_filters_verified")
             assert filters["metric_variant"] == "effective__raw"
+
+
+@pytest.mark.parametrize("block_canvas_pointer_events", [False, True])
+def test_only_task_speed_metrics_require_real_picking_and_nonempty_metric_controls(
+    frontier_page, tmp_path, block_canvas_pointer_events,
+):
+    from tests.python_unit.test_frontier_3d_wave_5_dataset_and_sensitivity import build_wave_5_dataset
+    from tests.browser_playwright.frontier_3d_playwright_verification_support import BrowserRuntimeObservation
+
+    models, _ = build_wave_5_dataset()
+    models["eff_speed"] = math.nan
+    models["output_speed"] = math.nan
+    models["output_token_count_value_intelligence_index_version"] = "4.4"
+    dataset = build_frontier_3d_visualization_dataset(
+        models, since_months=18, max_layers=3, hard_age_cutoff_months=36, speed_scale="log",
+    )
+    assert all(not dataset["metric_variants"][key]["three_dimensional_scene"]["displayed_model_markers"]
+               for key in validation.METRIC_VARIANT_KEYS)
+    assert dataset["metric_variants"]["effective__tasks_per_hour"]["three_dimensional_scene"]["displayed_model_markers"]
+    report_path = tmp_path / "only-task-speed-metrics.html"
+    write_frontier_3d_self_contained_html_report(dataset, report_path)
+    page = frontier_page
+    page.goto(report_path.as_uri())
+    page.wait_for_function("typeof frontierThreeDimensionalVisualizationState==='function'")
+    events = []
+    record_event = lambda **event: events.append(event)
+    if block_canvas_pointer_events:
+        page.evaluate("""() => {
+          const overlay=document.createElement('div');
+          overlay.style.cssText='position:fixed;inset:0;z-index:99999';document.body.append(overlay);
+        }""")
+        with pytest.raises(AssertionError, match="合法交互目标存在"):
+            validation.verify_model_lineage_interactions(page, require_success, record_event=record_event)
+        assert any(event["event"] == "candidate_probe" for event in events)
+        assert not any(event["event"] == "interaction_verification_completed" for event in events)
+    else:
+        validation._verify_report_interactions(page, BrowserRuntimeObservation(), require_success,
+                                               record_event, report_path)
+        assert {"real_model_hover", "real_model_pin", "real_ancestor_hover"} <= {
+            event["event"] for event in events
+        }
+        filters = next(event for event in events if event["event"] == "search_and_organization_filters_verified")
+        assert filters["metric_variant"].endswith("__tasks_per_hour")
+    assert not any(event["event"] == "capability_not_applicable" for event in events)
+    assert page.evaluate("frontierThreeDimensionalVisualizationState().activeMetricVariantKey") == "effective__effective"
+    assert page.evaluate("frontierThreeDimensionalVisualizationState().pinnedBaseModelNames") == []
 
 
 def test_legacy_inferred_lineages_still_verify_real_model_hover_and_pin(frontier_page, tmp_path):
